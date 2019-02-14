@@ -1,0 +1,19 @@
+[Unit]
+Description=OpenSSH server daemon in InitRamfs
+Documentation=man:sshd(8) man:sshd_config(5)
+DefaultDependencies=no
+Before=cryptsetup.target
+Requires=network.target
+
+[Service]
+Type=notify
+EnvironmentFile=-/etc/default/sshd
+ExecStartPre=/bin/mkdir -p /run/sshd
+ExecStart=/usr/sbin/sshd -D $SSHD_OPTS $OPTIONS
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=process
+Restart=on-failure
+RestartSec=42s
+
+[Install]
+WantedBy=sysinit.target
