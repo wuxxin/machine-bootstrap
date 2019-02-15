@@ -162,8 +162,8 @@ if test "$do_phase_1" = "true"; then
     # echo "get recovery.squashfs from target"
     # scp "${sshlogin}:/tmp/recovery.squashfs" "$config_path/"
     
-    echo "reboot into recovery"
-    ssh "${sshlogin}" "reboot" || true
+    echo "reboot into recovery (FIXME: reboot -f)"
+    ssh "${sshlogin}" "reboot -f" || true
     echo "sleep 10 seconds, for machine to stop responding to ssh"
     sleep 10
 fi
@@ -194,3 +194,12 @@ echo "sleep 10 seconds, for machine to stop responding to ssh"
 sleep 10
 
 waitfor_ssh ${sshlogin#*@}
+
+sshopts="-o UserKnownHostsFile=$config_path/installed.known_hosts"
+scp $sshopts "$self_path/bootstrap-3-salt-call.sh" \
+    "${sshlogin}:/tmp"
+scp $sshopts -rp \
+    "$self_path/salt" \
+    "${sshlogin}:/tmp"
+echo "third part, install saltstack and run state.highstate"
+ssh $sshopts ${sshlogin} "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-3-salt-call.sh"

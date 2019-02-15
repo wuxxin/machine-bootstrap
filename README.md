@@ -17,14 +17,17 @@ Ubuntu 18.04 with encrypted storage at rest, autosnapshots, incremental snapshot
 + optional partitions for ondisk zfs log (zil) and ondisk zfs cache (l2arc)
 
 
-## setup and install 
+## Install 
 
 Usage: $0   user@targethost hostname firstusername 
             "diskids" diskphrase_gpg_file authorized_keys_file 
             [--recovery_hostkeys hostkeys_yaml_file]
             [--netplan netplan_file]
             [--http_proxy "http://proxyip:port"]
-            --yes [--phase-2] [optional parameter for bootstrap-*]
+            --yes 
+            [--phase-1] [optional parameter for bootstrap-1] |
+            [--phase-2] | 
+            [--phase-3]
 
 Arguments:
 
@@ -47,7 +50,9 @@ Arguments:
     all en*,eth* devices via dhcp
 + --http_proxy "http://proxyip:port"
 + --yes       to wipe target hardisk
-+ --phase-2   start executing from running recovery image
++ --phase-1   only execute phase 1
++ --phase-2   start and only execute phase 2 (from running recovery image)
++ --phase-3   start and only execute phase 3 (from installed base machine)
 
 Examples:
 
@@ -63,6 +68,7 @@ Examples:
 
 Install Steps:
 
-+ 1 partition and recovery install using a debianish recovery image from the hoster
-+ 2 base installation running from the recovery Image
-+ 3 chroot inside base installation configure system
++ 0 partition and recovery install using a debianish recovery image from the hoster
++ 1 base installation running from the recovery Image
++ 2 chroot inside base installation configure system
++ 3 saltstack run on installed base system
