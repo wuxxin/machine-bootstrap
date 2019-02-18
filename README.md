@@ -1,74 +1,137 @@
 # bootstrap machine
 
-Ubuntu 18.04 with encrypted storage at rest, autosnapshots, incremental snapshot backups
+repository based ubuntu 18.04 liveimage shell installer
+with (luks) encrypted zfs storage and low IO/CPU
+continous incremental snapshot backups
 
 ## Features
 
 + Ubuntu 18.04 (Bionic) 
-+ one or two disks (will be mirrored if two)
-+ legacy boot and efi compatible hybrid grub setup with grubenv support
++ install via ssh, no console access needed
++ for one or two disks (will be setup as mirror if two)
 + fulldiskencryption with luks
 + root on luks encrypted zfs / zfs mirror pool
-+ casper recovery on boot partition
++ legacy boot and efi compatible hybrid grub setup with grubenv support
++ casper based recovery installation on boot partition
     + unattended cloud-init boot via custom squashfs with ssh ready to login
     + update-recovery-squashfs.sh, recovery-mount/unmount/replace-mirror.sh scripts
-+ desaster recovery from backup storage to new machine
-+ optional hibernate compatible luks encrypted separate swap partition
-+ optional partitions for ondisk zfs log (zil) and ondisk zfs cache (l2arc)
++ optional
+    + hibernate compatible luks encrypted separate swap partition
+    + partitions for ondisk zfs log (zil) and ondisk zfs cache (l2arc)
+    + desaster recovery from backup storage to new machine
+    + continous incremental snapshot backups with zfs and restic
+    + homesick (homeshick) integration
 
+installation is done in 4 steps:
 
-## Install 
-
-Usage: $0   user@targethost hostname firstusername 
-            "diskids" diskphrase_gpg_file authorized_keys_file 
-            [--recovery_hostkeys hostkeys_yaml_file]
-            [--netplan netplan_file]
-            [--http_proxy "http://proxyip:port"]
-            --yes 
-            [--phase-1] [optional parameter for bootstrap-1] |
-            [--phase-2] | 
-            [--phase-3]
-
-Arguments:
-
-+ user@targethost: ssh login to the target machine executing a linux in ram 
-+ hostname: the new target hostname
-+ firstusername: first user name on new target host
-+ "diskids": disk serial ids, as string seperated by space
-+ diskphrase_gpg_file: file containing the diskphrase for the target host disk encryption 
-+ authorized_keys_file: file containing ssh user public keys, which will be allowed to login into target host
-
-+ --recovery_hostkeys hostkeys_yaml_file
-    the recovery ssh hostkeys are generated on the client machine if not specified
-    using --recovery_hostkeys.
-    In any case the public keys are written out to ./recovery.known_hosts
-+ ssh hostkeys:
-    the target hostkeys are generated on the target machine from a recovery live
-    sessio. the public key part is written out to ./target.known_hosts
-+ --netplan netplan_file
-    if not specified a default netplan file is generated that activates 
-    all en*,eth* devices via dhcp
-+ --http_proxy "http://proxyip:port"
-+ --yes       to wipe target hardisk
-+ --phase-1   only execute phase 1
-+ --phase-2   start and only execute phase 2 (from running recovery image)
-+ --phase-3   start and only execute phase 3 (from installed base machine)
-
-Examples:
-
-+ a root server with one or two harddisks
-    + use --netplan netplan_file
-+ a Laptop with encrypted hibernation
-    + use bootstrap0 parameter --swap yes
-+ a vm
-    + use --http_proxy "http://proxyip:port"
-+ a home-nas with 1(internal)+2(external) harddisks
-    + use bootstrap0 parameter --log yes --cache 4096
-      (put log and cache on install disk[s], should be of type ssd,nvme,...)
-
-Install Steps:
-
-+ 0 partition and recovery install using a debianish recovery image from the hoster
-+ 1 base installation running from the recovery Image
-+ 2 chroot inside base installation configure system
++ 0 partition disk, recovery install to /boot
++ 1 base installation running from the recovery image
++ 2 chroot inside base installation to configure system
 + 3 saltstack run on installed base system
+
+## Usage
+
+### make a new project repository (eg. box)
+```
+mkdir box
+cd box
+git init
+mkdir -p config salt/custom home home-subdirs
+ln -s config pillar
+git submodule add https://github.com/wuxxin/bootstrap-machine.git
+git submodule add https://github.com/wuxxin/restic-zfs-backup.git
+cd salt
+git submodule add https://github.com/wuxxin/salt-shared.git
+cd ..
+cp salt/salt-shared/salt-top.example salt/custom/top.sls
+touch salt/custom/custom.sls
+cat <<EOF >> salt/custom/top.sls
+  # any
+  '*':
+    - bootstrap
+    - custom
+EOF
+ln -s ../../bootstrap-machine/devop/bootstrap.sls salt/custom/bootstrap.sls
+cat <<EOF > pillar/top.sls
+base:
+  '*':
+    - custom
+EOF
+touch pillar/custom.sls
+git add .
+git commit -v -m "initial commit"
+```
+
+### optional add an upstream
+```
+git remote add origin ssh://git@somewhere.on.the.internet/username/box.git
+```
+
+### optional git-crypt config
+
+```
+git-crypt init
+cat > .gitattributes <<EOF
+**/secret/** filter=git-crypt diff=git-crypt
+**/secrets/** filter=git-crypt diff=git-crypt
+*secrets* filter=git-crypt diff=git-crypt
+*secret* filter=git-crypt diff=git-crypt
+*key filter=git-crypt diff=git-crypt
+*keys filter=git-crypt diff=git-crypt
+*id_rsa* filter=git-crypt diff=git-crypt
+*id_ecdsa* filter=git-crypt diff=git-crypt
+*id_ed25519* filter=git-crypt diff=git-crypt
+*.sec* filter=git-crypt diff=git-crypt
+*.key* filter=git-crypt diff=git-crypt
+*.pem* filter=git-crypt diff=git-crypt
+*.p12 filter=git-crypt diff=git-crypt
+credentials* filter=git-crypt diff=git-crypt
+csrftokens* filter=git-crypt diff=git-crypt
+random_seed filter=git-crypt diff=git-crypt
+sitemanager.xml filter=git-crypt diff=git-crypt
+remmina.pref filter=git-crypt diff=git-crypt
+EOF
+git-crypt add-gpg-user user.email@address.org
+git add .
+git commit -v -m "added git-crypt config"
+```
+
+### configure machine
+
+```
+# initial config
+cat > machine-config/config.env <<EOF
+ssh_host=root@1.2.3.4
+hostname=box.local
+firstusername=myuser
+authorized_keys_file=authorized_keys
+http_proxy="http://192.168.122.1:8123"
+EOF
+
+# get serial(s) of harddisk(s)
+./bootstrap-machine/connect.sh temporary "ls /dev/disk/by-id/"
+
+# get serial(s), filter and add to config (example)
+$(printf 'diskids="';for i in $(./bootstrap-machine/connect.sh temporary "ls /dev/disk/by-id/" | grep "^virtio-[^-]+$"); do printf "$i "; done; printf '"') >> machine-config/config.env
+
+# create diskphrase.gpg (example)
+(x=$(openssl rand -base64 9); echo "$x" | opengpg --encrypt) > machine-config/diskphrase.gpg
+
+# bootstrap machine
+./bootstrap-machine/bootstrap.sh execute --phase all
+git add .
+git commit -v -m "bootstrap run"
+```
+
+### optional homesick setup
+
+```
+dont name it dot, name it host-shortname
+```
+
+### optional push committed changed to upstream
+
+```
+git push -u origin master
+
+```
