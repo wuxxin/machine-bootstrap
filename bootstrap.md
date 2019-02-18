@@ -1,26 +1,30 @@
 Usage: 
-  $0 execute [--phase all|recovery|install|devop] [<recovery phase parameter>*]
-  $0 --help-recovery
+  + $0 execute [--phase all|recovery|install|devop] [<recovery phase parameter>*]
+  + $0 --help-recovery
 
---phase all
-    executes all phases (expects debianish live system as first phase)
---phase recovery [<recovery phase parameter>*]
+Phase:
+
++ all: executes all phases (expects debianish live system as first phase)
++ recovery [recovery phase parameter*]
+
     only execute recovery phase (expects debianish live system)
     parameter passed to bootstrap-0-recovery.sh
     execute `$0 --help-recovery` to get a parameter list
---phase install 
-    only execute install phase (expects running recovery image)
---phase devop
-    only execute devop phase (expects installed and running base machine)
-    will first connect to initrd and unlock storage
+    
++ install: only execute install phase (expects running recovery image)
+    
++ devop:
+    only execute devop phase (expects installed and running base machine), will first try to connect to initrd and unlock storage
 
-default configpath: dirname($0)/../machine-config
-default config file: config 
-config file used: `dirname($0)/../config` 
-    or if environment variable `BOOTSTRAP_MACHINE_CONFIG_DIR` is set
+
+Configuration:
+
++ config path used: `dirname($0)/../machine-config`
+    +  or env var `BOOTSTRAP_MACHINE_CONFIG_DIR` is set
     `$BOOTSTRAP_MACHINE_CONFIG_DIR/config`
++ default config file: `$config_path/config`
 
-configuration file:
+Configuration file:
 ```
 sshhost=root@1.2.3.4
 hostname=box.local
