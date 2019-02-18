@@ -127,7 +127,6 @@ fi
 echo "configure plymouth"
 cat > /usr/bin/plymouth-set-default-theme <<"EOF"
 #!/bin/bash
-set -eo pipefail
 basename $(dirname $(readlink -f /usr/share/plymouth/themes/default.plymouth))
 EOF
 chmod +x /usr/bin/plymouth-set-default-theme
@@ -187,7 +186,8 @@ apt-get update --yes
 apt dist-upgrade --yes
 
 echo "install kernel, loader, tools needed for boot and ubuntu-standard"
-apt-get install --yes linux-image-generic cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates systemd-container zfsutils-linux haveged dracut dracut-network zfs-dracut openssh-server pm-utils wireless-tools plymouth-theme-ubuntu-gnome-logo ubuntu-standard
+packages="linux-image-generic cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl socat ca-certificates bzip2 tmux systemd-container zfsutils-linux haveged dracut dracut-network zfs-dracut openssh-server pm-utils wireless-tools plymouth-theme-ubuntu-gnome-logo ubuntu-standard"
+apt-get install --yes "$packages"
 
 echo "create missing system groups"
 getent group lpadmin > /dev/null || addgroup --system lpadmin

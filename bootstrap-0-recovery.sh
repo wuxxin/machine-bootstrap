@@ -1,11 +1,11 @@
 #!/bin/bash
 set -eo pipefail
-set -x
+#set -x
 self_path=$(dirname $(readlink -e "$0"))
 
 
 usage() {
-    cat <<EOF
+    cat <<USAGEEOF
 Usage: $0 hostname 'diskid+' --yes 
         [--reuse]
         [--recovery-autologin]
@@ -34,7 +34,7 @@ this script will overwrite all existing data of all disks matching diskid+
     the environment variable "http_proxy" will be used if set
     and must follow the format "http://1.2.3.4:1234"
 
-EOF
+USAGEEOF
     exit 1
 }
 
@@ -130,7 +130,8 @@ echo "options: reuse=$option_reuse , log=$option_log ($opt_logsizemb), swap=$opt
 
 if which apt-get > /dev/null; then    
     echo "install required utils"
-    DEBIAN_FRONTEND=noninteractive apt-get install --yes cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates
+    packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl socat ca-certificates bzip2 tmux"
+    DEBIAN_FRONTEND=noninteractive apt-get install --yes "$packages"
 else
     echo "no debian system, packages must be installed manual"
 fi

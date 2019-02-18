@@ -189,7 +189,8 @@ fi
 hostnamectl set-hostname $shortname
 
 echo "install needed packages, should be a noop, because cloud-init should have installed them already"
-DEBIAN_FRONTEND=noninteractive apt-get install --yes cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates systemd-container zfsutils-linux haveged debootstrap libc-bin
+packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl socat ca-certificates bzip2 tmux systemd-container zfsutils-linux haveged debootstrap libc-bin"
+DEBIAN_FRONTEND=noninteractive apt-get install --yes "$packages"
 
 echo "generate new zfs hostid (/etc/hostid) in active system"
 if test -e /etc/hostid; then rm /etc/hostid; fi
