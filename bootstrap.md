@@ -1,48 +1,41 @@
-Usage: 
-  + $0 execute [--phase all|recovery|install|devop] [<recovery phase parameter>*]
-  + $0 --help-recovery
+# Usage
++ $0 execute [all|plain|recovery|install|devop] hostname
++ $0 test
+  
+## Stages
 
-Phase:
++ all:      executes recovery,install,devop 
++ plain:    executes recovery,install
++ recovery: execute step recovery (expects debianish live system)
++ install:  execute step install (expects running recovery image)
++ devop:    execute step devop (expects installed and running base machine,
+            will first try to connect to initrd and unlock storage)
 
-+ all: executes all phases (expects debianish live system as first phase)
-+ recovery [recovery phase parameter*]
++ parameter hostname: must be the same as in config/hostname for safety reasons
 
-    only execute recovery phase (expects debianish live system)
-    parameter passed to bootstrap-0-recovery.sh
-    execute `$0 --help-recovery` to get a parameter list
-    
-+ install: only execute install phase (expects running recovery image)
-    
-+ devop:
-    only execute devop phase (expects installed and running base machine), will first try to connect to initrd and unlock storage
-
-
-Configuration:
+## Configuration Directory
 
 + config path used: `dirname($0)/../machine-config`
-    +  or env var `BOOTSTRAP_MACHINE_CONFIG_DIR` is set
-    `$BOOTSTRAP_MACHINE_CONFIG_DIR/config`
-+ default config file: `$config_path/config`
+    +  or overwritten with env var `BOOTSTRAP_MACHINE_CONFIG_DIR`
 
-Configuration file:
-```
-sshhost=root@1.2.3.4
-hostname=box.local
-firstusername=myuser
-authorized_keys_file=authorized_keys
-http_proxy="http://192.168.122.1:8123"
-diskids=""
-```
++ mandatory config files:
+    + File: `disk.passphrase.gpg`
+    + File: `authorized_keys`
+    + Base Configuration File: `config`, see `README.md` for detailed description
+    
++ optional config files:
+    + `netplan.yml` default created on step recovery install
+    + `recovery_hostkeys` created automatically on step recovery install
+    + `[temporary|recovery|initrd|system].known_hosts`: created on the fly
 
-Examples:
+## Examples
 
 + a root server with one or two harddisks and static ip setup
     + add custom $config_path/netplan.yml
 + a Laptop with encrypted hibernation
-    + use recovery phase parameter: `--swap yes`
+    + storage_opts="--swap yes"
 + a vm
-    + use http_proxy="http://proxyip:port" in configfile
+    + http_proxy="http://proxyip:port"
 + a home-nas with 1(internal)+2(external) harddisks
-    + use bootstrap0 parameter --log yes --cache 4096
+    + storage_opts="--log yes --cache 4096"
       put log and cache on install disk[s], should be of type ssd,nvme,...
-

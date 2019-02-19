@@ -2,44 +2,64 @@
 set -eo pipefail
 set -x
 
-scriptpath=$(dirname "$(readlink -e "$0")")
-basepath=$(readlink -e "$scriptpath/../..")
-runpath=$basepath/_run
+self_path=$(dirname "$(readlink -e "$0")")
+base_path=$(readlink -e "$self_path/../..")
+run_path=$base_path/_run
 
 
-local_config() {
-    echo "generating config files"
-    mkdir "$runpath"
-    cat | sed -re "s:##BASE##:$basepath:g" > "$runpath/minion" <<EOF
+minion_config() {
+    local run_path base_path
+    base_path=$1
+    run_path=$2
+    echo "generating local minion config file"
+    mkdir -p "$run_path"
+    cat | sed -re "s:##BASE##:$base_path:g" > "$run_path/minion" <<EOF
 root_dir: ##BASE##/_run
 pidfile: salt-minion.pid
 pki_dir: pki
 cachedir: cache
 sock_dir: run
+log_file: salt-minion.log
 file_client: local
 
 fileserver_backend:
 - roots
 pillar_roots:
   base:
-  - ##BASE##/pillar
+  - ##BASE##/machine-config
 
 file_roots:
   base:
   - ##BASE##/salt/salt-shared
   - ##BASE##/salt/custom
 
+grains:
+  project_basepath: ##BASE##
+ 
 EOF
 
-    echo -e "id: $(hostname)" >> "$runpath/minion"
-
+    echo -e "id: $(hostname)" >> "$run_path/minion"
 }
 
+
+salt_install() {
+    salt_major_version="2018.3"
+    os_release=$(lsb_release -r -s)
+    os_codename=$(lsb_release -c -s)
+    os_architecture=$(dpkg --print-architecture)
+    echo "installing saltstack"
+    wget -O - "https://repo.saltstack.com/apt/ubuntu/${os_release}/${os_architecture}/${salt_major_version}/SALTSTACK-GPG-KEY.pub" | apt-key add -
+    echo "deb http://repo.saltstack.com/apt/ubuntu/${os_release}/${os_architecture}/${salt_major_version} ${os_codename} main" > /etc/apt/sources.list.d/saltstack.list
+    apt-get update
+    apt-get install salt-minion
+    # keep minion from running
+    for i in disable stop mask; do systemctl $i salt-minion; done
+}
 
 
 usage(){
     cat << EOF
-Usage:  $0 <bootstrap-machine-basedir> --yes [-- salt-call parameter]
+Usage:  $0 --yes [salt-call parameter]
 
 EOF
     exit 1
@@ -47,36 +67,17 @@ EOF
 
 
 # main
-os_release=$(lsb_release -r -s)
-os_codename=$(lsb_release -c -s)
-os_architecture=$(dpkg --print-architecture)
-salt_major_version="2018.3"
-
+cd /tmp
 if test "$1" = "--yes"; then usage; fi
 shift
-if test "$1" = "--"; then shift; fi
-cd /tmp
-
-# wait for cloud-init to finish, interferes with pkg installing and others
 if which cloud-init > /dev/null; then 
+    # be sure that cloud-init has finished
     cloud-init status --wait
 fi
-
-# bootstrap salt-call
-mkdir -p /etc/salt
-cp /app/appliance/minion /etc/salt/minion
-echo -n "${hostname}" > /etc/salt/minion_id
-
-
 if ! which salt-call > /dev/null; then 
-    wget -O - "https://repo.saltstack.com/apt/ubuntu/${os_release}/${os_architecture}/${salt_major_version}/SALTSTACK-GPG-KEY.pub" | sudo apt-key add -
-    echo "deb http://repo.saltstack.com/apt/ubuntu/${os_release}/${os_architecture}/${salt_major_version} ${os_codename} main" > /etc/apt/sources.list.d/saltstack.list
-    apt-get update
-    apt-get install salt-minion
-    # keep minion from running
-    for i in disable stop mask; do systemctl $i salt-minion; done
+    salt_install
 fi
-
-# salt-call --pillar-root=/notexisting saltutil.sync_modules 
-salt-call --local --config-dir="$runpath" "$@"
-
+if test ! -e $run_path/minion; then
+    minion_config "$base_path" "$run_path"
+fi
+salt-call --local --config-dir="$run_path" "$@"

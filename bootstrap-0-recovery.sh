@@ -1,24 +1,21 @@
 #!/bin/bash
 set -eo pipefail
 #set -x
-self_path=$(dirname $(readlink -e "$0"))
 
 
 usage() {
     cat <<USAGEEOF
 Usage: $0 hostname 'diskid+' --yes 
         [--reuse]
-        [--recovery-autologin]
         [--log      yes|<logsizemb>]
         [--cache    yes|<cachesizemb]
         [--swap     yes|<swapsizemb>]
+        [--recovery-autologin]
 
 this script will overwrite all existing data of all disks matching diskid+
 
 --reuse 
     will clean first sectors of data from disks before re-partitioning
---recovery-autologin
-    will set the first tty of the recovery boot process to autologin for physical recovery
 --log       yes|<logsizemb>         
             # default=no, yes=1024
 --cache     yes|<cachesizemb>       
@@ -30,6 +27,9 @@ this script will overwrite all existing data of all disks matching diskid+
             # this enables encrypted hibernation
             # for "normal" swap use zfs swap (see bootstrap-1-install)
 
+--recovery-autologin
+    will set the first tty of the recovery boot process to autologin for physical recovery
+    
 "http_proxy" environment variable:
     the environment variable "http_proxy" will be used if set
     and must follow the format "http://1.2.3.4:1234"
@@ -126,7 +126,7 @@ if test "$http_proxy" != ""; then
 fi
 
 echo "hostname: $hostname, fulldisklist=$fulldisklist, http_proxy: $http_proxy"
-echo "options: reuse=$option_reuse , log=$option_log ($opt_logsizemb), swap=$option_swap ($opt_swapsizemb), cache=$option_cache ($opt_cachesizemb), zfs_swap=$option_zfs_swap ($opt_zfsswapsizemb), autologin=$option_autologin"
+echo "options: reuse=$option_reuse , log=$option_log ($opt_logsizemb), swap=$option_swap ($opt_swapsizemb), cache=$option_cache ($opt_cachesizemb),  autologin=$option_autologin"
 
 if which apt-get > /dev/null; then    
     echo "install required utils"

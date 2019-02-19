@@ -20,6 +20,7 @@ continous incremental snapshot backups
     + partitions for ondisk zfs log (zil) and ondisk zfs cache (l2arc)
     + desaster recovery from backup storage to new machine
     + continous incremental snapshot backups with zfs and restic
+    + devop installation with saltstack
     + homesick (homeshick) integration
 
 installation is done in 4 steps:
@@ -36,38 +37,47 @@ installation is done in 4 steps:
 mkdir box
 cd box
 git init
-mkdir -p config salt/custom home home-subdirs
-ln -s config pillar
+mkdir -p machine-config
 git submodule add https://github.com/wuxxin/bootstrap-machine.git
 git submodule add https://github.com/wuxxin/restic-zfs-backup.git
-cd salt
-git submodule add https://github.com/wuxxin/salt-shared.git
-cd ..
-cp salt/salt-shared/salt-top.example salt/custom/top.sls
-touch salt/custom/custom.sls
-cat <<EOF >> salt/custom/top.sls
-  # any
-  '*':
-    - bootstrap
-    - custom
-EOF
-ln -s ../../bootstrap-machine/devop/bootstrap.sls salt/custom/bootstrap.sls
-cat <<EOF > pillar/top.sls
-base:
-  '*':
-    - custom
-EOF
-touch pillar/custom.sls
 git add .
 git commit -v -m "initial commit"
 ```
 
-### optional add an upstream
+### optional: add an upstream
 ```
 git remote add origin ssh://git@somewhere.on.the.internet/username/box.git
 ```
 
-### optional git-crypt config
+## optional: add files for devop task
+```
+mkdir -p salt/custom _run
+cd salt
+git submodule add https://github.com/wuxxin/salt-shared.git
+cd ..
+cp salt/salt-shared/salt-top.example salt/custom/top.sls
+cat <<EOF >> salt/custom/top.sls
+  # any
+  '*':
+    - custom
+EOF
+ln -s ../../bootstrap-machine/devop/bootstrap-pillar.sls \
+  machine-config/bootstrap.sls
+cat <<EOF > machine-config/top.sls
+base:
+  '*':
+    - custom
+EOF
+touch machine-config/custom.sls
+cat << EOF > .gitignore
+#
+_run/
+EOF
+git add .
+git commit -v -m "added devop skeleton"
+```
+
+### optional: git-crypt config
 
 ```
 git-crypt init
@@ -100,36 +110,60 @@ git commit -v -m "added git-crypt config"
 
 ```
 # initial config
-cat > machine-config/config.env <<EOF
-ssh_host=root@1.2.3.4
+cat > machine-config/config <<EOF
+# mandatory
+sshlogin=root@1.2.3.4
 hostname=box.local
-firstusername=myuser
-authorized_keys_file=authorized_keys
-http_proxy="http://192.168.122.1:8123"
+firstuser=myuser
+# storage_ids=""
+
+# optional
+# http_proxy="http://192.168.122.1:8123" # default = "" 
+# recovery_autologin="true" # default = "false"
+# storage_opts="[--reuse] [--log yes|<logsizemb>]"
+# storage_opts="[--cache yes|<cachesizemb] [--swap yes|<swapsizemb>]" 
+# storage_opts default= ""
+# devop_target="/home/firstuser/currentdirectoryname-of-projectdir"
+# devop_user="$firstuser"
 EOF
 
-# get serial(s) of harddisk(s)
+# copy current user ssh public key as authorized_keys
+cat ~/.ssh/id_rsa.pub ~/.ssh/id_ed25519.pub > machine-config/authorized_keys
+
+# list serial(s) of harddisk(s)
 ./bootstrap-machine/connect.sh temporary "ls /dev/disk/by-id/"
 
-# get serial(s), filter and add to config (example)
-$(printf 'diskids="';for i in $(./bootstrap-machine/connect.sh temporary "ls /dev/disk/by-id/" | grep "^virtio-[^-]+$"); do printf "$i "; done; printf '"') >> machine-config/config.env
+# add serial(s) to config, eg. filter all virtio (but no partitions)
+$(printf 'storage_ids="'; for i in \
+    $(./bootstrap-machine/connect.sh temporary "ls /dev/disk/by-id/" | \
+        grep "^virtio-[^-]+$"); do \
+    printf "$i "; done; printf '"') >> machine-config/config
 
-# create diskphrase.gpg (example)
-(x=$(openssl rand -base64 9); echo "$x" | opengpg --encrypt) > machine-config/diskphrase.gpg
+# create disk.passphrase.gpg (example)
+(x=$(openssl rand -base64 9); echo "$x" | opengpg --encrypt) \
+    > machine-config/disk.passphrase.gpg
 
-# bootstrap machine
-./bootstrap-machine/bootstrap.sh execute --phase all
+# optional: create a custom netplan.yml
+
+```
+
+### optional: homesick setup
+
+```
+mkdir -p home home-subdirs
+
+dont name it dot, name it host-shortname
+```
+
+### bootstrap machine
+
+```
+./bootstrap-machine/bootstrap.sh execute all box.local
 git add .
 git commit -v -m "bootstrap run"
 ```
 
-### optional homesick setup
-
-```
-dont name it dot, name it host-shortname
-```
-
-### optional push committed changed to upstream
+### optional: push committed changed to upstream
 
 ```
 git push -u origin master

@@ -1,11 +1,9 @@
 #!/bin/bash
 set -e
-
 self_path=$(dirname $(readlink -e "$0"))
+config_path="$(readlink -e "$self_path/../machine-config")"
 if test -z "$BOOTSTRAP_MACHINE_CONFIG_DIR"; then
     config_path="$BOOTSTRAP_MACHINE_CONFIG_DIR"
-else
-    config_path="$(readlink -e $self_path/../machine-config)"
 fi
 config_file=$config_path/config
 
@@ -15,7 +13,7 @@ usage() {
 Usage: $0 temporary|recovery|initrd|system [\$@]
 
 ssh connect with different ssh_hostkeys used.
-ssh keys and config are taken from $self_path 
+ssh keys and config are taken from directory $config_path 
 EOF
     exit 1
 }
