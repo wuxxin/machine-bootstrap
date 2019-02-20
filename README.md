@@ -39,7 +39,6 @@ cd box
 git init
 mkdir -p machine-config
 git submodule add https://github.com/wuxxin/bootstrap-machine.git
-git submodule add https://github.com/wuxxin/restic-zfs-backup.git
 git add .
 git commit -v -m "initial commit"
 ```
@@ -49,7 +48,7 @@ git commit -v -m "initial commit"
 git remote add origin ssh://git@somewhere.on.the.internet/username/box.git
 ```
 
-## optional: add files for devop task
+### optional: add files for devop task
 ```
 mkdir -p salt/custom _run
 cd salt
@@ -109,12 +108,11 @@ git commit -v -m "added git-crypt config"
 ### configure machine
 
 ```
-# initial config
 cat > machine-config/config <<EOF
 # mandatory
 sshlogin=root@1.2.3.4
 hostname=box.local
-firstuser=myuser
+firstuser=$(id -u -n)
 # storage_ids=""
 
 # optional
@@ -122,9 +120,9 @@ firstuser=myuser
 # recovery_autologin="true" # default = "false"
 # storage_opts="[--reuse] [--log yes|<logsizemb>]"
 # storage_opts="[--cache yes|<cachesizemb] [--swap yes|<swapsizemb>]" 
-# storage_opts default= ""
-# devop_target="/home/firstuser/currentdirectoryname-of-projectdir"
-# devop_user="$firstuser"
+# storage_opts default=""
+# devop_target="/home/$(id -u -n)/$(basename $(readlink -f .))"
+# devop_user="$(id -u -n)"
 EOF
 
 # copy current user ssh public key as authorized_keys
