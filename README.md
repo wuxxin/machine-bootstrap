@@ -60,6 +60,7 @@ cat <<EOF >> salt/custom/top.sls
   '*':
     - custom
 EOF
+touch salt/custom/custom.sls
 ln -s ../../bootstrap-machine/devop/bootstrap-pillar.sls \
   machine-config/bootstrap.sls
 cat <<EOF > machine-config/top.sls
