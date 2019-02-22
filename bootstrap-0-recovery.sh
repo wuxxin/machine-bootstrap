@@ -242,8 +242,8 @@ done
 /tmp/recovery/update-recovery-squashfs.sh --custom /tmp/recovery.squashfs "$hostname" "-" /tmp/netplan.yaml /tmp/recovery_hostkeys /tmp/authorized_keys /tmp/recovery $option_autologin "$http_proxy"
 
 echo "download live server iso image for casper"
-isohash="7b37dfcd082726303528e47c82f88f29c1dc9232f8fd39120d13749ae83cc463"
-isourl="http://releases.ubuntu.com/bionic/ubuntu-18.04.1.0-live-server-amd64.iso"
+isohash="ea6ccb5b57813908c006f42f7ac8eaa4fc603883a2d07876cf9ed74610ba2f53"
+isourl="http://releases.ubuntu.com/bionic/ubuntu-18.04.2-live-server-amd64.iso"
 curl -f -# -L -s "$isourl"  -o /tmp/${isourl##*/}
 echo "checksum image"
 echo "$isohash */tmp/${isourl##*/}" | sha256sum --check
