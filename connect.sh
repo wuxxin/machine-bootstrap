@@ -2,7 +2,7 @@
 set -e
 self_path=$(dirname $(readlink -e "$0"))
 config_path="$(readlink -e "$self_path/../machine-config")"
-if test -z "$BOOTSTRAP_MACHINE_CONFIG_DIR"; then
+if test -n "$BOOTSTRAP_MACHINE_CONFIG_DIR"; then
     config_path="$BOOTSTRAP_MACHINE_CONFIG_DIR"
 fi
 config_file=$config_path/config
