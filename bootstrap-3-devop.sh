@@ -50,8 +50,8 @@ salt_install() {
     echo "installing saltstack"
     wget -O - "https://repo.saltstack.com/apt/ubuntu/${os_release}/${os_architecture}/${salt_major_version}/SALTSTACK-GPG-KEY.pub" | apt-key add -
     echo "deb http://repo.saltstack.com/apt/ubuntu/${os_release}/${os_architecture}/${salt_major_version} ${os_codename} main" > /etc/apt/sources.list.d/saltstack.list
-    apt-get update
-    apt-get install salt-minion
+    DEBIAN_FRONTEND=noninteractive apt-get update -y
+    DEBIAN_FRONTEND=noninteractive apt-get install -y salt-minion
     # keep minion from running
     for i in disable stop mask; do systemctl $i salt-minion; done
 }
