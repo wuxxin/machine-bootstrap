@@ -31,7 +31,7 @@ fi
 if test "$what" != "from_rpool"; then
 
     echo "update sources, install systemd-container, zfsutils-linux"
-    apt-get update
+    DEBIAN_FRONTEND=noninteractive apt-get update --yes
     DEBIAN_FRONTEND=noninteractive apt-get install --yes systemd-container zfsutils-linux
 
     cryptdisks=""

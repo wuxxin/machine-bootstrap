@@ -1,6 +1,6 @@
 #!/bin/bash
 set -eo pipefail
-#set -x
+set -x
 self_path=$(dirname $(readlink -e "$0"))
 
 
@@ -176,7 +176,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"
     echo "Step: recovery"
     sshopts="-o UserKnownHostsFile=$config_path/temporary.known_hosts"
     echo "copy ssh_authorized_keys, ssh_hostkeys, netplan, install script to target"
-    scp $sshopts "$sshkeyfile" "${sshlogin}:/tmp/authorized_keys"
+    scp $sshopts "$authorized_keys_file" "${sshlogin}:/tmp/authorized_keys"
     echo "$recovery_hostkeys" | ssh $sshopts "${sshlogin}" "cat - > /tmp/recovery_hostkeys"
     echo "$netplan_data" | ssh $sshopts "${sshlogin}" "cat - > /tmp/netplan.yaml"
     scp $sshopts "$self_path/bootstrap-0-recovery.sh" \
@@ -192,12 +192,12 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"
         rm "$config_path/recovery.known_hosts.old"
     fi
 
-    echo "first remote part, wipe disks, install tools, create partitions write recovery"
+    echo "call bootstrap-0, wipe disks, install tools, create partitions write recovery"
     args="$@"
     ssh $sshopts "${sshlogin}" "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-0-recovery.sh $hostname \"$storage_ids\" --yes $args"
     
     echo "reboot into recovery (FIXME: reboot -f)"
-    ssh $sshopts "${sshlogin}" "reboot -f" || true
+    ssh $sshopts "${sshlogin}" '{ sleep 1; reboot -f; } >/dev/null &' || true
     echo "sleep 10 seconds, for machine to stop responding to ssh"
     sleep 10
 fi
@@ -206,10 +206,10 @@ fi
 # STEP install
 if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install"; then
     waitfor_ssh "${sshlogin#*@}"
-    echo "Steps: install"
+    echo "Step: install"
     sshopts="-o UserKnownHostsFile=$config_path/recovery.known_hosts"
     echo "copy ssh_authorized_keys, netplan, install script to target"
-    scp $sshopts "$sshkeyfile" "${sshlogin}:/tmp/authorized_keys"
+    scp $sshopts "$authorized_keys_file" "${sshlogin}:/tmp/authorized_keys"
     echo "$netplan_data" | ssh $sshopts ${sshlogin} "cat - > /tmp/netplan.yaml"
     scp $sshopts "$config_path/recovery_hostkeys" "${sshlogin}:/tmp/recovery_hostkeys"
     scp $sshopts "$self_path/bootstrap-1-install.sh" \
@@ -221,11 +221,11 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
         "$self_path/initrd" \
         "${sshlogin}:/tmp"
 
-    echo "second part, add luks and zfs, debootstrap system or restore from backup"
+    echo "call bootstrap-1, add luks and zfs, debootstrap system or restore from backup"
     echo -n "$diskphrase" | ssh $sshopts ${sshlogin} "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1-install.sh $hostname $firstuser \"$storage_ids\" --yes $@"
 
     echo "reboot"
-    ssh $sshopts ${sshlogin} "reboot" || true
+    ssh $sshopts ${sshlogin} '{ sleep 1; reboot; } >/dev/null &' || true
     echo "sleep 10 seconds, for machine to stop responding to ssh"
     sleep 10
 fi
@@ -235,23 +235,26 @@ fi
 if test "$do_phase" = "all" -o "$do_phase" = "devop"; then
     # phase initramfs luks open
     waitfor_ssh "${sshlogin#*@}"
-    
+    echo "Step: devop"
     ssh-keyscan -H "${sshlogin#*@}" | sed -r 's/.+(ssh-[^ ]+) (.+)$/\1 \2/g' | grep -q -F -f - "$config_path/initrd.known_hosts"
     result=$?
     if test "$result" = "0"; then
+        echo "initrd is waiting for luksopen, sending passphrase"
         sshopts="-o UserKnownHostsFile=$config_path/initrd.known_hosts"
         echo -n "$diskphrase" | ssh $sshopts "${sshlogin}" \
             'phrase=$(cat -); for s in /var/run/systemd/ask-password/sck.*; do echo -n "$phrase" | /lib/systemd/systemd-reply-password 1 $s; done'
+        echo "done sending passphrase, waiting 2 seconds for system startup to continue"
         sleep 2
         waitfor_ssh "${sshlogin#*@}"
     fi
     
+    echo "copy setup repository to target"
     sshopts="-o UserKnownHostsFile=$config_path/system.known_hosts"
     ssh $sshopts ${sshlogin} "mkdir -p $devop_target"
     scp $sshopts -rp \
         "$self_path" \
         "${sshlogin}:$devop_target"
     
-    echo "third part, install saltstack and run state.highstate"
+    echo "call bootstrap-3, install saltstack and run state.highstate"
     ssh $sshopts ${sshlogin} "http_proxy=\"$http_proxy\"; export http_proxy; chown -r $devop_user:$devop_user $devop_target; $devop_target/bootstrap-machine/bootstrap-3-devop.sh --yes state.highstate"
 fi
