@@ -5,7 +5,7 @@ set -x
 
 usage() {
     cat <<EOF
-Usage: cat diskkey | $0 hostname firstuser disklist --yes [--restore-backup]
+Usage: cat diskkey | $0 hostname firstuser disklist --yes [--restore-from-backup]
 
 "http_proxy" environment variable:
     the environment variable "http_proxy" will be used if set
@@ -152,7 +152,7 @@ if test "$diskpassword" = ""; then
     echo "ERROR: script needs diskpassword from stdin, abort"
     exit 1
 fi
-if test "$1" = "--restore-backup"; then
+if test "$1" = "--restore-from-backup"; then
     option_restore_backup="yes"
     shift
 fi
@@ -321,11 +321,10 @@ for i in dev proc sys run; do
     mount --rbind /$i /mnt/$i
 done
 
-echo "call bootstrap-2-chroot script in chroot"
-chroot /mnt /tmp/bootstrap-2-chroot-install.sh "$hostname" "$firstuser" --yes
-echo "back in bootstrap-1-install"
-
 if test "$option_restore_backup" = "yes"; then
+    echo "call bootstrap-2-chroot script in chroot with --restore-from-backup"
+    chroot /mnt /tmp/bootstrap-2-chroot-install.sh "$hostname" "$firstuser" --yes --restore-from-backup
+    echo "back in bootstrap-1-install"
     echo "call /tmp/backup-restore-2-chroot-install.sh"
     cp -a /tmp/backup-restore-2-chroot-install.sh /mnt/tmp
     chmod +x /mnt/tmp/backup-restore-2-chroot-install.sh
@@ -335,7 +334,11 @@ if test "$option_restore_backup" = "yes"; then
         echo "Backup - Restore Error $err"
         exit $err
     fi
+else
+    echo "call bootstrap-2-chroot script in chroot"
+    chroot /mnt /tmp/bootstrap-2-chroot-install.sh "$hostname" "$firstuser" --yes
 fi
+echo "back in bootstrap-1-install"
 
 echo "unmount all"
 for i in run sys proc dev boot/efi boot/efi2 boot; do
