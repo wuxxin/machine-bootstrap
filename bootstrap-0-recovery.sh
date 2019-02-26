@@ -128,12 +128,13 @@ fi
 echo "hostname: $hostname, fulldisklist=$fulldisklist, http_proxy: $http_proxy"
 echo "options: reuse=$option_reuse , log=$option_log ($opt_logsizemb), swap=$option_swap ($opt_swapsizemb), cache=$option_cache ($opt_cachesizemb),  autologin=$option_autologin"
 
+packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl socat ca-certificates bzip2 tmux"
+
 if which apt-get > /dev/null; then    
     echo "install required utils"
-    packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl socat ca-certificates bzip2 tmux"
     DEBIAN_FRONTEND=noninteractive apt-get install --yes "$packages"
 else
-    echo "no debian system, packages must be installed manual"
+    echo "Warning: no debian system, packages ($packages) must be installed manually or program will fail"
 fi
 
 if test "$option_reuse" = "yes"; then
