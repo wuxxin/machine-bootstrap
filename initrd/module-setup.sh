@@ -16,7 +16,7 @@ depends() {
 install() {
     local ssh_host_key authorized_keys
     ssh_host_key=/etc/ssh/initrd_ssh_host_ed25519_key
-    if test ! -e $ssh_host_key ]; then
+    if test ! -e $ssh_host_key; then
         echo "Warning: no dracut host key initrd_ssh_host_ed25519_key found, creating new one"
         ssh-keygen -q -t ed25519 -N '' -f "/etc/ssh/initrd_ssh_host_ed25519_key"
     fi

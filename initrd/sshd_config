@@ -1,6 +1,6 @@
 HostKey /etc/ssh/ssh_host_ed25519_key
 SyslogFacility AUTHPRIV
-PermitRootLogin yes
+PermitRootLogin prohibit-password
 AuthorizedKeysFile	/etc/ssh/%u/authorized_keys
 PasswordAuthentication no
 ChallengeResponseAuthentication no
