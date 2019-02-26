@@ -4,7 +4,7 @@ set -x
 
 if test "$3" != "--yes"; then
     cat <<EOF
-Usage: $0 hostname firstuser --yes
+Usage: $0 hostname firstuser --yes [--restore-from-backup]
 
 "http_proxy" environment variable:
     the environment variable "http_proxy" will be used if set
@@ -54,7 +54,8 @@ deb http://archive.ubuntu.com/ubuntu/ bionic main restricted universe multiverse
 deb http://security.ubuntu.com/ubuntu/ bionic-security main restricted universe multiverse
 deb http://archive.ubuntu.com/ubuntu/ bionic-updates main restricted universe multiverse
 EOF
-# workaround dracut initramfs-tools clashes, and keep whoopsie and apport from the disk
+# workaround dracut initramfs-tools clashes
+# also, keep whoopsie and apport from the disk
 for i in whoopsie apport brltty initramfs-tools; do
     cat > /etc/apt/preferences.d/${i}-preference << EOF
 Package: $i
@@ -97,7 +98,6 @@ echo "workaround zol < 0.8 missing zfs-mount-generator"
 cat /etc/recovery/legacy.fstab >> /etc/fstab
 
 if test -e "/dev/mapper/luks-swap"; then
-    # echo "UUID=$(blkid -s UUID -o value /dev/mapper/luks-swap) swap swap defaults" >> /etc/fstab
     echo "/dev/mapper/luks-swap swap swap defaults" >> /etc/fstab
 fi
 
@@ -196,8 +196,34 @@ getent group sambashare > /dev/null || addgroup --system sambashare
 echo "add first user"
 adduser --gecos "" --disabled-password "$firstuser"
 cp -a /etc/skel/.[!.]* "/home/$firstuser/"
+mkdir -p  "/home/$firstuser/.ssh"
+cp /root/.ssh/authorized_keys "/home/$firstuser/.ssh/authorized_keys"
+chmod 700 "/home/$firstuser/.ssh"
 chown "$firstuser:$firstuser" -R "/home/$firstuser/."
 usermod -a -G adm,cdrom,dip,lpadmin,plugdev,sambashare,sudo "$firstuser"
+
+
+echo "ssh config, follow snapshot 2019-02-26 without ecsda https://infosec.mozilla.org/guidelines/openssh.html "
+# only use >= 3072-bit-long  moduli.
+awk '$5 >= 3071' /etc/ssh/moduli > /etc/ssh/moduli.tmp && mv /etc/ssh/moduli.tmp /etc/ssh/moduli
+# dont use ecdsa keys
+for i in ssh_host_ecdsa_key ssh_host_ecdsa_key.pub; do
+    if test -e /etc/ssh/$i; then rm /etc/ssh/$i; fi
+done
+cat >> /etc/sshd_config <<EOF
+# Supported HostKey algorithms by order of preference.
+HostKey /etc/ssh/ssh_host_ed25519_key
+HostKey /etc/ssh/ssh_host_rsa_key
+
+AuthenticationMethods publickey
+
+KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256
+
+Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+
+MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-512,hmac-sha2-256,umac-128@openssh.com
+EOF
+
 
 echo "rewrite recovery squashfs"
 /etc/recovery/update-recovery-squashfs.sh --host $hostname
