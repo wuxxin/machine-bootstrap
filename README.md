@@ -133,13 +133,13 @@ cat ~/.ssh/id_rsa.pub ~/.ssh/id_ed25519.pub > machine-config/authorized_keys
 ./bootstrap-machine/connect.sh temporary "ls /dev/disk/by-id/"
 
 # add serial(s) to config, eg. filter all virtio (but no partitions)
-$(printf 'storage_ids="'; for i in \
+echo $(printf 'storage_ids="'; for i in \
     $(./bootstrap-machine/connect.sh temporary "ls /dev/disk/by-id/" | \
-        grep "^virtio-[^-]+$"); do \
+        grep -E "^virtio-[^-]+$"); do \
     printf "$i "; done; printf '"') >> machine-config/config
 
 # create disk.passphrase.gpg (example)
-(x=$(openssl rand -base64 9); echo "$x" | opengpg --encrypt) \
+(x=$(openssl rand -base64 9); echo -n "$x" | gpg --encrypt -r username@email.address) \
     > machine-config/disk.passphrase.gpg
 
 # optional: create a custom netplan.yml
