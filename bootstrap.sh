@@ -123,7 +123,7 @@ if test ! -e $config_file; then
 fi
 . $config_file
 # check for mandatory settings
-for i in "sshlogin hostname firstuser storage_ids"; do
+for i in sshlogin hostname firstuser storage_ids; do
     if test "${!i}" = ""; then
         echo "ERROR: mandatory config file parameter $i not set or empty"
         usage
