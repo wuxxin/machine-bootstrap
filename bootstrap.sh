@@ -83,7 +83,7 @@ EOF
 
 # main
 config_path="$(readlink -e "$self_path/../machine-config")"
-if test -z "$BOOTSTRAP_MACHINE_CONFIG_DIR"; then
+if test -n "$BOOTSTRAP_MACHINE_CONFIG_DIR"; then
     config_path="$BOOTSTRAP_MACHINE_CONFIG_DIR"
 fi
 config_file=$config_path/config
@@ -98,67 +98,77 @@ for i in nc ssh gpg scp; do
 done
 
 # parse args
-if test "$1" = "test"; then 
-    config_test
-    exit 0
+if test "$1" != "test" -a "$1" != "execute"; then usage; fi
+command=$1
+shift
+
+if test "$command" = "execute"; then
+    if [[ ! "$1" =~ ^(all|plain|recovery|install|devop)$ ]]; then
+        echo "ERROR: Stage must be one of 'all|plain|recovery|install|devop'"
+        usage
+    fi
+    if test "$2" = ""; then
+        echo "ERROR: hostname must be set on commandline for safety reasons"
+        usage
+    fi
+    do_phase=$1
+    safety_hostname=$2
+    shift 2
 fi
-if test "$1" != "execute"; then usage; fi
-if [[ ! "$2" =~ ^(all|plain|recovery|install|devop)$ ]]; then 
-    echo "ERROR: Stage must be one of 'all|plain|recovery|install|devop'"
-    usage
-fi
-if test "$3" = ""; then 
-    echo "ERROR: hostname must be set on commandline for safety reasons"
-    usage
-fi
-do_phase=$2
-safety_hostname=$3
-shift 3
 
 # parse config file
-if test -e $config_file; then echo "ERROR: configfile $config_file does not exist"
+if test ! -e $config_file; then
+    echo "ERROR: configfile $config_file does not exist"
+    usage
+fi
 . $config_file
+# check for mandatory settings
 for i in "sshlogin hostname firstuser storage_ids"; do
-    if test "$[[i]]" = ""; then
+    if test "${!i}" = ""; then
         echo "ERROR: mandatory config file parameter $i not set or empty"
         usage
     fi
 done
-if test "$hostname" != "$safety_hostname"; then
-    echo "ERROR: hostname on commandline ($safety_hostname) does not match hostname from configfile ($hostname)"
-    exit 1
-fi
-
-diskphrase=$(cat $diskphrasegpg | gpg --decrypt)
+# check for mandatory files
+for i in $diskpassphrase_file $authorized_keys_file; do
+    if test ! -e "$i"; then
+        echo "ERROR: mandatory file $i not found"
+        usage
+    fi
+done
+diskphrase=$(cat $diskpassphrase_file | gpg --decrypt)
 if test "$diskphrase" = ""; then
     echo "Error: diskphrase is empty, abort"
     exit 1
 fi
-
-# optional
-#http_proxy="http://192.168.122.1:8123"
-#recovery_autologin="true"
-#storage_opts=[--reuse] [--log yes|<logsizemb>] [--cache yes|<cachesizemb] [--swap yes|<swapsizemb>]
-# optional config files:
-# `netplan.yml` default created on step recovery install
-# `recovery_hostkeys` created automatically on step recovery install
-# `[temporary|recovery|initrd|system].known_hosts`: created on the fly
+# make defaults
+if test -z "$devop_target"; then
+    devop_target="/home/$firstuser/$(basename $(readlink -e $self_path/..))"
+fi
+if test -z "$devop_user"; then
+    devop_user="$firstuser"
+fi
 
 
-# parse args
-diskphrasegpg="$5"
-sshkeyfile="$6"
-recovery_hostkeys=$(cat $2)
-echo "create ssh hostkeys"
-generate_recovery_hostkeys
-netplan_data=$(cat $2)
-netplan_data="$DEFAULT_netplan_data"
-http_proxy=$2
-passphrase_filename=disk.passphrase.gpg
-authorized_keys_filename=authorized_keys
-recovery_hostkeys_filename=recovery_hostkeys
-netplan_filename=netplan.yml
+if test "$command" = "test"; then exit 0; fi
 
+# execute
+if test "$hostname" != "$safety_hostname"; then
+    echo "ERROR: hostname on commandline ($safety_hostname) does not match hostname from configfile ($hostname)"
+    exit 1
+fi
+if test -e $recovery_hostkeys_file; then
+    recovery_hostkeys=$(cat $recovery_hostkeys_file)
+else
+    generate_recovery_hostkeys
+    echo "$recovery_hostkeys" > $recovery_hostkeys_file
+fi
+if test -e $netplan_file; then
+    netplan_data=$(cat $netplan_file)
+else
+    netplan_data="$DEFAULT_netplan_data"
+    echo "$netplan_data" > $netplan_file
+fi
 
 
 # STEP recovery
@@ -208,7 +218,6 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
         "${sshlogin}:/tmp"
     scp $sshopts -rp \
         "$self_path/recovery" \
-        "$self_path/backup" \
         "$self_path/initrd" \
         "${sshlogin}:/tmp"
 
@@ -226,22 +235,23 @@ fi
 if test "$do_phase" = "all" -o "$do_phase" = "devop"; then
     # phase initramfs luks open
     waitfor_ssh "${sshlogin#*@}"
-    sshopts="-o UserKnownHostsFile=$config_path/initrd.known_hosts"
-    check if initrd or system host keys
-    if initrd hostkeys
-        ssh paste diskphrase to initrd
+    
+    ssh-keyscan -H "${sshlogin#*@}" | sed -r 's/.+(ssh-[^ ]+) (.+)$/\1 \2/g' | grep -q -F -f - "$config_path/initrd.known_hosts"
+    result=$?
+    if test "$result" = "0"; then
+        sshopts="-o UserKnownHostsFile=$config_path/initrd.known_hosts"
+        echo -n "$diskphrase" | ssh $sshopts "${sshlogin}" \
+            'phrase=$(cat -); for s in /var/run/systemd/ask-password/sck.*; do echo -n "$phrase" | /lib/systemd/systemd-reply-password 1 $s; done'
+        sleep 2
         waitfor_ssh "${sshlogin#*@}"
     fi
     
     sshopts="-o UserKnownHostsFile=$config_path/system.known_hosts"
+    ssh $sshopts ${sshlogin} "mkdir -p $devop_target"
     scp $sshopts -rp \
         "$self_path" \
-        "${sshlogin}:/home/$username/work/zap"
-    printf "{% set bootstrap_basepath= '%s' %}" "bootstrap_"
-    cat <<EOF > machine-config/bootstrap-basepath.sls
-    {% set bootstrap_basepath= "" %}
-    EOF
+        "${sshlogin}:$devop_target"
     
     echo "third part, install saltstack and run state.highstate"
-    ssh $sshopts ${sshlogin} "http_proxy=\"$http_proxy\"; export http_proxy; /home/$username/work/zap/bootstrap-machine/bootstrap-3-devop.sh --yes state.highstate"
+    ssh $sshopts ${sshlogin} "http_proxy=\"$http_proxy\"; export http_proxy; chown -r $devop_user:$devop_user $devop_target; $devop_target/bootstrap-machine/bootstrap-3-devop.sh --yes state.highstate"
 fi
