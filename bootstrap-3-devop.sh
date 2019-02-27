@@ -35,15 +35,16 @@ file_roots:
 
 grains:
   project_basepath: ##BASE##
- 
+
+id: $(hostname)
+
 EOF
 
-    echo -e "id: $(hostname)" >> "$run_path/minion"
 }
 
 
 salt_install() {
-    salt_major_version="2018.3"
+    salt_major_version="2019.2"
     os_release=$(lsb_release -r -s)
     os_codename=$(lsb_release -c -s)
     os_architecture=$(dpkg --print-architecture)
@@ -68,7 +69,7 @@ EOF
 
 # main
 cd /tmp
-if test "$1" = "--yes"; then usage; fi
+if test "$1" != "--yes"; then usage; fi
 shift
 if which cloud-init > /dev/null; then 
     # be sure that cloud-init has finished
