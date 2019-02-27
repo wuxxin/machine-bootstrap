@@ -260,7 +260,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "devop"; then
     sshopts="-o UserKnownHostsFile=$config_path/system.known_hosts"
     ssh $sshopts ${sshlogin} "mkdir -p $devop_target"
     scp $sshopts -rp \
-        "$self_path" \
+        "$(readlink -f $self_path/..)" \
         "${sshlogin}:$devop_target"
     
     echo "call bootstrap-3, install saltstack and run state.highstate"
