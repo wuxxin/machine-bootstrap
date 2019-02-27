@@ -108,7 +108,7 @@ if test "$command" = "execute"; then
         usage
     fi
     if test "$2" = ""; then
-        echo "ERROR: hostname must be set on commandline for safety reasons"
+        echo "ERROR: hostname must be set on commandline and match config entry for safety reasons"
         usage
     fi
     do_phase=$1
@@ -193,8 +193,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"
     fi
 
     echo "call bootstrap-0, wipe disks, install tools, create partitions write recovery"
-    args="$@"
-    ssh $sshopts "${sshlogin}" "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-0-recovery.sh $hostname \"$storage_ids\" --yes $args"
+    ssh $sshopts "${sshlogin}" "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-0-recovery.sh $hostname \"$storage_ids\" --yes $storage_opts"
     
     echo "reboot into recovery (FIXME: reboot -f)"
     ssh $sshopts "${sshlogin}" '{ sleep 1; reboot -f; } >/dev/null &' || true
