@@ -1,9 +1,12 @@
 # Usage
-+ $0 execute [all|plain|recovery|install|devop] hostname
-+ $0 test
-  
-## Stages
 
++ $0 test
+    + test the setup for mandatory files and settings, exits 0 if successful
+
++ $0 execute [all|plain|recovery|install|devop] <hostname>
+    + execute the requested stages of install on hostname
+
+Stage:
 + all:      executes recovery,install,devop 
 + plain:    executes recovery,install
 + recovery: execute step recovery (expects debianish live system)
@@ -11,17 +14,18 @@
 + devop:    execute step devop (expects installed and running base machine,
             will first try to connect to initrd and unlock storage)
 
-+ parameter hostname: must be the same as in config/hostname for safety reasons
+<hostname>  must be to the same value as in the config file config/hostname
+            as safety measure
 
 ## Configuration Directory
 
 + config path used: `dirname($0)/../machine-config`
     +  or overwritten with env var `BOOTSTRAP_MACHINE_CONFIG_DIR`
 
-+ mandatory config files:
++ mandatory config files (see `README.md` for detailed description):
     + File: `disk.passphrase.gpg`
     + File: `authorized_keys`
-    + Base Configuration File: `config`, see `README.md` for detailed description
+    + Base Configuration File: `config`
     
 + optional config files:
     + `netplan.yml` default created on step recovery install
