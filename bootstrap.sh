@@ -195,8 +195,8 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"
     echo "call bootstrap-0, wipe disks, install tools, create partitions write recovery"
     ssh $sshopts "${sshlogin}" "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-0-recovery.sh $hostname \"$storage_ids\" --yes $storage_opts"
     
-    echo "reboot into recovery (FIXME: reboot -f)"
-    ssh $sshopts "${sshlogin}" '{ sleep 1; reboot -f; } >/dev/null &' || true
+    echo "reboot into recovery"
+    ssh $sshopts "${sshlogin}" '{ sleep 1; reboot; } >/dev/null &' || true
     echo "sleep 10 seconds, for machine to stop responding to ssh"
     sleep 10
 fi
@@ -223,8 +223,19 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
     echo "call bootstrap-1, add luks and zfs, debootstrap system or restore from backup"
     echo -n "$diskphrase" | ssh $sshopts ${sshlogin} "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1-install.sh $hostname $firstuser \"$storage_ids\" --yes $@"
 
-    echo "reboot"
-    ssh $sshopts ${sshlogin} '{ sleep 1; reboot; } >/dev/null &' || true
+    echo "copy initrd and system ssh hostkeys from target"
+    printf "%s %s\n" "${sshlogin#*@}" "$(ssh $sshopts ${sshlogin} 'cat /etc/ssh/initrd_ssh_host_ed25519_key.pub')" > "$config_path/initrd.known_hosts"
+    printf "%s %s\n" "${sshlogin#*@}" "$(ssh $sshopts ${sshlogin} 'cat /etc/ssh/ssh_host_ed25519_key.pub')" > "$config_path/system.known_hosts"
+    printf "%s %s\n" "${sshlogin#*@}" "$(ssh $sshopts ${sshlogin} 'cat /etc/ssh/ssh_host_rsa_key.pub')" >> "$config_path/system.known_hosts"
+    ssh-keygen -H -f "$config_path/initrd.known_hosts"
+    ssh-keygen -H -f "$config_path/system.known_hosts"
+    for i in initrd system; do
+        old="$config_path/${i}.known_hosts.old"
+        if test -e "$old"; then rm $old; fi
+    done
+
+    echo "reboot into target system (FIXME: reboot -f because of mount/chroot/unmount)"
+    ssh $sshopts ${sshlogin} '{ sleep 1; reboot -f; } >/dev/null &' || true
     echo "sleep 10 seconds, for machine to stop responding to ssh"
     sleep 10
 fi
@@ -232,12 +243,10 @@ fi
 
 # STEP devop
 if test "$do_phase" = "all" -o "$do_phase" = "devop"; then
-    # phase initramfs luks open
+    # initramfs luks open
     waitfor_ssh "${sshlogin#*@}"
     echo "Step: devop"
-    ssh-keyscan -H "${sshlogin#*@}" | sed -r 's/.+(ssh-[^ ]+) (.+)$/\1 \2/g' | grep -q -F -f - "$config_path/initrd.known_hosts"
-    result=$?
-    if test "$result" = "0"; then
+    if (ssh-keyscan -H "${sshlogin#*@}" | sed -r 's/.+(ssh-[^ ]+) (.+)$/\1 \2/g' | grep -q -F -f - "$config_path/initrd.known_hosts") ; then
         echo "initrd is waiting for luksopen, sending passphrase"
         sshopts="-o UserKnownHostsFile=$config_path/initrd.known_hosts"
         echo -n "$diskphrase" | ssh $sshopts "${sshlogin}" \
