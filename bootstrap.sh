@@ -251,8 +251,8 @@ if test "$do_phase" = "all" -o "$do_phase" = "devop"; then
         sshopts="-o UserKnownHostsFile=$config_path/initrd.known_hosts"
         echo -n "$diskphrase" | ssh $sshopts "${sshlogin}" \
             'phrase=$(cat -); for s in /var/run/systemd/ask-password/sck.*; do echo -n "$phrase" | /lib/systemd/systemd-reply-password 1 $s; done'
-        echo "done sending passphrase, waiting 2 seconds for system startup to continue"
-        sleep 2
+        echo "done sending passphrase, waiting 6 seconds for system startup to continue"
+        sleep 6
         waitfor_ssh "${sshlogin#*@}"
     fi
     
@@ -264,5 +264,5 @@ if test "$do_phase" = "all" -o "$do_phase" = "devop"; then
         "${sshlogin}:$devop_target"
     
     echo "call bootstrap-3, install saltstack and run state.highstate"
-    ssh $sshopts ${sshlogin} "http_proxy=\"$http_proxy\"; export http_proxy; chown -r $devop_user:$devop_user $devop_target; $devop_target/bootstrap-machine/bootstrap-3-devop.sh --yes state.highstate"
+    ssh $sshopts ${sshlogin} "http_proxy=\"$http_proxy\"; export http_proxy; chown -R $devop_user:$devop_user $devop_target; chmod +x $devop_target/bootstrap-machine/bootstrap-3-devop.sh; $devop_target/bootstrap-machine/bootstrap-3-devop.sh --yes state.highstate"
 fi
