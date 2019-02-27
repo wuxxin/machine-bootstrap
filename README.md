@@ -1,13 +1,12 @@
 # bootstrap machine
 
 repository based ubuntu 18.04 liveimage shell installer
-with (luks) encrypted zfs storage and low IO/CPU
+with luks encrypted zfs storage and low IO/CPU
 continous incremental snapshot backups
 
 ## Features
 
-+ Ubuntu 18.04 (Bionic) 
-+ install via ssh, no console access needed
++ Ubuntu 18.04 (bionic) install via ssh
 + for one or two disks (will be setup as mirror if two)
 + fulldiskencryption with luks
 + root on luks encrypted zfs / zfs mirror pool
@@ -18,19 +17,20 @@ continous incremental snapshot backups
 + optional
     + hibernate compatible luks encrypted separate swap partition
     + partitions for ondisk zfs log (zil) and ondisk zfs cache (l2arc)
+    + continous encrypted incremental snapshot backup streams to thirdparty storage with zfs and restic
     + desaster recovery from backup storage to new machine
-    + continous incremental snapshot backups with zfs and restic
-    + devop installation with saltstack
-    + homesick (homeshick) integration
+    + devop tool states from salt-shared (eg. desktop )
+    + custom devop tool states
+    + git + git-crypt repository setup to store machine configuration inside a git repository and crypt all sensitive data with git-crypt
 
-installation is done in 4 steps:
+installation on target is done in 4 steps:
 
-+ 0 partition disk, recovery install to /boot
-+ 1 base installation running from the recovery image
-+ 2 chroot inside base installation to configure system
-+ 3 saltstack run on installed base system
++ 0 partition disk, recovery install to /boot, reboot into recovery
++ 1 base installation, create zpool, debootstrap, configure system
++ 2 chroot inside base installation, configure system, reboot into target
++ 3 saltstack run on installed target system
 
-## Usage
+## Preparation
 
 ### make a new project repository (eg. box)
 ```
@@ -146,17 +146,12 @@ echo $(printf 'storage_ids="'; for i in \
 
 ```
 
-### optional: homesick setup
+## Install System
 
 ```
-mkdir -p home home-subdirs
-
-dont name it dot, name it host-shortname
-```
-
-### bootstrap machine
-
-```
+# test if everything is ready to go, but dont execute the call
+./bootstrap-machine/bootstrap.sh test
+# if everything looks fine, run
 ./bootstrap-machine/bootstrap.sh execute all box.local
 git add .
 git commit -v -m "bootstrap run"
@@ -167,4 +162,11 @@ git commit -v -m "bootstrap run"
 ```
 git push -u origin master
 
+```
+
+## Usage and Maintenance
+
+### reboot into recovery from target system
+```
+grub-reboot recovery
 ```
