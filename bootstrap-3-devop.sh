@@ -3,7 +3,7 @@ set -eo pipefail
 set -x
 
 self_path=$(dirname "$(readlink -e "$0")")
-base_path=$(readlink -e "$self_path/../..")
+base_path=$(readlink -e "$self_path/..")
 run_path=$base_path/_run
 
 
@@ -13,8 +13,8 @@ minion_config() {
     run_path=$2
     echo "generating local minion config file"
     mkdir -p "$run_path"
-    cat | sed -re "s:##BASE##:$base_path:g" > "$run_path/minion" <<EOF
-root_dir: ##BASE##/_run
+    cat << EOF > "$run_path/minion"
+root_dir: $base_path/_run
 pidfile: salt-minion.pid
 pki_dir: pki
 cachedir: cache
@@ -26,15 +26,15 @@ fileserver_backend:
 - roots
 pillar_roots:
   base:
-  - ##BASE##/machine-config
+  - $base_path/machine-config
 
 file_roots:
   base:
-  - ##BASE##/salt/salt-shared
-  - ##BASE##/salt/custom
+  - $base_path/salt/salt-shared
+  - $base_path/salt/custom
 
 grains:
-  project_basepath: ##BASE##
+  project_basepath: $base_path
 
 id: $(hostname)
 
