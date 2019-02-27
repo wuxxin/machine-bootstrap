@@ -204,9 +204,9 @@ usermod -a -G adm,cdrom,dip,lpadmin,plugdev,sambashare,sudo "$firstuser"
 
 
 echo "ssh config, follow snapshot 2019-02-26 without ecsda https://infosec.mozilla.org/guidelines/openssh.html "
-# only use >= 3072-bit-long  moduli.
+# only use >= 3072-bit-long moduli
 awk '$5 >= 3071' /etc/ssh/moduli > /etc/ssh/moduli.tmp && mv /etc/ssh/moduli.tmp /etc/ssh/moduli
-# dont use ecdsa keys
+# do not use ecdsa keys
 for i in ssh_host_ecdsa_key ssh_host_ecdsa_key.pub; do
     if test -e /etc/ssh/$i; then rm /etc/ssh/$i; fi
 done
@@ -222,6 +222,7 @@ KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-grou
 Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
 
 MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-512,hmac-sha2-256,umac-128@openssh.com
+
 EOF
 
 

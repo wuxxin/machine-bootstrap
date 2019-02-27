@@ -337,8 +337,8 @@ if test "$option_restore_backup" = "yes"; then
 else
     echo "call bootstrap-2-chroot script in chroot"
     chroot /mnt /tmp/bootstrap-2-chroot-install.sh "$hostname" "$firstuser" --yes
+    echo "back in bootstrap-1-install"
 fi
-echo "back in bootstrap-1-install"
 
 echo "unmount all"
 for i in run sys proc dev boot/efi boot/efi2 boot; do
@@ -346,4 +346,5 @@ for i in run sys proc dev boot/efi boot/efi2 boot; do
 done
 
 sleep 1
+echo "export pool"
 zpool export rpool
