@@ -54,21 +54,17 @@ mkdir -p salt/custom _run
 cd salt
 git submodule add https://github.com/wuxxin/salt-shared.git
 cd ..
-cp salt/salt-shared/salt-top.example salt/custom/top.sls
-cat <<EOF >> salt/custom/top.sls
-  # any
-  '*':
-    - custom
-EOF
-touch salt/custom/custom.sls
-ln -s ../../bootstrap-machine/devop/bootstrap-pillar.sls \
-  machine-config/bootstrap.sls
 cat <<EOF > machine-config/top.sls
 base:
   '*':
     - custom
 EOF
-touch machine-config/custom.sls
+cp bootstrap-machine/devop/custom-pillar.sls machine-config/custom.sls
+ln -s ../../bootstrap-machine/devop/bootstrap-pillar.sls \
+  machine-config/bootstrap.sls
+cp bootstrap-machine/devop/top-state.sls salt/custom/top.sls
+touch salt/custom/custom.sls
+
 cat << EOF > .gitignore
 #
 _run/
