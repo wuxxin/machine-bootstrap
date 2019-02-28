@@ -9,10 +9,3 @@ stdin=temp, python_shell=True)|load_yaml %}
 
 {% import_text 'authorized_keys' as authorized_keys %}
 
-{#
-{% set machine_config= salt['cmd.run_stdout'](
-'cat '+ project_basepath+ '/machine-config/config'+ ' | '+ 
-'grep -v -e "^[[:space:]]*$" | grep -v "^#" | '+
-'sort | uniq | sed -r "s/([^=]+)=(.*)/\\1: \\2/g"',
-python_shell=True)|load_yaml %}
-#}
