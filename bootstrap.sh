@@ -91,6 +91,8 @@ diskpassphrase_file=$config_path/disk.passphrase.gpg
 authorized_keys_file=$config_path/authorized_keys
 netplan_file=$config_path/netplan.yml
 recovery_hostkeys_file=$config_path/recovery_hostkeys
+base_path=$(readlink -e "$self_path/..")
+base_name=$(basename "$base_path")
 
 # check requisites
 for i in nc ssh gpg scp; do 
@@ -143,7 +145,7 @@ if test "$diskphrase" = ""; then
 fi
 # make defaults
 if test -z "$devop_target"; then
-    devop_target="/home/$firstuser/$(basename $(readlink -e $self_path/..))"
+    devop_target="/home/$firstuser"
 fi
 if test -z "$devop_user"; then
     devop_user="$firstuser"
@@ -259,10 +261,8 @@ if test "$do_phase" = "all" -o "$do_phase" = "devop"; then
     echo "copy setup repository to target"
     sshopts="-o UserKnownHostsFile=$config_path/system.known_hosts"
     ssh $sshopts ${sshlogin} "mkdir -p $devop_target"
-    scp $sshopts -rp \
-        "$(readlink -f $self_path/..)" \
-        "${sshlogin}:$devop_target"
+    scp $sshopts -rp "$base_path" "${sshlogin}:$devop_target"
     
     echo "call bootstrap-3, install saltstack and run state.highstate"
-    ssh $sshopts ${sshlogin} "http_proxy=\"$http_proxy\"; export http_proxy; chown -R $devop_user:$devop_user $devop_target; chmod +x $devop_target/bootstrap-machine/bootstrap-3-devop.sh; $devop_target/bootstrap-machine/bootstrap-3-devop.sh --yes state.highstate"
+    ssh $sshopts ${sshlogin} "http_proxy=\"$http_proxy\"; export http_proxy; chown -R $devop_user:$devop_user $devop_target; chmod +x $devop_target/$base_name/bootstrap-machine/bootstrap-3-devop.sh; $devop_target/$base_name/bootstrap-machine/bootstrap-3-devop.sh --yes state.highstate"
 fi

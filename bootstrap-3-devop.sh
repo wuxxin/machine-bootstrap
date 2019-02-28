@@ -4,17 +4,16 @@ set -x
 
 self_path=$(dirname "$(readlink -e "$0")")
 base_path=$(readlink -e "$self_path/..")
-run_path=$base_path/_run
 
 
 minion_config() {
-    local run_path base_path
+    local base_path run_path
     base_path=$1
     run_path=$2
     echo "generating local minion config file"
     mkdir -p "$run_path"
     cat << EOF > "$run_path/minion"
-root_dir: $base_path/_run
+root_dir: $run_path
 pidfile: salt-minion.pid
 pki_dir: pki
 cachedir: cache
@@ -68,6 +67,7 @@ EOF
 
 
 # main
+run_path=$base_path/_run
 cd /tmp
 if test "$1" != "--yes"; then usage; fi
 shift

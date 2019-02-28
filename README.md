@@ -122,7 +122,7 @@ firstuser=$(id -u -n)
 # storage_opts="[--reuse] [--log yes|<logsizemb>]"
 # storage_opts="[--cache yes|<cachesizemb] [--swap yes|<swapsizemb>]" 
 # storage_opts default=""
-# devop_target="/home/$(id -u -n)/$(basename $(readlink -f .))"
+# devop_target="/home/$(id -u -n)"
 # devop_user="$(id -u -n)"
 EOF
 
