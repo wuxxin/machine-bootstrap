@@ -4,7 +4,7 @@
 {% set machine_config= salt['cmd.run_stdout'](
 'grep -v -e "^[[:space:]]*$" | grep -v "^#" | '+
 'sort | uniq | sed -r "s/([^=]+)=(.*)/\\1: \\2/g"',
-stdin=config, python_shell=True)|load_yaml %}
+stdin=temp, python_shell=True)|load_yaml %}
 {% set temp="" %}
 
 {% import_text 'authorized_keys' as authorized_keys %}
