@@ -210,7 +210,7 @@ awk '$5 >= 3071' /etc/ssh/moduli > /etc/ssh/moduli.tmp && mv /etc/ssh/moduli.tmp
 for i in ssh_host_ecdsa_key ssh_host_ecdsa_key.pub; do
     if test -e /etc/ssh/$i; then rm /etc/ssh/$i; fi
 done
-cat >> /etc/sshd_config <<EOF
+cat >> /etc/ssh/sshd_config <<EOF
 # Supported HostKey algorithms by order of preference.
 HostKey /etc/ssh/ssh_host_ed25519_key
 HostKey /etc/ssh/ssh_host_rsa_key
