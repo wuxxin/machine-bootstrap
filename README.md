@@ -64,7 +64,6 @@ ln -s ../../bootstrap-machine/devop/bootstrap-pillar.sls \
   machine-config/bootstrap.sls
 cp bootstrap-machine/devop/top-state.sls salt/custom/top.sls
 touch salt/custom/custom.sls
-
 cat << EOF > .gitignore
 #
 _run/

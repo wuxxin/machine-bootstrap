@@ -38,8 +38,9 @@ Stage:
     + add custom $config_path/netplan.yml
 + a Laptop with encrypted hibernation
     + storage_opts="--swap yes"
-+ a vm
++ a vm, overwriting previous storage
     + http_proxy="http://proxyip:port"
+    + storage_opts="--reuse"
 + a home-nas with 1(internal)+2(external) harddisks
     + storage_opts="--log yes --cache 4096"
       put log and cache on install disk[s], should be of type ssd,nvme,...
