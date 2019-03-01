@@ -47,7 +47,7 @@ salt_install() {
     os_release=$(lsb_release -r -s)
     os_codename=$(lsb_release -c -s)
     os_architecture=$(dpkg --print-architecture)
-    echo "installing saltstack"
+    echo "installing saltstack $salt_major_version"
     wget -O - "https://repo.saltstack.com/apt/ubuntu/${os_release}/${os_architecture}/${salt_major_version}/SALTSTACK-GPG-KEY.pub" | apt-key add -
     echo "deb http://repo.saltstack.com/apt/ubuntu/${os_release}/${os_architecture}/${salt_major_version} ${os_codename} main" > /etc/apt/sources.list.d/saltstack.list
     DEBIAN_FRONTEND=noninteractive apt-get update -y
