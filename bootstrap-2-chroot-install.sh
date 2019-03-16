@@ -73,6 +73,18 @@ arc_max_bytes=$(grep MemTotal /proc/meminfo | awk '{print $2*1024*25/100}')
 echo "use maximum of 25% of available memory for arc zfs_arc_max=$arc_max_bytes bytes"
 echo "options zfs zfs_arc_max=${arc_max_bytes}" >> /etc/modprobe.d/zfs.conf 
 
+echo "configure overlay fs options"
+mkdir -p /etc/modprobe.d
+cat > /etc/modprobe.d/overlay.conf << EOF
+options overlay redirect_dir=on
+options overlay xino_auto=on
+options overlay metacopy=off
+EOF
+mkdir -p /etc/modules-load.d
+cat > /etc/modules-load.d/overlay.conf << EOF
+overlay
+EOF
+
 
 # symlink /etc/mtab to /proc/self/mounts
 if test ! -e /etc/mtab; then ln -s /proc/self/mounts /etc/mtab; fi
@@ -138,7 +150,6 @@ ShowDelay=1
 # DeviceTimeout=5
 # DeviceScale=?
 EOF
-# vt.global_cursor_default=0
 
 echo "configure dracut"
 mkdir -p /etc/dracut.conf.d
@@ -149,8 +160,8 @@ omit_drivers+=" crc32c "
 omit_dracutmodules+=" ifcfg "
 $(test -e "/dev/mapper/luks-swap" && echo 'add_device+=" /dev/mapper/luks-swap"')
 add_dracutmodules+=" kernel-network-modules systemd-networkd sshd rescue"
-kernel_commandline=rd.debug 
-#rd.break=pre-shutdown rd.break=shutdown rd.shell
+kernel_commandline=
+#rd.debug rd.break=pre-shutdown rd.break=shutdown rd.shell
 EOF
 
 echo "add grub casper recovery entry"
@@ -185,8 +196,9 @@ echo "update installation"
 apt-get update --yes
 apt dist-upgrade --yes
 
+if systemd-detect-virt --vm; then flavor="virtual"; else flavor="generic"; fi
 echo "install kernel, loader, tools needed for boot and ubuntu-standard"
-packages="linux-image-generic cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl socat ca-certificates bzip2 tmux systemd-container zfsutils-linux haveged dracut dracut-network zfs-dracut openssh-server pm-utils wireless-tools plymouth-theme-ubuntu-gnome-logo ubuntu-standard"
+packages="linux-$flavor-hwe-18.04 linux-tools-generic-hwe-18.04 cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl socat ca-certificates bzip2 tmux systemd-container zfsutils-linux haveged dracut dracut-network zfs-dracut openssh-server pm-utils wireless-tools plymouth-theme-ubuntu-gnome-logo ubuntu-standard"
 apt-get install --yes $packages
 
 echo "create missing system groups"
