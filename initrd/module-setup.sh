@@ -53,8 +53,6 @@ install() {
     # fix plymouth config, should be in plymouth
     inst_simple /etc/plymouth/plymouthd.conf /etc/alternatives/text.plymouth /etc/alternatives/default.plymouth
 
-    # add socat to initrd, so we can pipe to ask-password socket
-    inst_simple /usr/bin/socat
     return 0
 }
 
