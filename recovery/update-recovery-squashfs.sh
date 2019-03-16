@@ -53,7 +53,7 @@ generate_recovery_squashfs() {
         no_ssh_genkeytypes="ssh_genkeytypes: []"
     fi
 
-    packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl socat ca-certificates bzip2 tmux systemd-container zfsutils-linux haveged debootstrap libc-bin"
+    packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates bzip2 tmux zfsutils-linux haveged debootstrap libc-bin"
     
     cat > "$cfgdir/user-data.cfg" <<EOF
 #cloud-config
