@@ -7,7 +7,7 @@ continous incremental snapshot backups
 ## Features
 
 + Ubuntu 18.04 (bionic) install via ssh
-+ for one or two disks (will be setup as mirror if two)
++ one or two disks (will be setup as mirror if two)
 + fulldiskencryption with luks
 + root on luks encrypted zfs / zfs mirror pool
 + legacy boot and efi compatible hybrid grub setup with grubenv support
@@ -15,7 +15,7 @@ continous incremental snapshot backups
     + unattended cloud-init boot via custom squashfs with ssh ready to login
     + update-recovery-squashfs.sh, recovery-mount/unmount/replace-mirror.sh scripts
 + optional
-    + hibernate compatible luks encrypted separate swap partition
+    + hibernate compatible luks encrypted swap partition
     + partitions for ondisk zfs log (zil) and ondisk zfs cache (l2arc)
     + continous encrypted incremental snapshot backup streams to thirdparty storage with zfs and restic
     + desaster recovery from backup storage to new machine
