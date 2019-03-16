@@ -5,7 +5,7 @@ set -eo pipefail
 
 usage() {
     cat <<USAGEEOF
-Usage: $0 hostname 'diskid+' --yes 
+Usage: $0 hostname 'diskid+' --yes
         [--reuse]
         [--log      yes|<logsizemb>]
         [--cache    yes|<cachesizemb]
@@ -14,15 +14,15 @@ Usage: $0 hostname 'diskid+' --yes
 
 this script will overwrite all existing data of all disks matching diskid+
 
---reuse 
+--reuse
     will clean first sectors of data from disks before re-partitioning
---log       yes|<logsizemb>         
+--log       yes|<logsizemb>
             # default=no, yes=1024
---cache     yes|<cachesizemb>       
+--cache     yes|<cachesizemb>
             # default=no, yes=59392
             # system will use (<cachesizemb>/58) M of RAM to hold L2ARC references
             # eg. 58GB on disk L2ARC uses 1GB of ARC space in memory
---swap      yes|<swapsizemb>        
+--swap      yes|<swapsizemb>
             # default=no, yes=1.25x RAM size
             # this enables encrypted hibernation
             # for "normal" swap use zfs swap (see bootstrap-1-install)
@@ -293,8 +293,6 @@ if loadfont /grub/font.pf2 ; then
 	terminal_output gfxterm
 fi
 
-set menu_color_normal=white/black
-set menu_color_highlight=black/light-gray
 set timeout=2
 
 insmod part_gpt
