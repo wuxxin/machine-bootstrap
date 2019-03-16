@@ -11,14 +11,15 @@ diskpassphrase_file=$config_path/disk.passphrase.gpg
 
 usage() {
     cat <<EOF
-Usage: $0 temporary|recovery|initrd|luksopen|system [\$@]
-
+Usage: $0 [--show-args] temporary|recovery|initrd|luksopen|system [\$@]
 ssh connect with different ssh_hostkeys used.
 
 ssh keys and config are taken from directory $config_path 
 
 luksopen uses the initrd host key for connection,
 and transfers the luks diskphrase keys to /lib/systemd/systemd-reply-password
+
+--show-args: only displays the parameters for connecting, , may be used for scp $(./bootstrap-machine/connect.sh --show-args system):/root/test.txt .
 
 EOF
     exit 1
@@ -45,6 +46,8 @@ waitfor_ssh() {
 
 
 # parse args
+showargs=false
+if test "$1" = "--show-args"; then showargs=true; shift; fi
 if [[ ! "$1" =~ ^(temporary|recovery|initrd|luksopen|system)$ ]]; then usage; fi
 hosttype="$1"
 shift 1
@@ -60,6 +63,11 @@ if test "$sshlogin" = ""; then
     exit 1
 fi
 
+if $showargs; then
+    if test "$hosttype" = "luksopen"; then hosttype="initrd"; fi
+    echo "-o UserKnownHostsFile=$config_path/${hosttype}.known_hosts ${sshlogin}"
+    exit 0
+fi
 if test "$hosttype" = "luksopen"; then
     sshopts="-o UserKnownHostsFile=$config_path/initrd.known_hosts"
     if test ! -e "$diskpassphrase_file"; then
