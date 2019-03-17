@@ -215,7 +215,7 @@ chown "$firstuser:$firstuser" -R "/home/$firstuser/."
 usermod -a -G adm,cdrom,dip,lpadmin,plugdev,sambashare,sudo "$firstuser"
 
 
-echo "ssh config, follow snapshot 2019-02-26 without ecsda https://infosec.mozilla.org/guidelines/openssh.html "
+echo "ssh config, 2019-02-26 snapshot (but without ecsda) of https://infosec.mozilla.org/guidelines/openssh.html "
 # only use >= 3072-bit-long moduli
 awk '$5 >= 3071' /etc/ssh/moduli > /etc/ssh/moduli.tmp && mv /etc/ssh/moduli.tmp /etc/ssh/moduli
 # do not use ecdsa keys

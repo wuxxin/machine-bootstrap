@@ -30,6 +30,15 @@ installation on target is done in 4 steps:
 + 2 chroot inside base installation, configure system, reboot into target
 + 3 saltstack run on installed target system
 
+example configurations:
+
++ a root server with one or two harddisks and static ip setup
+    + add custom `$config_path/netplan.yml`
++ a Laptop with encrypted hibernation: `storage_opts="--swap yes"`
++ a vm: `http_proxy="http://proxyip:port"`
++ a home-nas with 1(internal:type ssd)+2(external:type spindle) harddisks
+    + `storage_opts="--log yes --cache 4096"`
+
 ## Preparation
 
 ### make a new project repository (eg. box)

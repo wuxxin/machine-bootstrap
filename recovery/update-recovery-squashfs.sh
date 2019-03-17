@@ -17,7 +17,7 @@ Usage:  $0 --host [<hostname>]
     netplan_file: if exists from /etc/recovery/netplan.yml or from /etc/netplan/*
     hostkeys_file: from /etc/recovery/recovery_hostkeys
     authorized_keys_file: from /root/.ssh/authorized_keys
-    scriptdir/*.sh: from  /etc/recovery (to initrd:/sbin/)
+    scriptdir/*.sh: from  /etc/recovery (to recovery:/sbin/)
     autologin: "yes" if exists /etc/recovery/feature.autologin
     http_proxy from default env
 
@@ -116,7 +116,7 @@ EOF
     
     echo "create squashfs"
     cd $basedir
-    mksquashfs . $destfile
+    mksquashfs . "$destfile"
     cd /
 }
 
@@ -146,7 +146,7 @@ else
     autologin=$8
     http_proxy="$9"
     for i in $netplan_file $hostkeys_file $authorized_keys_file; do
-        if test ! -e $i; then 
+        if test ! -e "$i"; then
             echo "Error: file $i not found"
             usage
         fi
@@ -154,7 +154,7 @@ else
     if test "$hostid_file" = "-"; then
         hostid_data="-"
     elif test -e "$hostid_file"; then 
-        hostid_data=$(cat $hostid_file)
+        hostid_data=$(cat "$hostid_file")
     else
         echo "Error: file $hostid_file not found"
         usage
@@ -163,9 +163,9 @@ else
     netplan_data=$(cat $netplan_file)
     hostkeys_data=$(cat "$hostkeys_file")
     authorized_keys_data=$(cat "$authorized_keys_file")
-    if test -e $destfile; then
+    if test -e "$destfile"; then
         echo "Warning: destination file already exists, renaming to ${destfile}.old"
-        mv $destfile ${destfile}.old
+        mv "$destfile" "${destfile}.old"
     fi
     generate_recovery_squashfs "$destfile" "$hostname" "$hostid_data" "$netplan_data" \
     "$hostkeys_data" "$authorized_keys_data" "$scriptdir" "$autologin" "$http_proxy"

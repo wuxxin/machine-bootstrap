@@ -23,7 +23,38 @@ EOF
 
 
 usage() {
-    cat "$self_path/bootstrap.md"
+    cat << EOF
+# Usage
+
++ $0 execute [all|plain|recovery|install|devop] <hostname> [bootstrap-1 parameter]
+    + execute the requested stages of install on hostname
++ $0 test
+    + test the setup for mandatory files and settings, exits 0 if successful
+
++ Stage
+  + all:      executes recovery,install,devop
+  + plain:    executes recovery,install
+  + recovery: execute step recovery (expects debianish live system)
+  + install:  execute step install (expects running recovery image)
+  + devop:    execute step devop (expects installed and running base machine,
+              will first try to connect to initrd and unlock storage)
+<hostname>    must be to the same value as in the config file config/hostname
+              as safety measure
+
+## Configuration Directory
+
++ config path used: `dirname($0)/../machine-config`
+    +  or overwritten with env var `BOOTSTRAP_MACHINE_CONFIG_DIR`
++ mandatory config files (see `README.md` for detailed description):
+    + File: `disk.passphrase.gpg`
+    + File: `authorized_keys`
+    + Base Configuration File: `config`
++ optional config files:
+    + `netplan.yml` default created on step recovery install
+    + `recovery_hostkeys` created automatically on step recovery install
+    + `[temporary|recovery|initrd|system].known_hosts`: created on the fly
+
+EOF
     exit 1
 }
 
@@ -219,6 +250,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
         "${sshlogin}:/tmp"
     scp $sshopts -rp \
         "$self_path/recovery" \
+        "$self_path/zfs" \
         "$self_path/initrd" \
         "${sshlogin}:/tmp"
 
