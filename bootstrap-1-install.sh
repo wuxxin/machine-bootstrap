@@ -5,7 +5,13 @@ set -x
 
 usage() {
     cat <<EOF
-Usage: cat diskkey | $0 hostname firstuser disklist --yes [--restore-from-backup]
+Usage: cat diskkey | $0 hostname firstuser disklist --yes [optional args]
+
+optional args:
+--frankenstein
+    backport and patch zfs-linux with no-d-revalidate.patch
+--restore-from-backup
+    partition+ format system, restore from backup, modify system
 
 "http_proxy" environment variable:
     the environment variable "http_proxy" will be used if set
@@ -30,7 +36,7 @@ create_zpool() {
         -O relatime=on \
         -O canmount=off \
         -R /mnt \
-        rpool $@
+        rpool "$@"
 
     # rpool/ROOT/ubuntu
     zfs create  -o canmount=off \
@@ -110,6 +116,7 @@ create_zpool() {
 
 }
 
+
 create_zpool_swap()
 {
     swapsize="$1"
@@ -132,7 +139,19 @@ create_zpool_swap()
 }
 
 
-# main
+# ### main
+
+# partition paths by label and partlabel
+EFI=/dev/disk/by-partlabel/EFI
+BOOT=/dev/disk/by-label/boot
+LUKSROOT=/dev/disk/by-partlabel/LUKSROOT
+LUKSSWAP=/dev/disk/by-partlabel/LUKSSWAP
+DMROOT=/dev/disk/by-id/dm-name-luks-root
+MDADM_BOOT_ARRAY="${BOOT}1 ${BOOT}2"
+MDADM_SWAP_ARRAY="${LUKSSWAP}1 ${LUKSSWAP}2"
+
+
+# parse args
 if test "$4" != "--yes"; then usage; fi
 hostname=$1
 if test "$hostname" = "${hostname%%.*}"; then
@@ -152,25 +171,19 @@ if test "$diskpassword" = ""; then
     echo "ERROR: script needs diskpassword from stdin, abort"
     exit 1
 fi
-if test "$1" = "--restore-from-backup"; then
-    option_restore_backup="yes"
-    shift
-fi
-if test "$http_proxy" != ""; then
-    export http_proxy
-fi
+option_frankenstein=false
+option_restore_backup=false
+if test "$1" = "--frankenstein"; then option_frankenstein=true; shift; fi
+if test "$1" = "--restore-from-backup"; then option_restore_backup=true; shift; fi
 
-# partition paths by label and partlabel
-EFI=/dev/disk/by-partlabel/EFI
-BOOT=/dev/disk/by-label/boot
-LUKSROOT=/dev/disk/by-partlabel/LUKSROOT
-LUKSSWAP=/dev/disk/by-partlabel/LUKSSWAP
-DMROOT=/dev/disk/by-id/dm-name-luks-root
-MDADM_BOOT_ARRAY="${BOOT}1 ${BOOT}2"
-MDADM_SWAP_ARRAY="${LUKSSWAP}1 ${LUKSSWAP}2"
+# if http_proxy is set, reexport for sub-processes
+if test "$http_proxy" != ""; then export http_proxy; fi
 
+# show important settings to user
 echo "hostname: $hostname, firstuser: $firstuser, fulldisklist=$fulldisklist, http_proxy: $http_proxy"
 
+
+# ## execution
 if which cloud-init > /dev/null; then
     echo -n "waiting for cloud-init finish..."
     cloud-init status --wait
@@ -182,13 +195,37 @@ domainname="${hostname#*.}"
 intip="127.0.1.1"
 intip_re="127\.0\.1\.1"
 if ! grep -E -q "^${intip_re}[[:space:]]+${hostname}[[:space:]]+${shortname}" /etc/hosts; then
-    grep -q "^${intip_re}" /etc/hosts && \
-    sed --in-place=.bak -r "s/^(${intip_re}[ \t]+).*/\1${hostname} ${shortname}/" /etc/hosts || \
-    sed --in-place=.bak -r "$ a${intip} ${hostname} ${shortname}" /etc/hosts
+    if grep -q "^${intip_re}" /etc/hosts; then
+        sed -i -r "s/^(${intip_re}[ \t]+).*/\1${hostname} ${shortname}/" /etc/hosts
+    else
+        sed -i -r "$ a${intip} ${hostname} ${shortname}\n" /etc/hosts
+    fi
 fi
-hostnamectl set-hostname $shortname
+hostnamectl set-hostname "$shortname"
 
-echo "install needed packages, should be a noop, because cloud-init should have installed them already"
+# compile custom zfs-linux if requested
+if $option_frankenstein; then
+    echo "selected frankenstein option"
+    if test ! -e /tmp/zfs/build-custom-zfs.sh -o ! -e /tmp/zfs/no-dops-snapdirs.patch; then
+        echo "error: could not find needed files for frankenstein zfs-linux build, continue without custom build"
+    else
+        echo "build-custom-zfs"
+        chmod +x /tmp/zfs/build-custom-zfs.sh
+        /tmp/zfs/build-custom-zfs.sh /tmp/zfs/basedir
+        if test -e /usr/local/lib/custom-apt-archive; then
+            rm -rf /usr/local/lib/custom-apt-archive
+        fi
+        mkdir -p /usr/local/lib/custom-apt-archive
+        mv -t /usr/local/lib/custom-apt-archive /tmp/zfs/basedir/zfsbuild/buildresult/*
+        rm -rf /tmp/zfs/basedir
+        cat > /etc/apt/sources.list.d/local-apt-archive.list << EOF
+deb file:/usr/local/lib/custom-apt-archive ./
+EOF
+        DEBIAN_FRONTEND=noninteractive apt-get update --yes
+    fi
+fi
+
+echo "install needed packages"
 packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates bzip2 tmux zfsutils-linux haveged debootstrap libc-bin"
 DEBIAN_FRONTEND=noninteractive apt-get install --yes $packages
 
@@ -256,10 +293,10 @@ else
     mount ${EFI}2 /mnt/boot/efi2
 fi
 
-if test "$option_restore_backup" = "yes"; then
-    echo "call backup-restore-1-install"
-    chmod +x /tmp/backup-restore-1-install.sh
-    /tmp/backup-restore-1-install.sh "$hostname" "$firstuser" --yes && err=$? || err=$?
+if $option_restore_backup; then
+    echo "call bootstrap-1-restore"
+    chmod +x /tmp/bootstrap-1-restore.sh
+    /tmp/bootstrap-1-restore.sh "$hostname" "$firstuser" --yes && err=$? || err=$?
     if test "$err" != "0"; then
         echo "Backup - Restore Error $err"
         exit $err
@@ -278,23 +315,29 @@ for i in volatile/base-tmp volatile/var-tmp volatile/var-cache volatile/var-lib-
     zfs set mountpoint=legacy rpool/$i
 done
 mkdir -p /mnt/etc/recovery
-cat > /mnt/etc/recovery/legacy.fstab <<EOF
+
+if test -e /mnt/etc/recovery/legacy.fstab -a "$option_restore_backup" = "true"; then
+    echo "WARNING: --restore-from-backup: not overwriting /etc/recovery/legacy.fstab"
+else
+    cat > /mnt/etc/recovery/legacy.fstab <<EOF
 rpool/volatile/base-tmp     /tmp        zfs  nodev,relatime,xattr,posixacl          0 0
 rpool/volatile/var-tmp      /var/tmp    zfs  nodev,relatime,xattr,posixacl          0 0
 rpool/volatile/var-cache    /var/cache  zfs  nodev,noexec,relatime,xattr,posixacl   0 0
 rpool/log                   /var/log    zfs  nodev,noexec,relatime,xattr,posixacl   0 0
 rpool/volatile/var-lib-apt-lists  /var/lib/apt/lists  zfs nodev,noexec,relatime,xattr,posixacl  0 0
 EOF
+fi
 cat /mnt/etc/recovery/legacy.fstab | \
     sed -r "s/^([^ ]+)( +)([^ ]+)( +)(.+)/\1\2\/mnt\3\4\5/g" > /tmp/legacy.fstab
 mount -a -T /tmp/legacy.fstab
 
-echo "copy hostid (/etc/hostid)"
+echo "copy/overwrite hostid (/etc/hostid)"
 cp -a /etc/hostid /mnt/etc/hostid
 
 echo "copy authorized_keys"
 install -m "0700" -d /mnt/root/.ssh
 if test -e /mnt/root/.ssh/authorized_keys; then
+    echo "WARNING: target /root/.ssh/authorized_keys exists, renaming to old"
     mv /mnt/root/.ssh/authorized_keys /mnt/root/.ssh/authorized_keys.old
 fi
 cp /tmp/authorized_keys /mnt/root/.ssh/authorized_keys
@@ -302,6 +345,7 @@ chmod "0600" /mnt/root/.ssh/authorized_keys
 
 echo "copy network config"
 if test -e /mnt/etc/netplan/80-lan.yaml; then
+    echo "WARNING: target /etc/netplan/80-lan.yml exists, renaming to old"
     mv /mnt/etc/netplan/80-lan.yaml /mnt/etc/netplan/80-lan.yaml.old
 fi
 cp -a /tmp/netplan.yaml /mnt/etc/netplan/80-lan.yaml
@@ -321,21 +365,21 @@ for i in dev proc sys run; do
     mount --rbind /$i /mnt/$i
 done
 
-if test "$option_restore_backup" = "yes"; then
-    echo "call bootstrap-2-chroot script in chroot with --restore-from-backup"
+if $option_restore_backup; then
+    echo "call bootstrap-2-chroot-install in chroot with --restore-from-backup"
     chroot /mnt /tmp/bootstrap-2-chroot-install.sh "$hostname" "$firstuser" --yes --restore-from-backup
     echo "back in bootstrap-1-install"
-    echo "call /tmp/backup-restore-2-chroot-install.sh"
-    cp -a /tmp/backup-restore-2-chroot-install.sh /mnt/tmp
-    chmod +x /mnt/tmp/backup-restore-2-chroot-install.sh
-    chroot /mnt /tmp/backup-restore-2-chroot-install.sh "$hostname" "$firstuser" --yes && err=$? || err=$?
+    echo "call bootstrap-2-chroot-restore"
+    cp -a /tmp/bootstrap-2-chroot-restore.sh /mnt/tmp
+    chmod +x /mnt/tmp/bootstrap-2-chroot-restore.sh
+    chroot /mnt /tmp/bootstrap-2-chroot-restore.sh "$hostname" "$firstuser" --yes && err=$? || err=$?
     echo "back in bootstrap-1-install"
     if test "$err" != "0"; then
         echo "Backup - Restore Error $err"
         exit $err
     fi
 else
-    echo "call bootstrap-2-chroot script in chroot"
+    echo "call bootstrap-2-chroot in chroot"
     chroot /mnt /tmp/bootstrap-2-chroot-install.sh "$hostname" "$firstuser" --yes
     echo "back in bootstrap-1-install"
 fi
