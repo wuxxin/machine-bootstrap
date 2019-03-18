@@ -26,20 +26,21 @@ usage() {
     cat << EOF
 # Usage
 
-+ $0 execute [all|plain|recovery|install|devop] <hostname> [bootstrap-1 parameter]
++ $0 execute [all|plain|recovery|install|devop] <hostname> [--restore-from-backup]
     + execute the requested stages of install on hostname
 + $0 test
     + test the setup for mandatory files and settings, exits 0 if successful
 
 + Stage
-  + all:      executes recovery,install,devop
-  + plain:    executes recovery,install
-  + recovery: execute step recovery (expects debianish live system)
-  + install:  execute step install (expects running recovery image)
-  + devop:    execute step devop (expects installed and running base machine,
-              will first try to connect to initrd and unlock storage)
-<hostname>    must be to the same value as in the config file config/hostname
-              as safety measure
+  + all:        executes recovery,install,devop
+  + plain:      executes recovery,install
+  + recovery:   execute step recovery (expects debianish live system)
+  + install:    execute step install (expects running recovery image)
+  + devop:      execute step devop (expects installed and running base machine,
+                will first try to connect to initrd and unlock storage)
+<hostname>      must be the same value as in the config file config/hostname
+--restore-from-backup
+                partition & format system, then restore from backup
 
 ## Configuration Directory
 
@@ -150,11 +151,11 @@ if test "$command" = "execute"; then
 fi
 
 # parse config file
-if test ! -e $config_file; then
+if test ! -e "$config_file"; then
     echo "ERROR: configfile $config_file does not exist"
     usage
 fi
-. $config_file
+. "$config_file"
 # check for mandatory settings
 for i in sshlogin hostname firstuser storage_ids; do
     if test "${!i}" = ""; then
@@ -175,14 +176,17 @@ if test "$diskphrase" = ""; then
     exit 1
 fi
 # make defaults
-if test -z "$devop_target"; then
-    devop_target="/home/$firstuser"
-fi
-if test -z "$devop_user"; then
-    devop_user="$firstuser"
+if test -z "$devop_target"; then devop_target="/home/$firstuser"; fi
+if test -z "$devop_user"; then devop_user="$firstuser"; fi
+if test "$frankenstein" = "" -o "$frankenstein" = "true"; then
+    frankenstein=true
+    select_frankenstein="--frankenstein"
+else
+    frankenstein=false
+    select_frankenstein=""
 fi
 
-
+# all set, exit if only test was requested
 if test "$command" = "test"; then exit 0; fi
 
 # execute
@@ -190,17 +194,17 @@ if test "$hostname" != "$safety_hostname"; then
     echo "ERROR: hostname on commandline ($safety_hostname) does not match hostname from configfile ($hostname)"
     exit 1
 fi
-if test -e $recovery_hostkeys_file; then
-    recovery_hostkeys=$(cat $recovery_hostkeys_file)
+if test -e "$recovery_hostkeys_file"; then
+    recovery_hostkeys=$(cat "$recovery_hostkeys_file")
 else
     generate_recovery_hostkeys
-    echo "$recovery_hostkeys" > $recovery_hostkeys_file
+    echo "$recovery_hostkeys" > "$recovery_hostkeys_file"
 fi
-if test -e $netplan_file; then
-    netplan_data=$(cat $netplan_file)
+if test -e "$netplan_file"; then
+    netplan_data=$(cat "$netplan_file")
 else
     netplan_data="$DEFAULT_netplan_data"
-    echo "$netplan_data" > $netplan_file
+    echo "$netplan_data" > "$netplan_file"
 fi
 
 
@@ -244,8 +248,11 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
     scp $sshopts "$authorized_keys_file" "${sshlogin}:/tmp/authorized_keys"
     echo "$netplan_data" | ssh $sshopts ${sshlogin} "cat - > /tmp/netplan.yaml"
     scp $sshopts "$config_path/recovery_hostkeys" "${sshlogin}:/tmp/recovery_hostkeys"
-    scp $sshopts "$self_path/bootstrap-1-install.sh" \
+    scp $sshopts \
+        "$self_path/bootstrap-1-install.sh" \
+        "$self_path/bootstrap-1-restore.sh" \
         "$self_path/bootstrap-2-chroot-install.sh" \
+        "$self_path/bootstrap-2-chroot-restore.sh" \
         "$config_path/recovery_hostkeys" \
         "${sshlogin}:/tmp"
     scp $sshopts -rp \
@@ -255,7 +262,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
         "${sshlogin}:/tmp"
 
     echo "call bootstrap-1, add luks and zfs, debootstrap system or restore from backup"
-    echo -n "$diskphrase" | ssh $sshopts ${sshlogin} "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1-install.sh $hostname $firstuser \"$storage_ids\" --yes $@"
+    echo -n "$diskphrase" | ssh $sshopts ${sshlogin} "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1-install.sh $hostname $firstuser \"$storage_ids\" --yes $select_frankenstein $@"
 
     echo "copy initrd and system ssh hostkeys from target"
     printf "%s %s\n" "${sshlogin#*@}" "$(ssh $sshopts ${sshlogin} 'cat /etc/ssh/initrd_ssh_host_ed25519_key.pub')" > "$config_path/initrd.known_hosts"
@@ -265,7 +272,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
     ssh-keygen -H -f "$config_path/system.known_hosts"
     for i in initrd system; do
         old="$config_path/${i}.known_hosts.old"
-        if test -e "$old"; then rm $old; fi
+        if test -e "$old"; then rm "$old"; fi
     done
 
     echo "reboot into target system (FIXME: reboot -f because of mount/chroot/unmount)"
