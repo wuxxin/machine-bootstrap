@@ -27,9 +27,8 @@ for i in pull-lp-source cowbuilder backportpackage quilt debchange apt-ftparchiv
     if ! which $i > /dev/null; then need_install=true; break; fi
 done
 if $need_install; then
-    export DEBIAN_FRONTEND=noninteractive
-    apt-get update
-    apt-get install cowbuilder ubuntu-dev-tools
+    DEBIAN_FRONTEND=noninteractive apt-get update --yes
+    DEBIAN_FRONTEND=noninteractive apt-get install --yes cowbuilder ubuntu-dev-tools
 fi
 if ! grep -q "disco" /usr/share/distro-info/ubuntu.csv; then
     echo "19.04,Disco Dingo,disco,2018-10-18,2019-04-18,2020-01-18" >> /usr/share/distro-info/ubuntu.csv
