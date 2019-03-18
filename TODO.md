@@ -45,16 +45,16 @@ Mär 01 00:03:22 box systemd[1]: systemd-cryptsetup@luks\x2droot.service: Failed
     + keep EFI synced
 + FIXME: reboot only working with force after recovery-unmount.sh and bootstrap-2-chroot 
 
-+ FEATURE: write logs of recovery,install,chroot,devop phase to /var/log/bootstrap-phase.log except recovery which writes to /boot/casper/bootstrap-recovery.log
-+ FEATURE: print error before exit if download of recovery image fails
-+ FEATURE: make replacement update-initramfs that mimics initramfs but calls dracut
-+ FEATURE: add script to replace a changed faulty disk: recovery-replace-mirror.sh
-+ FEATURE: add script to deactivate (invalidate) one of two disks: storage-invalidate-mirror.sh
-+ FEATURE: make script bootstrap-1-restore and bootstrap-2-chroot-restore
-+ FEATURE: recovery image: 18.04.02 is released, but ubuntu 18.04.02 live-server image does not work as 18.04.1
++ write logs of recovery,install,chroot,devop phase to /var/log/bootstrap-phase.log except recovery which writes to /boot/casper/bootstrap-recovery.log
++ print error before exit if download of recovery image fails
++ make replacement update-initramfs that mimics initramfs but calls dracut
++ add script to replace a changed faulty disk: recovery-replace-mirror.sh
++ add script to deactivate (invalidate) one of two disks: storage-invalidate-mirror.sh
++ make script bootstrap-1-restore and bootstrap-2-chroot-restore
++ recovery image: 18.04.02 is released, but ubuntu 18.04.02 live-server image does not work as 18.04.1
     + cloud-init error: running module set-passwords failed
     + other errors (systemd services failed), ssh not working
-+ OPTIONAL FEATURE: use tmux for long running ssh connections of bootstrap.sh
++ OPTIONAL: use tmux for long running ssh connections of bootstrap.sh
 
 ### devop stage
 + install and configure zfs auto snapshot and ZFS Scrubbing
@@ -63,4 +63,5 @@ Mär 01 00:03:22 box systemd[1]: systemd-cryptsetup@luks\x2droot.service: Failed
     + configure evolution to use caldav, carddav
 + make backup working
 + make optional homesick configure if ./home exists (symlink to ~/.homesick/repos/$hostname)
++ think how to backport gnome 3.32 to bionic
 + make repository data only available under a different group (not normally readable by user) and allow homeshick and others using a special command to operate on this file
