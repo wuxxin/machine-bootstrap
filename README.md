@@ -6,27 +6,26 @@ continous incremental snapshot backups
 
 ## Features
 
-+ Ubuntu 18.04 (bionic) install via ssh
++ unattended ssh install of Ubuntu 18.04 (bionic)
 + one or two disks (will be setup as mirror if two)
-+ fulldiskencryption with luks
 + root on luks encrypted zfs / zfs mirror pool
 + legacy boot and efi compatible hybrid grub setup with grubenv support
 + casper based recovery installation on boot partition
     + unattended cloud-init boot via custom squashfs with ssh ready to login
-    + update-recovery-squashfs.sh, recovery-mount/unmount/replace-mirror.sh scripts
+    + build in utility scripts to mount, unmount root and replace faulty disk
 + optional
-    + hibernate compatible luks encrypted swap partition
+    + luks encrypted hibernate compatible swap
+    + patched zfs-linux for overlay fs support on zfs (frankenstein=true)
     + partitions for ondisk zfs log (zil) and ondisk zfs cache (l2arc)
-    + continous encrypted incremental snapshot backup streams to thirdparty storage with zfs and restic
+    + autorotating encrypted incremental snapshot backup to thirdparty storage with zfs and restic
     + desaster recovery from backup storage to new machine
-    + devop tool states from salt-shared (eg. desktop )
-    + custom devop tool states
-    + git + git-crypt repository setup to store machine configuration inside a git repository and crypt all sensitive data with git-crypt
+    + saltstack run at devop phase with states from salt-shared (eg. desktop)
+    + git & git-crypt repository setup to store machine configuration inside a git repository and encrypt all sensitive data with git-crypt
 
 installation on target is done in 4 steps:
 
 + 0 partition disk, recovery install to /boot, reboot into recovery
-+ 1 base installation, create zpool, debootstrap, configure system
++ 1 base installation, frankenstein, create zpool, debootstrap, configure system
 + 2 chroot inside base installation, configure system, reboot into target
 + 3 saltstack run on installed target system
 
@@ -34,7 +33,7 @@ example configurations:
 
 + a root server with one or two harddisks and static ip setup
     + add custom `$config_path/netplan.yml`
-+ a Laptop with encrypted hibernation: `storage_opts="--swap yes"`
++ a laptop with encrypted hibernation: `storage_opts="--swap yes"`
 + a vm: `http_proxy="http://proxyip:port"`
 + a home-nas with 1(internal:type ssd)+2(external:type spindle) harddisks
     + `storage_opts="--log yes --cache 4096"`
@@ -126,6 +125,7 @@ firstuser=$(id -u -n)
 # storage_opts="[--reuse] [--log yes|<logsizemb>]"
 # storage_opts="[--cache yes|<cachesizemb] [--swap yes|<swapsizemb>]" 
 # storage_opts default=""
+# frankenstein="false" # default = "true"
 # devop_target="/home/$(id -u -n)"
 # devop_user="$(id -u -n)"
 EOF
