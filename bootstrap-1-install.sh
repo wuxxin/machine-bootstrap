@@ -184,6 +184,7 @@ echo "hostname: $hostname, firstuser: $firstuser, fulldisklist=$fulldisklist, ht
 
 
 # ## execution
+cd /tmp
 if which cloud-init > /dev/null; then
     echo -n "waiting for cloud-init finish..."
     cloud-init status --wait
@@ -219,7 +220,7 @@ if $option_frankenstein; then
         mv -t /usr/local/lib/custom-apt-archive /tmp/zfs/basedir/zfsbuild/buildresult/*
         rm -rf /tmp/zfs/basedir
         cat > /etc/apt/sources.list.d/local-apt-archive.list << EOF
-deb file:/usr/local/lib/custom-apt-archive ./
+deb [ trusted=yes ] file:/usr/local/lib/custom-apt-archive ./
 EOF
         DEBIAN_FRONTEND=noninteractive apt-get update --yes
     fi
