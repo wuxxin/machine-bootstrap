@@ -2,7 +2,15 @@
 set -eo pipefail
 set -x
 
-if test "$3" != "--yes"; then
+restore_not_overwrite() {
+    test -e "$1" -a "$option_restore_backup" = "true"
+}
+
+restore_warning() {
+    echo "WARNING: --restore-from-backup: $@"
+}
+
+usage() {
     cat <<EOF
 Usage: $0 hostname firstuser --yes [--restore-from-backup]
 
@@ -11,10 +19,19 @@ Usage: $0 hostname firstuser --yes [--restore-from-backup]
     and must follow the format "http://1.2.3.4:1234"
 EOF
     exit 1
-fi
+}
+
+
+# parse args
+if test "$3" != "--yes"; then usage; fi
 hostname=$1
 firstuser=$2
 shift 3
+option_restore_backup=false
+if test "$1" = "--restore-from-backup"; then
+    option_restore_backup=true
+    shift
+fi
 
 # partition paths by label and partlabel
 EFI=/dev/disk/by-partlabel/EFI
@@ -31,31 +48,42 @@ export LC_MESSAGES="POSIX"
 export LANG="en_US.UTF-8"
 export LC_ALL=$LANG
 export LANGUAGE="en_US:en"
-echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\nLC_MESSAGES=$LC_MESSAGES\n" > /etc/default/locale
-locale-gen $LANG
-echo "Etc/UTC" > /etc/timezone
-dpkg-reconfigure tzdata
-
+if $option_restore_backup; then
+    restore_warning "not setting default locale and timezone"
+else
+    echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\nLC_MESSAGES=$LC_MESSAGES\n" > /etc/default/locale
+    locale-gen $LANG
+    echo "Etc/UTC" > /etc/timezone
+    dpkg-reconfigure tzdata
+fi
 
 echo "configure hostname ($hostname)"
 shortname="${hostname%%.*}"
 domainname="${hostname#*.}"
+intip="127.0.1.1"
+intip_re="127\.0\.1\.1"
+if ! grep -E -q "^${intip_re}[[:space:]]+${hostname}[[:space:]]+${shortname}" /etc/hosts; then
+    if grep -q "^${intip_re}" /etc/hosts; then
+        sed -i -r "s/^(${intip_re}[ \t]+).*/\1${hostname} ${shortname}/" /etc/hosts
+    else
+        sed -i -r "$ a${intip} ${hostname} ${shortname}\n" /etc/hosts
+    fi
+fi
 echo "$shortname" > /etc/hostname
-echo "127.0.1.1     $hostname $shortname" >> /etc/hosts
-
 
 echo "configure apt"
-if test ! -e /etc/apt/sources.list; then
-    echo "rename existing source.list to sources.list.old"
-    mv /etc/apt/sources.list /etc/apt/sources.list.old
-fi
-cat > /etc/apt/sources.list <<"EOF"
+if restore_not_overwrite /etc/apt/sources.list; then
+    restore_warning "not overwriting /etc/apt/sources.list"
+else
+    cat > /etc/apt/sources.list <<"EOF"
 deb http://archive.ubuntu.com/ubuntu/ bionic main restricted universe multiverse
 deb http://security.ubuntu.com/ubuntu/ bionic-security main restricted universe multiverse
 deb http://archive.ubuntu.com/ubuntu/ bionic-updates main restricted universe multiverse
 EOF
-# workaround dracut initramfs-tools clashes
-# also, keep whoopsie and apport from the disk
+fi
+
+# workaround dracut initramfs-tools clashes and keep whoopsie, apport from the disk
+echo "pin whoopsie apport brltty initramfs-tools to unwanted"
 for i in whoopsie apport brltty initramfs-tools; do
     cat > /etc/apt/preferences.d/${i}-preference << EOF
 Package: $i
@@ -64,27 +92,31 @@ Pin-Priority: -1
 EOF
 done
 
-
 echo "configure zfs options"
 mkdir -p /etc/modprobe.d
-echo "use cfq i/o scheduler for cgroup i/o quota support"
-echo "options zfs zfs_vdev_scheduler=cfq" > /etc/modprobe.d/zfs.conf
-arc_max_bytes=$(grep MemTotal /proc/meminfo | awk '{print $2*1024*25/100}')
-echo "use maximum of 25% of available memory for arc zfs_arc_max=$arc_max_bytes bytes"
-echo "options zfs zfs_arc_max=${arc_max_bytes}" >> /etc/modprobe.d/zfs.conf 
-
-echo "configure overlay fs options"
-mkdir -p /etc/modprobe.d
-cat > /etc/modprobe.d/overlay.conf << EOF
+if restore_not_overwrite /etc/modprobe.d/zfs.conf; then
+    restore_warning "not overwriting /etc/modprobe.d/zfs.conf"
+else
+    echo "use cfq i/o scheduler for cgroup i/o quota support"
+    echo "options zfs zfs_vdev_scheduler=cfq" > /etc/modprobe.d/zfs.conf
+    arc_max_bytes=$(grep MemTotal /proc/meminfo | awk '{print $2*1024*25/100}')
+    echo "use maximum of 25% of available memory for arc zfs_arc_max=$arc_max_bytes bytes"
+    echo "options zfs zfs_arc_max=${arc_max_bytes}" >> /etc/modprobe.d/zfs.conf
+fi
+if restore_not_overwrite /etc/modprobe.d/overlay.conf; then
+    restore_warning "not overwriting /etc/modprobe.d/overlay.conf"
+else
+    echo "configure overlay fs options"
+    cat > /etc/modprobe.d/overlay.conf << EOF
 options overlay redirect_dir=on
 options overlay xino_auto=on
 options overlay metacopy=off
 EOF
-mkdir -p /etc/modules-load.d
-cat > /etc/modules-load.d/overlay.conf << EOF
+    mkdir -p /etc/modules-load.d
+    cat > /etc/modules-load.d/overlay.conf << EOF
 overlay
 EOF
-
+fi
 
 # symlink /etc/mtab to /proc/self/mounts
 if test ! -e /etc/mtab; then ln -s /proc/self/mounts /etc/mtab; fi
@@ -137,19 +169,27 @@ EOF
 fi
 
 echo "configure plymouth"
-cat > /usr/bin/plymouth-set-default-theme <<"EOF"
+if restore_not_overwrite /usr/bin/plymouth-set-default-theme; then
+    restore_warning "not overwriting /usr/bin/plymouth-set-default-theme"
+else
+    cat > /usr/bin/plymouth-set-default-theme <<"EOF"
 #!/bin/bash
 basename $(dirname $(readlink -f /usr/share/plymouth/themes/default.plymouth))
 EOF
-chmod +x /usr/bin/plymouth-set-default-theme
-mkdir -p /etc/plymouth
-cat > /etc/plymouth/plymouthd.conf << EOF
+    chmod +x /usr/bin/plymouth-set-default-theme
+fi
+if restore_not_overwrite /etc/plymouth/plymouthd.conf; then
+    restore_warning "not overwriting /etc/plymouth/plymouthd.conf"
+else
+    mkdir -p /etc/plymouth
+    cat > /etc/plymouth/plymouthd.conf << EOF
 [Daemon]
 Theme=ubuntu-gnome-logo
 ShowDelay=1
 # DeviceTimeout=5
 # DeviceScale=?
 EOF
+fi
 
 echo "configure dracut"
 mkdir -p /etc/dracut.conf.d
@@ -196,24 +236,31 @@ echo "update installation"
 apt-get update --yes
 apt dist-upgrade --yes
 
-if systemd-detect-virt --vm; then flavor="virtual"; else flavor="generic"; fi
-echo "install kernel, loader, tools needed for boot and ubuntu-standard"
-packages="linux-$flavor-hwe-18.04 linux-tools-generic-hwe-18.04 cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates bzip2 tmux zfsutils-linux haveged debootstrap libc-bin dracut dracut-network zfs-dracut openssh-server pm-utils wireless-tools plymouth-theme-ubuntu-gnome-logo ubuntu-standard"
-apt-get install --yes $packages
+if $option_restore_backup; then
+    restore_warning "not installing base packages"
+else
+    if systemd-detect-virt --vm; then flavor="virtual"; else flavor="generic"; fi
+    echo "install kernel, loader, tools needed for boot and ubuntu-standard"
+    packages="linux-$flavor-hwe-18.04 linux-tools-generic-hwe-18.04 cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates bzip2 tmux zfsutils-linux haveged debootstrap libc-bin dracut dracut-network zfs-dracut openssh-server pm-utils wireless-tools plymouth-theme-ubuntu-gnome-logo ubuntu-standard"
+    apt-get install --yes $packages
+fi
 
 echo "create missing system groups"
 getent group lpadmin > /dev/null || addgroup --system lpadmin
 getent group sambashare > /dev/null || addgroup --system sambashare
 
-echo "add first user"
-adduser --gecos "" --disabled-password "$firstuser"
-cp -a /etc/skel/.[!.]* "/home/$firstuser/"
-mkdir -p  "/home/$firstuser/.ssh"
-cp /root/.ssh/authorized_keys "/home/$firstuser/.ssh/authorized_keys"
-chmod 700 "/home/$firstuser/.ssh"
-chown "$firstuser:$firstuser" -R "/home/$firstuser/."
-usermod -a -G adm,cdrom,dip,lpadmin,plugdev,sambashare,sudo "$firstuser"
-
+if $option_restore_backup; then
+    restore_warning "not creating first user $firstuser"
+else
+    echo "add first user: $firstuer"
+    adduser --gecos "" --disabled-password "$firstuser"
+    cp -a /etc/skel/.[!.]* "/home/$firstuser/"
+    mkdir -p  "/home/$firstuser/.ssh"
+    cp /root/.ssh/authorized_keys "/home/$firstuser/.ssh/authorized_keys"
+    chmod 700 "/home/$firstuser/.ssh"
+    chown "$firstuser:$firstuser" -R "/home/$firstuser/."
+    usermod -a -G adm,cdrom,dip,lpadmin,plugdev,sambashare,sudo "$firstuser"
+fi
 
 echo "ssh config, 2019-02-26 snapshot (but without ecsda) of https://infosec.mozilla.org/guidelines/openssh.html "
 # only use >= 3072-bit-long moduli
@@ -243,14 +290,15 @@ echo "rewrite recovery squashfs"
 
 
 echo "setup dracut"
-echo "writing dracut /etc/ssh/initrd_ssh_host_ed25519_key[.pub]"
+echo "writing new dracut /etc/ssh/initrd_ssh_host_ed25519_key[.pub]"
 if test -e /etc/ssh/initrd_ssh_host_ed25519_key; then
+    echo "WARNING: removing old /etc/ssh/initrd_ssh_host_ed25519_key"
     rm /etc/ssh/initrd_ssh_host_ed25519_key
 fi
 mkdir -p /etc/ssh
 ssh-keygen -q -t ed25519 -N '' -f "/etc/ssh/initrd_ssh_host_ed25519_key"
-echo "fix /etc/dracut.conf.d/10-debian.conf (crc32 module)"
 if test -e /etc/dracut.conf.d/10-debian.conf; then
+    echo "fix /etc/dracut.conf.d/10-debian.conf (crc32 module)"
     rm /etc/dracut.conf.d/10-debian.conf
     touch /etc/dracut.conf.d/10-debian.conf
 fi
