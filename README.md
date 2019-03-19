@@ -1,26 +1,31 @@
 # bootstrap machine
 
-repository based ubuntu 18.04 liveimage shell installer
-with luks encrypted zfs storage and low IO/CPU
-continous incremental snapshot backups
+unattended ssh installer of Ubuntu 18.04 with luks encrypted zfs storage,
+suitable for executing from within a debianish liveimage/recoveryimage system via ssh.
+
+it is intended as a Desktop/Laptop or as a typical rootserver (2HD,headless)
+
+Additionaly, i really wanted to have a "cloud like" - little to no performance impact, encrypted, incremental, autorotating snapshot backup system, from and to redundant checksuming data storage on a single machine with the abbility to use common thirdparty storage for this backup. So far it is a very busy journey... https://xkcd.com/974/
 
 ## Features
 
 + unattended ssh install of Ubuntu 18.04 (bionic)
 + one or two disks (will be setup as mirror if two)
 + root on luks encrypted zfs / zfs mirror pool
-+ legacy boot and efi compatible hybrid grub setup with grubenv support
++ efi and legacy bios boot compatible hybrid grub setup with grubenv support
 + casper based recovery installation on boot partition
     + unattended cloud-init boot via custom squashfs with ssh ready to login
-    + build in utility scripts to mount, unmount root and replace faulty disk
+    + buildin scripts to mount/unmount root and update recovery boot parameter
 + optional
-    + luks encrypted hibernate compatible swap
+    + luks encrypted hibernate compatible swap for desktop installation
     + patched zfs-linux for overlay fs support on zfs (frankenstein=true)
     + partitions for ondisk zfs log (zil) and ondisk zfs cache (l2arc)
-    + autorotating encrypted incremental snapshot backup to thirdparty storage with zfs and restic
-    + desaster recovery from backup storage to new machine
     + saltstack run at devop phase with states from salt-shared (eg. desktop)
     + git & git-crypt repository setup to store machine configuration inside a git repository and encrypt all sensitive data with git-crypt
++ working on/planned
+    + autorotating encrypted incremental snapshot backup to thirdparty storage with zfs and restic
+    + desaster recovery from backup storage to new machine
+    + more recovery scripts to replace a faulty disk, to invalidate a disk
 
 installation on target is done in 4 steps:
 
