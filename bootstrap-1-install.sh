@@ -403,6 +403,12 @@ else
     echo "back in bootstrap-1-install"
 fi
 
+echo "copy initrd and system ssh host keys"
+mkdir -p /tmp/ssh_hostkeys
+for i in initrd_ssh_host_ed25519_key.pub ssh_host_ed25519_key.pub ssh_host_rsa_key.pub; do
+    cp /mnt/etc/ssh/$i /tmp/ssh_hostkeys
+done
+
 echo "unmount bind mounts"
 for i in run sys proc dev; do
     if mountpoint -q "/mnt/$i"; then umount -lf "/mnt/$i"; fi

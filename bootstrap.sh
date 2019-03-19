@@ -262,12 +262,12 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
         "${sshlogin}:/tmp"
 
     echo "call bootstrap-1, add luks and zfs, debootstrap system or restore from backup"
-    echo -n "$diskphrase" | ssh $sshopts ${sshlogin} "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1-install.sh $hostname $firstuser \"$storage_ids\" --yes $select_frankenstein $@"
+    echo -n "$diskphrase" | ssh $sshopts ${sshlogin} "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1-install.sh $hostname $firstuser \"$storage_ids\" --yes $select_frankenstein $@" 2>&1 | tee "$base_path/log/bootstrap-install.log"
 
     echo "copy initrd and system ssh hostkeys from target"
-    printf "%s %s\n" "${sshlogin#*@}" "$(ssh $sshopts ${sshlogin} 'cat /etc/ssh/initrd_ssh_host_ed25519_key.pub')" > "$config_path/initrd.known_hosts"
-    printf "%s %s\n" "${sshlogin#*@}" "$(ssh $sshopts ${sshlogin} 'cat /etc/ssh/ssh_host_ed25519_key.pub')" > "$config_path/system.known_hosts"
-    printf "%s %s\n" "${sshlogin#*@}" "$(ssh $sshopts ${sshlogin} 'cat /etc/ssh/ssh_host_rsa_key.pub')" >> "$config_path/system.known_hosts"
+    printf "%s %s\n" "${sshlogin#*@}" "$(ssh $sshopts ${sshlogin} 'cat /tmp/ssh_hostkeys/initrd_ssh_host_ed25519_key.pub')" > "$config_path/initrd.known_hosts"
+    printf "%s %s\n" "${sshlogin#*@}" "$(ssh $sshopts ${sshlogin} 'cat /tmp/ssh_hostkeys/ssh_host_ed25519_key.pub')" > "$config_path/system.known_hosts"
+    printf "%s %s\n" "${sshlogin#*@}" "$(ssh $sshopts ${sshlogin} 'cat /tmp/ssh_hostkeys/ssh_host_rsa_key.pub')" >> "$config_path/system.known_hosts"
     ssh-keygen -H -f "$config_path/initrd.known_hosts"
     ssh-keygen -H -f "$config_path/system.known_hosts"
     for i in initrd system; do
