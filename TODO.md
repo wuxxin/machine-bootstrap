@@ -4,24 +4,17 @@
     + kvm qxl does not work (kernel faults) on suspend and hibernate, use virtio vga instead
     + virtio vga does not work in X11, use qxl instead
 
-## done
-
 ## testing
 
-+ frankenstein support
++ frankenstein support (custom zfs-linux)
+  + compiled packages must also get written in recovery.squashfs so cloud-init will install the custom packages next time
 
 ## working on
 
 + overlayfs compatible backport build of spl-linux and zfs-linux
-```
-cat > /etc/apt/sources.list.d/local-boot.list << EOF
-deb file:/tmp/zfs/zfsbuild/buildresult ./
-EOF
-# from recovery: copy all debs and make apt-archive in /boot/apt-archive/
-# from the chroot system
-dpkg -i lib* zfs-dkms*  zfs-dracut* zfs-doc* zfsutils-* zfs-zed*
-remake dracut initrd
-```
+  + add spl-dkms, zfs-dkms to cloud-init pkg install and other packages list
+  + check if need to remake dracut initrd after patching
+  + add exact dependency from zfs-linux to zfs-dkms zfs-dkms*
 
 + /var/log unmounting
 ```
@@ -43,7 +36,7 @@ Mär 01 00:03:22 box systemd[1]: systemd-cryptsetup@luks\x2droot.service: Failed
 + FIXME: make "grub-reboot <entry>" working also on mdadm boot by using efi and efi2
     + modify grub to use /boot/efi/EFI/grubenv as grubenv if mirror setup
     + keep EFI synced
-+ FIXME: reboot only working with force after recovery-unmount.sh and bootstrap-2-chroot 
++ FIXME: recovery-unmount.sh and bootstrap-2-chroot: reboot only working with --force
 
 + write logs of recovery,install,chroot,devop phase to /var/log/bootstrap-phase.log except recovery which writes to /boot/casper/bootstrap-recovery.log
 + print error before exit if download of recovery image fails
@@ -63,5 +56,5 @@ Mär 01 00:03:22 box systemd[1]: systemd-cryptsetup@luks\x2droot.service: Failed
     + configure evolution to use caldav, carddav
 + make backup working
 + make optional homesick configure if ./home exists (symlink to ~/.homesick/repos/$hostname)
-+ think how to backport gnome 3.32 to bionic
++ think how to backport gnome 3.32 to bionic, or switch to disco and make 2 other hops until next lts
 + make repository data only available under a different group (not normally readable by user) and allow homeshick and others using a special command to operate on this file
