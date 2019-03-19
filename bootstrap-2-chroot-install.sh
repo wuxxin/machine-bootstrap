@@ -207,7 +207,7 @@ echo "fix /etc/dracut.conf.d/10-debian.conf (crc32 module)"
 if test -e /etc/dracut.conf.d/10-debian.conf; then
     rm /etc/dracut.conf.d/10-debian.conf
 fi
-ln -s /dev/null /etc/dracut.conf.d/10-debian.conf
+touch /etc/dracut.conf.d/10-debian.conf
 
 echo "add grub casper recovery entry"
 mkdir -p /etc/grub.d
@@ -304,7 +304,11 @@ mkdir -p /etc/ssh
 ssh-keygen -q -t ed25519 -N '' -f "/etc/ssh/initrd_ssh_host_ed25519_key"
 echo "create initrd using dracut"
 for version in $(find /boot -maxdepth 1 -name "vmlinuz*" | sed -r "s#^/boot/vmlinuz-(.+)#\1#g"); do 
-    dracut --force /boot/initrd.img-${version} "${version}"
+    if test -e /lib/modules/$version; then
+        dracut --force /boot/initrd.img-${version} "${version}"
+    else
+        echo "Warning: skipping kernel $version (found in /boot), because /lib/modules/$version is not existing"
+    fi
 done
 
 
