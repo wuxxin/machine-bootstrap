@@ -206,6 +206,7 @@ else
     netplan_data="$DEFAULT_netplan_data"
     echo "$netplan_data" > "$netplan_file"
 fi
+if test ! -e "$base_path/log"; then mkdir -p "$base_path/log"; fi
 
 
 # STEP recovery
@@ -230,7 +231,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"
     fi
 
     echo "call bootstrap-0, wipe disks, install tools, create partitions write recovery"
-    ssh $sshopts "${sshlogin}" "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-0-recovery.sh $hostname \"$storage_ids\" --yes $storage_opts"
+    ssh $sshopts "${sshlogin}" "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-0-recovery.sh $hostname \"$storage_ids\" --yes $storage_opts" 2>&1 | tee "$base_path/log/bootstrap-recovery.log"
     
     echo "reboot into recovery"
     ssh $sshopts "${sshlogin}" '{ sleep 1; reboot; } >/dev/null &' || true
@@ -275,8 +276,8 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
         if test -e "$old"; then rm "$old"; fi
     done
 
-    echo "reboot into target system (FIXME: reboot -f because of mount/chroot/unmount)"
-    ssh $sshopts ${sshlogin} '{ sleep 1; reboot -f; } >/dev/null &' || true
+    echo "reboot into target system"
+    ssh $sshopts "${sshlogin}" '{ sleep 1; reboot; } >/dev/null &' || true
     echo "sleep 10 seconds, for machine to stop responding to ssh"
     sleep 10
 fi
@@ -303,5 +304,5 @@ if test "$do_phase" = "all" -o "$do_phase" = "devop"; then
     scp $sshopts -rp "$base_path" "${sshlogin}:$devop_target"
     
     echo "call bootstrap-3, install saltstack and run state.highstate"
-    ssh $sshopts ${sshlogin} "http_proxy=\"$http_proxy\"; export http_proxy; chown -R $devop_user:$devop_user $devop_target; chmod +x $devop_target/$base_name/bootstrap-machine/bootstrap-3-devop.sh; $devop_target/$base_name/bootstrap-machine/bootstrap-3-devop.sh --yes state.highstate"
+    ssh $sshopts ${sshlogin} "http_proxy=\"$http_proxy\"; export http_proxy; chown -R $devop_user:$devop_user $devop_target; chmod +x $devop_target/$base_name/bootstrap-machine/bootstrap-3-devop.sh; $devop_target/$base_name/bootstrap-machine/bootstrap-3-devop.sh --yes state.highstate" 2>&1 | tee "$base_path/log/bootstrap-devop.log"
 fi
