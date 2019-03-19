@@ -213,14 +213,13 @@ if $option_frankenstein; then
         echo "build-custom-zfs"
         chmod +x /tmp/zfs/build-custom-zfs.sh
         /tmp/zfs/build-custom-zfs.sh /tmp/zfs/basedir
-        if test -e /usr/local/lib/custom-apt-archive; then
-            rm -rf /usr/local/lib/custom-apt-archive
-        fi
-        mkdir -p /usr/local/lib/custom-apt-archive
-        mv -t /usr/local/lib/custom-apt-archive /tmp/zfs/basedir/zfsbuild/buildresult/*
+        custom_archive=/usr/local/lib/custom-apt-archive
+        if test -e $custom_archive; then rm -rf $custom_archive; fi
+        mkdir -p $custom_archive
+        mv -t $custom_archive /tmp/zfs/basedir/zfsbuild/buildresult/*
         rm -rf /tmp/zfs/basedir
         cat > /etc/apt/sources.list.d/local-apt-archive.list << EOF
-deb [ trusted=yes ] file:/usr/local/lib/custom-apt-archive ./
+deb [ trusted=yes ] file:$custom_archive ./
 EOF
         DEBIAN_FRONTEND=noninteractive apt-get update --yes
     fi
@@ -316,7 +315,6 @@ for i in volatile/base-tmp volatile/var-tmp volatile/var-cache volatile/var-lib-
     zfs set mountpoint=legacy rpool/$i
 done
 mkdir -p /mnt/etc/recovery
-
 if test -e /mnt/etc/recovery/legacy.fstab -a "$option_restore_backup" = "true"; then
     echo "WARNING: --restore-from-backup: not overwriting /etc/recovery/legacy.fstab"
 else
@@ -350,6 +348,24 @@ if test -e /mnt/etc/netplan/80-lan.yaml; then
     mv /mnt/etc/netplan/80-lan.yaml /mnt/etc/netplan/80-lan.yaml.old
 fi
 cp -a /tmp/netplan.yaml /mnt/etc/netplan/80-lan.yaml
+
+if $option_frankenstein; then
+    echo "copy custom archive files"
+    custom_archive=/usr/local/lib/custom-apt-archive
+    if test -e "/mnt$custom_archive"; then
+        if $option_restore_backup; then
+            echo "WARNING: not deleting existing target dir $custom_archive because of --restore-from-backup"
+        else
+            echo "WARNING: removing existing $custom_archive"
+            rm -rf "/mnt$custom_archive"
+        fi
+    fi
+    mkdir -p "/mnt$custom_archive"
+    cp -t "/mnt$custom_archive" $custom_archive/*
+    cat > /mnt/etc/apt/sources.list.d/local-apt-archive.list << EOF
+deb [ trusted=yes ] file:$custom_archive ./
+EOF
+fi
 
 echo "copy additional bootstrap files"
 mkdir -p /mnt/usr/lib/dracut/modules.d/46sshd

@@ -240,7 +240,7 @@ for disk in $fulldisklist; do
     disknr=$((disknr+1))
 done
 
-/tmp/recovery/update-recovery-squashfs.sh --custom /tmp/recovery.squashfs "$hostname" "-" /tmp/netplan.yaml /tmp/recovery_hostkeys /tmp/authorized_keys /tmp/recovery $option_autologin "$http_proxy"
+/tmp/recovery/update-recovery-squashfs.sh --custom /tmp/recovery.squashfs "$hostname" "-" /tmp/netplan.yaml /tmp/recovery_hostkeys /tmp/authorized_keys /tmp/recovery - $option_autologin "$http_proxy"
 
 echo "download live server iso image for casper"
 isohash="7b37dfcd082726303528e47c82f88f29c1dc9232f8fd39120d13749ae83cc463"
