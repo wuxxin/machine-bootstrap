@@ -50,7 +50,8 @@ example configurations:
 mkdir box
 cd box
 git init
-mkdir -p machine-config
+mkdir -p machine-config log
+printf "#\nlog/\n" > .gitignore
 git submodule add https://github.com/wuxxin/bootstrap-machine.git
 git add .
 git commit -v -m "initial commit"
@@ -77,11 +78,7 @@ ln -s ../../bootstrap-machine/devop/bootstrap-pillar.sls \
   machine-config/bootstrap.sls
 cp bootstrap-machine/devop/top-state.sls salt/custom/top.sls
 touch salt/custom/custom.sls
-cat << EOF > .gitignore
-#
-_run/
-log/
-EOF
+echo "_run/" >> .gitignore
 git add .
 git commit -v -m "added devop skeleton"
 ```
