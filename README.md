@@ -80,6 +80,7 @@ touch salt/custom/custom.sls
 cat << EOF > .gitignore
 #
 _run/
+log/
 EOF
 git add .
 git commit -v -m "added devop skeleton"
