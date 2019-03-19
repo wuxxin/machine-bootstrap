@@ -13,7 +13,7 @@
   + check if need to remake dracut initrd after patching
 + FIXME: default.plymouth.grub
 + FIXME: recovery-unmount.sh and bootstrap-2-chroot: reboot only working with --force
-+ write logs of recovery,install phase to /boot/bootstrap-phase.log
++ write logs of recovery,install phase to log/bootstrap-phase.log
 
 ## working on
 

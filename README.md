@@ -1,11 +1,11 @@
 # bootstrap machine
 
-unattended ssh installer of Ubuntu 18.04 with luks encrypted zfs storage,
+Unattended ssh installer of Ubuntu 18.04 with luks encrypted zfs storage,
 suitable for executing from within a debianish liveimage/recoveryimage system via ssh.
 
-it is intended as a Desktop/Laptop or as a typical rootserver (2HD,headless)
+It is intended as a Desktop/Laptop or as a typical rootserver (2HD,headless)
 
-Additionaly, i really wanted to have a "cloud like" - little to no performance impact, encrypted, incremental, autorotating snapshot backup system, from and to redundant checksuming data storage on a single machine with the abbility to use common thirdparty storage for this backup. So far it is a very busy journey... https://xkcd.com/974/
+Additionally, i really wanted to have a "cloud like" - little to no performance impact, encrypted, incremental, autorotating snapshot backup system, from and to redundant checksuming data storage on a single machine with the abbility to use common thirdparty storage for this backup. So far it is a very busy journey... https://xkcd.com/974/
 
 ## Features
 
