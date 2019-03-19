@@ -30,9 +30,9 @@ fi
 
 if test "$what" != "from_rpool"; then
 
-    echo "update sources, install zfsutils-linux"
+    echo "update sources, install zfs-dkms zfsutils-linux"
     DEBIAN_FRONTEND=noninteractive apt-get update --yes
-    DEBIAN_FRONTEND=noninteractive apt-get install --yes zfsutils-linux
+    DEBIAN_FRONTEND=noninteractive apt-get install --yes zfs-dkms zfsutils-linux
 
     cryptdisks=""
 

@@ -246,7 +246,7 @@ if $option_restore_backup; then
 else
     if systemd-detect-virt --vm; then flavor="virtual"; else flavor="generic"; fi
     echo "install kernel, loader, tools needed for boot and ubuntu-standard"
-    packages="linux-$flavor-hwe-18.04 linux-tools-generic-hwe-18.04 cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates bzip2 tmux zfsutils-linux haveged debootstrap libc-bin dracut dracut-network zfs-dracut openssh-server pm-utils wireless-tools plymouth-theme-ubuntu-gnome-logo ubuntu-standard"
+    packages="linux-$flavor-hwe-18.04 linux-tools-generic-hwe-18.04 cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates bzip2 tmux zfs-dkms zfsutils-linux haveged debootstrap libc-bin dracut dracut-network zfs-dracut openssh-server pm-utils wireless-tools plymouth-theme-ubuntu-gnome-logo ubuntu-standard"
     apt-get install --yes $packages
 fi
 

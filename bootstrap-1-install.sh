@@ -226,8 +226,9 @@ EOF
 fi
 
 echo "install needed packages"
-packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates bzip2 tmux zfsutils-linux haveged debootstrap libc-bin"
+packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates bzip2 tmux zfs-dkms zfsutils-linux haveged debootstrap libc-bin"
 DEBIAN_FRONTEND=noninteractive apt-get install --yes $packages
+
 
 echo "generate new zfs hostid (/etc/hostid) in active system"
 if test -e /etc/hostid; then rm /etc/hostid; fi
@@ -292,6 +293,7 @@ else
     mount ${EFI}1 /mnt/boot/efi
     mount ${EFI}2 /mnt/boot/efi2
 fi
+
 
 if $option_restore_backup; then
     echo "call bootstrap-1-restore"
