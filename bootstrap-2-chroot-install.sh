@@ -174,7 +174,7 @@ if restore_not_overwrite /usr/bin/plymouth-set-default-theme; then
 else
     cat > /usr/bin/plymouth-set-default-theme <<"EOF"
 #!/bin/bash
-basename $(dirname $(readlink -f /usr/share/plymouth/themes/default.plymouth))
+echo "text"
 EOF
     chmod +x /usr/bin/plymouth-set-default-theme
 fi

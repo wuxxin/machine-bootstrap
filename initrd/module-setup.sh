@@ -51,7 +51,7 @@ install() {
     inst_hook pre-pivot 20 "$moddir/stop-initramfs-sshd.sh"
     
     # fix plymouth config, should be in plymouth
-    inst_simple /etc/plymouth/plymouthd.conf /etc/alternatives/text.plymouth /etc/alternatives/default.plymouth
+    inst_simple /etc/plymouth/plymouthd.conf
 
     return 0
 }
