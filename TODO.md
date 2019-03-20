@@ -4,6 +4,9 @@
     + kvm qxl does not work (kernel faults) on suspend and hibernate, use virtio vga instead
     + virtio vga does not work in X11, use qxl instead
 
+## done
++ write logs of recovery,install phase to log/bootstrap-phase.log
+
 ## testing
 
 + FIXME: overlayfs compatible backport build of spl-linux and zfs-linux
@@ -13,7 +16,6 @@
   + check if need to remake dracut initrd after patching
 + FIXME: default.plymouth.grub
 + FIXME: recovery-unmount.sh and bootstrap-2-chroot: reboot only working with --force
-+ write logs of recovery,install phase to log/bootstrap-phase.log
 
 ## working on
 
