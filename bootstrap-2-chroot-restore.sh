@@ -3,7 +3,7 @@ set -eo pipefail
 set -x
 
 cat << EOF
-after math after restore, before reboot in chroot
+after restore, before reboot in target chroot
 
 EOF
 
