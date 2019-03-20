@@ -47,6 +47,14 @@ example configurations:
 
 ## Preparation
 
+Requirements:
++ RAM:
+  + frankenstein=yes: Minimum 4GB Ram (for compiling zfs in ram)
+  + frankenstein=no : Minimum 2GB RAM
++ Storage:
+  + swap=no : 10GB
+  + swap=yes: 10GB+ RAM-Size*1.25 (~15GB for 4GB Ram)
+
 ### make a new project repository (eg. box)
 ```
 mkdir box
