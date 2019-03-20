@@ -114,6 +114,7 @@ EOF
 
 
 # main
+export LC_MESSAGES="POSIX"
 config_path="$(readlink -e "$self_path/../machine-config")"
 if test -n "$BOOTSTRAP_MACHINE_CONFIG_DIR"; then
     config_path="$BOOTSTRAP_MACHINE_CONFIG_DIR"
