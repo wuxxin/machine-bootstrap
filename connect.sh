@@ -46,6 +46,7 @@ waitfor_ssh() {
 
 
 # parse args
+export LC_MESSAGES="POSIX"
 showargs=false
 if test "$1" = "--show-args"; then showargs=true; shift; fi
 if [[ ! "$1" =~ ^(temporary|recovery|initrd|luksopen|system)$ ]]; then usage; fi
