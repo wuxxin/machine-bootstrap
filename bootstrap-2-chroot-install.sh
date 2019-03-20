@@ -235,6 +235,7 @@ chmod +x /etc/grub.d/40_recovery
 
 echo "update installation"
 apt-get update --yes
+exit 1
 
 if $option_restore_backup; then
     restore_warning "not installing base packages"
@@ -248,10 +249,10 @@ else
     ubuntu_standard="busybox-static cpio cron dmidecode dnsutils dosfstools ed file ftp hdparm info iptables language-selector-common libpam-systemd logrotate lshw lsof ltrace man-db mime-support parted pciutils psmisc rsync strace time usbutils wget"
     ubuntu_standard_rec="apparmor bash-completion command-not-found friendly-recovery iputils-tracepath irqbalance manpages mlocate mtr-tiny nano ntfs-3g tcpdump update-manager-core ureadahead uuid-runtime"
     # XXX --force-conf* : workaround for /etc/dracut.conf.d/10-debian.conf
-    apt-get install --yes \
-        -o 'Dpkg::Options::="--force-confdef"' \
-        -o 'Dpkg::Options::="--force-confold"' \
-        $packages $extra_packages \
+    apt install --yes \
+        -o 'Dpkg::Options::=--force-confdef' \
+        -o 'Dpkg::Options::=--force-confold' \
+        -ubuntu-minimal -initramfs-tools -linux-headers-generic $packages $extra_packages \
         $ubuntu_minimal $ubuntu_standard $ubuntu_standard_rec
 fi
 
