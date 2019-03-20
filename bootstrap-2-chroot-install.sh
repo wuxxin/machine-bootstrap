@@ -171,7 +171,7 @@ echo "configure plymouth"
 if restore_not_overwrite /usr/bin/plymouth-set-default-theme; then
     restore_warning "not overwriting /usr/bin/plymouth-set-default-theme"
 else
-    printf '#!/bin/bash\ntext\n' > /usr/bin/plymouth-set-default-theme
+    printf '#!/bin/bash\necho text\n' > /usr/bin/plymouth-set-default-theme
     chmod +x /usr/bin/plymouth-set-default-theme
 fi
 if restore_not_overwrite /etc/plymouth/plymouthd.conf; then
@@ -240,20 +240,21 @@ exit 1
 if $option_restore_backup; then
     restore_warning "not installing base packages"
 else
-    # XXX workaround ubuntu-minimal and ubuntu-standard having fixed dependency to initramfs-tools instead of virtual initramfs package
+    # XXX workaround ubuntu-minimal having fixed dependency to initramfs-tools instead of virtual initramfs package
     if systemd-detect-virt --vm; then flavor="virtual"; else flavor="generic"; fi
-    echo "install hwe kernel, bootloader & tools needed for ubuntu-standard"
-    packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates bzip2 tmux zfs-dkms zfsutils-linux haveged debootstrap libc-bin"
-    extra_packages="linux-$flavor-hwe-18.04 linux-tools-$flavor-hwe-18.04 dracut dracut-network zfs-dracut openssh-server plymouth-theme-ubuntu-gnome-logo"
-    ubuntu_minimal="adduser apt apt-utils bzip2 console-setup debconf debconf-i18n eject init iproute2 iputils-ping isc-dhcp-client kbd kmod less locales lsb-release mawk mount netbase netcat-openbsd nplan passwd procps python3 sensible-utils sudo tzdata ubuntu-keyring udev vim-tiny whiptail"
-    ubuntu_standard="busybox-static cpio cron dmidecode dnsutils dosfstools ed file ftp hdparm info iptables language-selector-common libpam-systemd logrotate lshw lsof ltrace man-db mime-support parted pciutils psmisc rsync strace time usbutils wget"
-    ubuntu_standard_rec="apparmor bash-completion command-not-found friendly-recovery iputils-tracepath irqbalance manpages mlocate mtr-tiny nano ntfs-3g tcpdump update-manager-core ureadahead uuid-runtime"
-    # XXX --force-conf* : workaround for /etc/dracut.conf.d/10-debian.conf
-    apt install --yes \
-        -o 'Dpkg::Options::=--force-confdef' \
-        -o 'Dpkg::Options::=--force-confold' \
-        -ubuntu-minimal -initramfs-tools -linux-headers-generic $packages $extra_packages \
-        $ubuntu_minimal $ubuntu_standard $ubuntu_standard_rec
+    if test "$(lsb_release -c -s)" = "bionic"; then flavor="${flavor}-hwe-18.04"; fi
+    echo "install $flavor kernel, bootloader & tools needed for ubuntu-standard"
+    
+    apt install --yes --no-install-recommends linux-$flavor linux-tools-$flavor
+    
+    packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates bzip2 tmux zfs-dkms zfsutils-linux haveged debootstrap libc-bin openssh-server plymouth-theme-ubuntu-gnome-logo"
+    ubuntu_minimal=$(apt-cache depends ubuntu-minimal | grep "Depends:" | sed -r "s/ +Depends: (.+)$/\1/g" | grep -vE "(initramfs-tools|ubuntu-advantage-tools)")
+    ubuntu_standard=$(apt-cache depends ubuntu-standard | grep "Depends:" | sed -r "s/ +Depends: (.+)$/\1/g" | grep -vE "(popularity-contest)")
+    ubuntu_standard_rec=$(apt-cache depends ubuntu-standard | grep "Recommends:" | sed -r "s/ +Recommends: (.+)$/\1/g" | grep -vE "(friendly-recovery|telnet)")
+    apt install --yes ubuntu-minimal- initramfs-tools- \
+        $packages $ubuntu_minimal $ubuntu_standard $ubuntu_standard_rec
+    apt install --yes dracut dracut-network zfs-dracut
+    
 fi
 
 echo "create missing system groups"
