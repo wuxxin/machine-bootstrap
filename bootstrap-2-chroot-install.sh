@@ -46,7 +46,6 @@ export DEBIAN_FRONTEND=noninteractive
 echo "setup locale, timezone"
 export LC_MESSAGES="POSIX"
 export LANG="en_US.UTF-8"
-export LC_ALL=$LANG
 export LANGUAGE="en_US:en"
 if $option_restore_backup; then
     restore_warning "not setting default locale and timezone"
@@ -172,10 +171,7 @@ echo "configure plymouth"
 if restore_not_overwrite /usr/bin/plymouth-set-default-theme; then
     restore_warning "not overwriting /usr/bin/plymouth-set-default-theme"
 else
-    cat > /usr/bin/plymouth-set-default-theme <<"EOF"
-#!/bin/bash
-echo "text"
-EOF
+    printf '#!/bin/bash\ntext\n' > /usr/bin/plymouth-set-default-theme
     chmod +x /usr/bin/plymouth-set-default-theme
 fi
 if restore_not_overwrite /etc/plymouth/plymouthd.conf; then
@@ -239,15 +235,24 @@ chmod +x /etc/grub.d/40_recovery
 
 echo "update installation"
 apt-get update --yes
-apt dist-upgrade --yes
 
 if $option_restore_backup; then
     restore_warning "not installing base packages"
 else
+    # XXX workaround ubuntu-minimal and ubuntu-standard having fixed dependency to initramfs-tools instead of virtual initramfs package
     if systemd-detect-virt --vm; then flavor="virtual"; else flavor="generic"; fi
-    echo "install kernel, loader, tools needed for boot and ubuntu-standard"
-    packages="linux-$flavor-hwe-18.04 linux-tools-generic-hwe-18.04 cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates bzip2 tmux zfs-dkms zfsutils-linux haveged debootstrap libc-bin dracut dracut-network zfs-dracut openssh-server pm-utils wireless-tools plymouth-theme-ubuntu-gnome-logo ubuntu-standard"
-    apt-get install --yes $packages
+    echo "install hwe kernel, bootloader & tools needed for ubuntu-standard"
+    packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates bzip2 tmux zfs-dkms zfsutils-linux haveged debootstrap libc-bin"
+    extra_packages="linux-$flavor-hwe-18.04 linux-tools-$flavor-hwe-18.04 dracut dracut-network zfs-dracut openssh-server plymouth-theme-ubuntu-gnome-logo"
+    ubuntu_minimal="adduser apt apt-utils bzip2 console-setup debconf debconf-i18n eject init iproute2 iputils-ping isc-dhcp-client kbd kmod less locales lsb-release mawk mount netbase netcat-openbsd nplan passwd procps python3 sensible-utils sudo tzdata ubuntu-keyring udev vim-tiny whiptail"
+    ubuntu_standard="busybox-static cpio cron dmidecode dnsutils dosfstools ed file ftp hdparm info iptables language-selector-common libpam-systemd logrotate lshw lsof ltrace man-db mime-support parted pciutils psmisc rsync strace time usbutils wget"
+    ubuntu_standard_rec="apparmor bash-completion command-not-found friendly-recovery iputils-tracepath irqbalance manpages mlocate mtr-tiny nano ntfs-3g tcpdump update-manager-core ureadahead uuid-runtime"
+    # XXX --force-conf* : workaround for /etc/dracut.conf.d/10-debian.conf
+    apt-get install --yes \
+        -o 'Dpkg::Options::="--force-confdef"' \
+        -o 'Dpkg::Options::="--force-confold"' \
+        $packages $extra_packages \
+        $ubuntu_minimal $ubuntu_standard $ubuntu_standard_rec
 fi
 
 echo "create missing system groups"
@@ -274,11 +279,11 @@ awk '$5 >= 3071' /etc/ssh/moduli > /etc/ssh/moduli.tmp && mv /etc/ssh/moduli.tmp
 for i in ssh_host_ecdsa_key ssh_host_ecdsa_key.pub; do
     if test -e /etc/ssh/$i; then rm /etc/ssh/$i; fi
 done
+echo "fixme sshd_config restore from backup"
 cat >> /etc/ssh/sshd_config <<EOF
 # Supported HostKey algorithms by order of preference.
 HostKey /etc/ssh/ssh_host_ed25519_key
 HostKey /etc/ssh/ssh_host_rsa_key
-
 AuthenticationMethods publickey
 
 KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256
@@ -288,7 +293,6 @@ Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.
 MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-512,hmac-sha2-256,umac-128@openssh.com
 
 EOF
-
 
 echo "rewrite recovery squashfs"
 /etc/recovery/update-recovery-squashfs.sh --host $hostname
@@ -334,7 +338,8 @@ if test "$(grub-probe /)" != "zfs"; then
 fi
 update-grub
 grub-install --target=x86_64-efi --boot-directory=/boot --efi-directory=/boot/efi --bootloader-id=Ubuntu --recheck --no-floppy $GRUB_EFI_PARAM 
-grub-install --target=i386-pc --boot-directory=/boot --recheck --no-floppy /dev/$EFIDISK
+grub-install --target=i386-pc --boot-directory=/boot --recheck --no-floppy "/dev/$EFIDISK"
+
 if test -e "${EFI}2"; then
     echo "moving grubenv to efi,efi2"
     grub-editenv /boot/efi/EFI/grubenv create
@@ -348,7 +353,7 @@ if test -e "${EFI}2"; then
     if test -e "/sys/firmware/efi"; then
         efibootmgr -c --gpt -d /dev/$EFI2DISK -p $EFI2PART -w -L Ubuntu2 -l '\EFI\Ubuntu\grubx64.efi'
     fi
-    grub-install --target=i386-pc --boot-directory=/boot --recheck --no-floppy /dev/$EFI2DISK
+    grub-install --target=i386-pc --boot-directory=/boot --recheck --no-floppy "/dev/$EFI2DISK"
 fi
 
 echo "exit from chroot"
