@@ -1,7 +1,7 @@
 # bootstrap machine
 
 Unattended ssh installer of Ubuntu 18.04 with luks encrypted zfs storage,
-suitable for executing from within a debianish liveimage/recoveryimage system via ssh.
+suitable for executing from a linux liveimage/recoveryimage system via ssh.
 
 It is intended as a Desktop/Laptop or as a typical rootserver (2HD,headless)
 
@@ -13,9 +13,11 @@ Additionally, i really wanted to have a "cloud like" - little to no performance 
 + one or two disks (will be setup as mirror if two)
 + root on luks encrypted zfs / zfs mirror pool
 + efi and legacy bios boot compatible hybrid grub setup with grubenv support
-+ casper based recovery installation on boot partition
++ ssh in initramdisk for remote unlock luks on system startup using dracut
++ recovery system installation (casper based) on boot partition
     + unattended cloud-init boot via custom squashfs with ssh ready to login
     + buildin scripts to mount/unmount root and update recovery boot parameter
++ loging of recovery and target system installation on calling machine in directory ./log
 + optional
     + luks encrypted hibernate compatible swap for desktop installation
     + patched zfs-linux for overlay fs support on zfs (frankenstein=true)
@@ -25,14 +27,14 @@ Additionally, i really wanted to have a "cloud like" - little to no performance 
 + working on/planned
     + autorotating encrypted incremental snapshot backup to thirdparty storage with zfs and restic
     + desaster recovery from backup storage to new machine
-    + more recovery scripts to replace a faulty disk, to invalidate a disk
+    + recovery scripts to replace a faulty disk, to invalidate a disk
 
 installation on target is done in 4 steps:
 
-+ 0 partition disk, recovery install to /boot, reboot into recovery
-+ 1 base installation, frankenstein, create zpool, debootstrap, configure system
-+ 2 chroot inside base installation, configure system, reboot into target
-+ 3 saltstack run on installed target system
++ 1 partition disk, recovery install to /boot, reboot into recovery
++ 2 base installation, frankenstein, create zpool, debootstrap, configure system
++ 3 chroot inside base installation, configure system, reboot into target
++ 4 saltstack run on installed target system
 
 example configurations:
 
@@ -59,7 +61,7 @@ git commit -v -m "initial commit"
 
 ### optional: add an upstream
 ```
-git remote add origin ssh://git@somewhere.on.the.internet/username/box.git
+git remote add origin ssh://git@somewhere.on.the.net/username/box.git
 ```
 
 ### optional: add files for devop task
@@ -134,7 +136,8 @@ firstuser=$(id -u -n)
 EOF
 
 # copy current user ssh public key as authorized_keys
-cat ~/.ssh/id_rsa.pub ~/.ssh/id_ed25519.pub > machine-config/authorized_keys
+cat ~/.ssh/id_rsa.pub ~/.ssh/id_ed25519.pub \
+    > machine-config/authorized_keys
 
 # list serial(s) of harddisk(s)
 ./bootstrap-machine/connect.sh temporary "ls /dev/disk/by-id/"
@@ -146,7 +149,8 @@ echo $(printf 'storage_ids="'; for i in \
     printf "$i "; done; printf '"') >> machine-config/config
 
 # create disk.passphrase.gpg (example)
-(x=$(openssl rand -base64 9); echo -n "$x" | gpg --encrypt -r username@email.address) \
+(x=$(openssl rand -base64 9); echo -n "$x" | \
+    gpg --encrypt -r username@email.address) \
     > machine-config/disk.passphrase.gpg
 
 # optional: create a custom netplan.yml
