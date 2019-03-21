@@ -47,22 +47,23 @@ salt_install() {
     salt_python_version="3"
     os_release=$(lsb_release -r -s)
     os_codename=$(lsb_release -c -s)
+    
     if test "$os_codename" = "disco"; then
-        echo "faking bionic as distribution for saltstack, because saltstack only supports lts ubuntu"
-        os_release="18.04"
-        os_codename="bionic"
-    fi
-    if test "$salt_python_version" = "3"; then
-        echo "installing saltstack $salt_major_version for python 3"
-        prefixdir="py3"
+        echo "warning: using older buildin saltstack version 2018.03" 
     else
-        echo "installing saltstack $salt_major_version for python 2"
-        prefixdir="apt"
+        if test "$salt_python_version" = "3"; then
+            echo "installing saltstack $salt_major_version for python 3"
+            prefixdir="py3"
+        else
+            echo "installing saltstack $salt_major_version for python 2"
+            prefixdir="apt"
+        fi
+        os_architecture=$(dpkg --print-architecture)
+        wget -O - "https://repo.saltstack.com/${prefixdir}/ubuntu/${os_release}/${os_architecture}/${salt_major_version}/SALTSTACK-GPG-KEY.pub" | apt-key add -
+        echo "deb http://repo.saltstack.com/${prefixdir}/ubuntu/${os_release}/${os_architecture}/${salt_major_version} ${os_codename} main" > /etc/apt/sources.list.d/saltstack.list
+        DEBIAN_FRONTEND=noninteractive apt-get update -y
     fi
-    os_architecture=$(dpkg --print-architecture)
-    wget -O - "https://repo.saltstack.com/${prefixdir}/ubuntu/${os_release}/${os_architecture}/${salt_major_version}/SALTSTACK-GPG-KEY.pub" | apt-key add -
-    echo "deb http://repo.saltstack.com/${prefixdir}/ubuntu/${os_release}/${os_architecture}/${salt_major_version} ${os_codename} main" > /etc/apt/sources.list.d/saltstack.list
-    DEBIAN_FRONTEND=noninteractive apt-get update -y
+    
     DEBIAN_FRONTEND=noninteractive apt-get install -y salt-minion
     # keep minion from running
     for i in disable stop mask; do systemctl $i salt-minion; done
