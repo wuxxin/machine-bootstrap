@@ -1,6 +1,6 @@
 #!/bin/sh
 set -e
-set -x
+# set -x
 
 usage() {
     
@@ -9,19 +9,18 @@ Usage:  $0 --host [<hostname>]
         $0 --custom <squashfsoutputfile> <hostname> <hostid>|-  
                     <netplan_file> <hostkeys_file> <authorized_keys_file>
                     <scriptdir> <archivedir>|- <autologin(yes|no)> [<http_proxy>]
-
---host defaults:
-    squashfsoutputfile: /boot/casper/recovery.squashfs 
-    hostname: if not set from commandline, get from hostname -f
-    hostid: if exists from /etc/hostid
-    netplan_file: if exists from /etc/recovery/netplan.yml or from /etc/netplan/*
-    hostkeys_file: from /etc/recovery/recovery_hostkeys
-    authorized_keys_file: from /root/.ssh/authorized_keys
-    scriptdir/*.sh: from  /etc/recovery (to recovery:/sbin/)
-    archivedir: dirname if exists dir "/usr/local/lib/custom-apt-archive" else "-"
-        expects local apt-archive with "Release" and "Packages" files
-    autologin: "yes" if exists /etc/recovery/feature.autologin
-    http_proxy from default env
+defaults:
+  squashfsoutputfile:   /boot/casper/recovery.squashfs
+  hostname:             if not set from commandline, get from hostname -f
+  hostid:               if exists from /etc/hostid else "-"
+  netplan_file:         if exists from /etc/recovery/netplan.yml or from /etc/netplan/*
+  hostkeys_file:        from /etc/recovery/recovery_hostkeys
+  authorized_keys_file: from /root/.ssh/authorized_keys
+  scriptdir:            from  /etc/recovery (to recovery:/sbin/)
+  archivedir:           if exists "/usr/local/lib/custom-apt-archive" else "-"
+                        expects local apt-archive with "Release" and "Packages" files
+  autologin:            "yes" if exists /etc/recovery/feature.autologin else "no"
+  http_proxy:           from default env
 
 EOF
     exit 1
