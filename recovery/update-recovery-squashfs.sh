@@ -116,7 +116,7 @@ EOF
     mkdir -p $basedir/sbin
     cp -a $scriptdir/*.sh $basedir/sbin/
     
-    if test "$archivedir" != ""; then
+    if test "$archivedir" != "" -a "$archivedir" != "-"; then
         echo "include custom archive in squashfs"
         mkdir -p "$basedir$archivedir"
         cp -t "$basedir$archivedir" $archivedir/*
@@ -173,7 +173,7 @@ else
         echo "Error: file $hostid_file not found"
         usage
     fi
-    if test "$archivedir" != "-"; -a test ! -d $archivedir; then
+    if test "$archivedir" != "-" -a ! -d $archivedir; then
         echo "Error: directory $archivedir not found"
         usage
     fi
