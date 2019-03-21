@@ -51,7 +51,14 @@ install() {
     inst_hook pre-pivot 20 "$moddir/stop-initramfs-sshd.sh"
     
     # fix plymouth config, should be in plymouth
-    inst_simple /etc/plymouth/plymouthd.conf
+    mkdir -p "$initdir/etc/plymouth"
+    cat > "$initdir/etc/plymouth/plymouthd.conf" << EOF
+[Daemon]
+Theme=$(/usr/bin/plymouth-set-default-theme)
+ShowDelay=1
+# DeviceTimeout=5
+# DeviceScale=?
+EOF
 
     return 0
 }
