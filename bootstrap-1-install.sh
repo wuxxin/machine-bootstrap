@@ -316,8 +316,6 @@ else
     mount ${EFI}2 /mnt/boot/efi2
 fi
 
-read -p "press a key to continue"
-
 if $option_restore_backup; then
     echo "call bootstrap-1-restore"
     chmod +x /tmp/bootstrap-1-restore.sh
