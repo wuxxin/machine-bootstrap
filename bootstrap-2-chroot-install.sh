@@ -74,7 +74,7 @@ echo "configure apt"
 if restore_not_overwrite /etc/apt/sources.list; then
     restore_warning "not overwriting /etc/apt/sources.list"
 else
-    cat > /etc/apt/sources.list <<"EOF"
+    cat > /etc/apt/sources.list << EOF
 deb http://archive.ubuntu.com/ubuntu/ $(lsb_release -c -s) main restricted universe multiverse
 deb http://security.ubuntu.com/ubuntu/ $(lsb_release -c -s)-security main restricted universe multiverse
 deb http://archive.ubuntu.com/ubuntu/ $(lsb_release -c -s)-updates main restricted universe multiverse
