@@ -278,7 +278,7 @@ else
     echo "create zfs mirror pool"
     create_zpool mirror "${DMROOT}1" "${DMROOT}2"
 fi
-zfs create  "rpool/home/$firstuser"
+zfs create  "rpool/data/home/$firstuser"
 
 if test -e $LUKSSWAP; then
     echo "create luks swap partition"
