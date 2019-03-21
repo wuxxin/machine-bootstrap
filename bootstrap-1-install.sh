@@ -5,13 +5,15 @@ set -x
 
 usage() {
     cat <<EOF
-Usage: cat diskkey | $0 hostname firstuser disklist --yes [optional args]
+Usage: cat diskkey | $0 hostname firstuser disklist --yes
+            [--frankenstein] [--distribution name] [--restore-from-backup]
 
-optional args:
 --frankenstein
     backport and patch zfs-linux with no-d-revalidate.patch
+--distribution name
+    select a different distribution (default=$distribution)
 --restore-from-backup
-    partition+ format system, restore from backup, modify system
+    partition and format system, restore from backup, adapt to new storage
 
 "http_proxy" environment variable:
     the environment variable "http_proxy" will be used if set
@@ -38,6 +40,7 @@ create_zpool() {
         -R /mnt \
         rpool "$@"
 
+    # ### os
     # rpool/ROOT/ubuntu
     zfs create  -o canmount=off \
                 -o mountpoint=none \
@@ -45,28 +48,33 @@ create_zpool() {
     zfs create  -o canmount=noauto \
                 -o mountpoint=/ \
                 rpool/ROOT/ubuntu
+    # mount root and set bootfs default
     zfs mount   rpool/ROOT/ubuntu
-    # set bootfs default
-    zpool set bootfs=rpool/ROOT/ubuntu rpool
+    zpool       set bootfs=rpool/ROOT/ubuntu rpool
 
-    # rpool/home
-    zfs create  -o setuid=off \
-                -o mountpoint=/home \
-                rpool/home
-    zfs create  -o mountpoint=/root \
-                rpool/home/root
-
-    # rpool/log
-    mkdir -p /mnt/var
-    zfs create  -o exec=off \
-                -o mountpoint=/var/log \
-                rpool/log
-
+    # ### data that should be backuped
     # rpool/data
     zfs create  -o setuid=off \
                 -o exec=off \
+                -o canmount=off \
+                -o mountpoint=none \
+                rpool/data
+
+    # rpool/data/__host__ at /data
+    zfs create  -o setuid=off \
+                -o exec=on \
                 -o mountpoint=/data \
-                rpool/data 
+                rpool/data/__host__
+
+    # rpool/data/home at /home
+    zfs create  -o setuid=off \
+                -o exec=on \
+                -o mountpoint=/home \
+                rpool/data/home
+
+    # rpool/data/home/root at /root
+    zfs create  -o mountpoint=/root \
+                rpool/data/home/root
 
     # rpool/data/mail at /var/lib/mail
     mkdir -p /mnt/var/lib
@@ -90,26 +98,38 @@ create_zpool() {
                 -o com.sun:auto-snapshot:monthly=false \
                 -o custom.local:auto-backup=false \
                 -o logbias=throughput \
-                -o mountpoint=/volatile \
+                -o canmount=off \
+                -o mountpoint=none \
                 rpool/volatile
 
-    # rpool/volatile/base-tmp at /tmp
+    # rpool/volatile/__host__ at /volatile
+    zfs create  -o setuid=off \
+                -o exec=on \
+                -o mountpoint=/volatile \
+                rpool/volatile/__host__
+
+    # rpool/volatile/log at /var/log
+    zfs create  -o exec=off \
+                -o mountpoint=/var/log \
+                rpool/volatile/log
+
+    # rpool/volatile/tmp at /tmp
     zfs create  -o mountpoint=/tmp \
-                rpool/volatile/base-tmp 
+                rpool/volatile/tmp
     chmod 1777 /mnt/tmp
-    
+
     # rpool/volatile/var-tmp at /var/tmp
     zfs create  -o mountpoint=/var/tmp \
                 rpool/volatile/var-tmp
     chmod 1777 /mnt/var/tmp
 
-    # rpool/volatile/cache at /var/cache
+    # rpool/volatile/var-cache at /var/cache
     zfs create  -o exec=off \
                 -o mountpoint=/var/cache \
                 rpool/volatile/var-cache
 
-    # rpool/volatile/lib-apt-lists at /var/lib/apt/lists
-    mkdir -p /var/lib/apt/lists
+    # rpool/volatile/var-lib-apt-lists at /var/lib/apt/lists
+    mkdir -p /mnt/var/lib/apt/lists
     zfs create  -o exec=off \
                 -o mountpoint=/var/lib/apt/lists \
                 rpool/volatile/var-lib-apt-lists
@@ -149,7 +169,10 @@ LUKSSWAP=/dev/disk/by-partlabel/LUKSSWAP
 DMROOT=/dev/disk/by-id/dm-name-luks-root
 MDADM_BOOT_ARRAY="${BOOT}1 ${BOOT}2"
 MDADM_SWAP_ARRAY="${LUKSSWAP}1 ${LUKSSWAP}2"
-
+# defaults
+option_frankenstein=false
+option_restore_backup=false
+distribution="bionic"
 
 # parse args
 if test "$4" != "--yes"; then usage; fi
@@ -171,9 +194,8 @@ if test "$diskpassword" = ""; then
     echo "ERROR: script needs diskpassword from stdin, abort"
     exit 1
 fi
-option_frankenstein=false
-option_restore_backup=false
 if test "$1" = "--frankenstein"; then option_frankenstein=true; shift; fi
+if test "$1" = "--distribution"; then distribution=$2; shift 2; fi
 if test "$1" = "--restore-from-backup"; then option_restore_backup=true; shift; fi
 
 # if http_proxy is set, reexport for sub-processes
@@ -294,6 +316,7 @@ else
     mount ${EFI}2 /mnt/boot/efi2
 fi
 
+read -p "press a key to continue"
 
 if $option_restore_backup; then
     echo "call bootstrap-1-restore"
@@ -304,8 +327,8 @@ if $option_restore_backup; then
         exit $err
     fi
 else
-    echo "install minimal base system"
-    debootstrap --verbose bionic /mnt
+    echo "install minimal base $distribution system"
+    debootstrap --verbose "$distribution" /mnt
 fi
 
 # TODO explain
@@ -313,7 +336,7 @@ zfs set devices=off rpool
 
 # https://github.com/zfsonlinux/zfs/issues/5754
 echo "workaround zol < 0.8 missing zfs-mount-generator"
-for i in volatile/base-tmp volatile/var-tmp volatile/var-cache volatile/var-lib-apt-lists log; do
+for i in volatile/tmp volatile/var-tmp volatile/var-cache volatile/var-lib-apt-lists volatile/log; do
     zfs set mountpoint=legacy rpool/$i
 done
 mkdir -p /mnt/etc/recovery
@@ -321,10 +344,10 @@ if test -e /mnt/etc/recovery/legacy.fstab -a "$option_restore_backup" = "true"; 
     echo "WARNING: --restore-from-backup: not overwriting /etc/recovery/legacy.fstab"
 else
     cat > /mnt/etc/recovery/legacy.fstab <<EOF
-rpool/volatile/base-tmp     /tmp        zfs  nodev,relatime,xattr,posixacl          0 0
+rpool/volatile/tmp          /tmp        zfs  nodev,relatime,xattr,posixacl          0 0
 rpool/volatile/var-tmp      /var/tmp    zfs  nodev,relatime,xattr,posixacl          0 0
 rpool/volatile/var-cache    /var/cache  zfs  nodev,noexec,relatime,xattr,posixacl   0 0
-rpool/log                   /var/log    zfs  nodev,noexec,relatime,xattr,posixacl   0 0
+rpool/volatile/log          /var/log    zfs  nodev,noexec,relatime,xattr,posixacl   0 0
 rpool/volatile/var-lib-apt-lists  /var/lib/apt/lists  zfs nodev,noexec,relatime,xattr,posixacl  0 0
 EOF
 fi
