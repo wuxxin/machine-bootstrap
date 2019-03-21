@@ -236,6 +236,8 @@ chmod +x /etc/grub.d/40_recovery
 echo "update installation"
 apt-get update --yes
 
+read -p "press a key to continue"
+
 if $option_restore_backup; then
     restore_warning "not installing base packages"
 else
