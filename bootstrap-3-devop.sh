@@ -46,6 +46,11 @@ salt_install() {
     salt_major_version="2019.2"
     os_release=$(lsb_release -r -s)
     os_codename=$(lsb_release -c -s)
+    if test "$os_codename" = "disco"; then
+        echo "faking bionic as distribution for saltstack, because saltstack only supports lts ubuntu"
+        os_release="18.04"
+        os_codename="bionic"
+    fi
     os_architecture=$(dpkg --print-architecture)
     echo "installing saltstack $salt_major_version"
     wget -O - "https://repo.saltstack.com/apt/ubuntu/${os_release}/${os_architecture}/${salt_major_version}/SALTSTACK-GPG-KEY.pub" | apt-key add -
