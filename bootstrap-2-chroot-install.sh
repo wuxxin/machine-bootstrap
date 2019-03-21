@@ -75,9 +75,9 @@ if restore_not_overwrite /etc/apt/sources.list; then
     restore_warning "not overwriting /etc/apt/sources.list"
 else
     cat > /etc/apt/sources.list <<"EOF"
-deb http://archive.ubuntu.com/ubuntu/ bionic main restricted universe multiverse
-deb http://security.ubuntu.com/ubuntu/ bionic-security main restricted universe multiverse
-deb http://archive.ubuntu.com/ubuntu/ bionic-updates main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu/ $(lsb_release -c -s) main restricted universe multiverse
+deb http://security.ubuntu.com/ubuntu/ $(lsb_release -c -s)-security main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu/ $(lsb_release -c -s)-updates main restricted universe multiverse
 EOF
 fi
 
@@ -235,26 +235,28 @@ chmod +x /etc/grub.d/40_recovery
 
 echo "update installation"
 apt-get update --yes
-exit 1
 
 if $option_restore_backup; then
     restore_warning "not installing base packages"
 else
-    # XXX workaround ubuntu-minimal having fixed dependency to initramfs-tools instead of virtual initramfs package
     if systemd-detect-virt --vm; then flavor="virtual"; else flavor="generic"; fi
     if test "$(lsb_release -c -s)" = "bionic"; then flavor="${flavor}-hwe-18.04"; fi
     echo "install $flavor kernel, bootloader & tools needed for ubuntu-standard"
-    
+    apt upgrade --yes
     apt install --yes --no-install-recommends linux-$flavor linux-tools-$flavor
     
-    packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates bzip2 tmux zfs-dkms zfsutils-linux haveged debootstrap libc-bin openssh-server plymouth-theme-ubuntu-gnome-logo"
+    packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates bzip2 tmux zfs-dkms zfsutils-linux haveged debootstrap libc-bin"
+    extra_packages="openssh-server plymouth-theme-ubuntu-gnome-logo"
     ubuntu_minimal=$(apt-cache depends ubuntu-minimal | grep "Depends:" | sed -r "s/ +Depends: (.+)$/\1/g" | grep -vE "(initramfs-tools|ubuntu-advantage-tools)")
     ubuntu_standard=$(apt-cache depends ubuntu-standard | grep "Depends:" | sed -r "s/ +Depends: (.+)$/\1/g" | grep -vE "(popularity-contest)")
     ubuntu_standard_rec=$(apt-cache depends ubuntu-standard | grep "Recommends:" | sed -r "s/ +Recommends: (.+)$/\1/g" | grep -vE "(friendly-recovery|telnet)")
-    apt install --yes ubuntu-minimal- initramfs-tools- \
-        $packages $ubuntu_minimal $ubuntu_standard $ubuntu_standard_rec
-    apt install --yes dracut dracut-network zfs-dracut
-    
+    # XXX workaround ubuntu-minimal, ubuntu-standard depending on initramfs-tools, friendly-recovery
+    # XXX while there, remove other unwanted pkgs (ubuntu-advantage-tools, popularity-contest, telnet)
+    apt install --yes \
+        $packages $extra_packages \
+        $ubuntu_minimal $ubuntu_standard $ubuntu_standard_rec
+    apt install --yes \
+        ubuntu-minimal- initramfs-tools- dracut dracut-network zfs-dracut
 fi
 
 echo "create missing system groups"
