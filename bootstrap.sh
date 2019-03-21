@@ -1,6 +1,6 @@
 #!/bin/bash
 set -eo pipefail
-set -x
+# set -x
 self_path=$(dirname $(readlink -e "$0"))
 
 
@@ -28,6 +28,8 @@ usage() {
 
 + $0 execute [all|plain|recovery|install|devop] <hostname> [--restore-from-backup]
     + execute the requested stages of install on hostname
+    + all output from target host is displayed on screen and captured to ../log/
+
 + $0 test
     + test the setup for mandatory files and settings, exits 0 if successful
 
