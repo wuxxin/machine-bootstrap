@@ -171,20 +171,16 @@ echo "configure plymouth"
 if restore_not_overwrite /usr/bin/plymouth-set-default-theme; then
     restore_warning "not overwriting /usr/bin/plymouth-set-default-theme"
 else
-    printf '#!/bin/bash\necho text\n' > /usr/bin/plymouth-set-default-theme
-    chmod +x /usr/bin/plymouth-set-default-theme
-fi
-if restore_not_overwrite /etc/plymouth/plymouthd.conf; then
-    restore_warning "not overwriting /etc/plymouth/plymouthd.conf"
+    cat > /usr/bin/plymouth-set-default-theme <<"EOF"
+#!/bin/bash
+default="/usr/share/plymouth/themes/default.plymouth"
+if test -e $default; then
+    basename $(dirname $(readlink -f $default))
 else
-    mkdir -p /etc/plymouth
-    cat > /etc/plymouth/plymouthd.conf << EOF
-[Daemon]
-Theme=ubuntu-gnome-logo
-ShowDelay=1
-# DeviceTimeout=5
-# DeviceScale=?
+    echo "text"
+fi
 EOF
+    chmod +x /usr/bin/plymouth-set-default-theme
 fi
 
 echo "configure dracut"
@@ -236,8 +232,6 @@ chmod +x /etc/grub.d/40_recovery
 echo "update installation"
 apt-get update --yes
 
-read -p "press a key to continue"
-
 if $option_restore_backup; then
     restore_warning "not installing base packages"
 else
@@ -251,14 +245,23 @@ else
     extra_packages="openssh-server plymouth-theme-ubuntu-gnome-logo"
     ubuntu_minimal=$(apt-cache depends ubuntu-minimal | grep "Depends:" | sed -r "s/ +Depends: (.+)$/\1/g" | grep -vE "(initramfs-tools|ubuntu-advantage-tools)")
     ubuntu_standard=$(apt-cache depends ubuntu-standard | grep "Depends:" | sed -r "s/ +Depends: (.+)$/\1/g" | grep -vE "(popularity-contest)")
-    ubuntu_standard_rec=$(apt-cache depends ubuntu-standard | grep "Recommends:" | sed -r "s/ +Recommends: (.+)$/\1/g" | grep -vE "(friendly-recovery|telnet)")
+    ubuntu_standard_rec=$(apt-cache depends ubuntu-standard | grep "Recommends:" | sed -r "s/ +Recommends: (.+)$/\1/g" | grep -vE "(friendly-recovery)")
     # XXX workaround ubuntu-minimal, ubuntu-standard depending on initramfs-tools, friendly-recovery
-    # XXX while there, remove other unwanted pkgs (ubuntu-advantage-tools, popularity-contest, telnet)
+    # XXX while there, remove other unwanted pkgs (ubuntu-advantage-tools, popularity-contest)
     apt install --yes \
         $packages $extra_packages \
         $ubuntu_minimal $ubuntu_standard $ubuntu_standard_rec
+    # XXX to not overwrite dracut/10-debian.conf
+    cat > /etc/apt/apt.conf.d/90bootstrap-dracut << EOF
+Dpkg::Options {
+   "--force-confdef";
+   "--force-confold";
+}
+EOF
     apt install --yes \
-        ubuntu-minimal- initramfs-tools- dracut dracut-network zfs-dracut
+        ubuntu-minimal- initramfs-tools- ubuntu-advantage-tools- popularity-contest- \
+        dracut dracut-network zfs-dracut
+    rm /etc/apt/apt.conf.d/90bootstrap-dracut
 fi
 
 echo "create missing system groups"
