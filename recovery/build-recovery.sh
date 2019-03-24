@@ -8,7 +8,7 @@ imagename="ubuntu-18.04.1-live-server-amd64.iso"
 
 
 usage() {
-    
+
     cat << EOF
 $0 create <downloaddir> <targetdir>
 $0 show grub.cfg        <grub_root> <casper_livemedia> <uuid_boot>
@@ -22,7 +22,7 @@ EOF
 
 download_casper_image() {
     local basedir baseurl gpghome imagename imagehash real_fingerprint
-    local cdimage_keyid cdimage_fingerprint cdimage_keyname cdimage_keyfile cdimage_keyserver 
+    local cdimage_keyid cdimage_fingerprint cdimage_keyname cdimage_keyfile cdimage_keyserver
     basedir="$1"
     baseurl="$2"
     imagename="$3"
@@ -33,7 +33,7 @@ download_casper_image() {
     cdimage_keyfile="${cdimage_keyname}.gpg"
     cdimage_keyserver="keyserver.ubuntu.com"
     gpghome="$basedir/gpghome"
-    
+
     echo "get gpg key $cdimage_keyname ($cdimage_keyid)"
     if test -e "$gpghome"; then rm -rf "$gpghome"; fi
     mkdir -m 0700 "$gpghome"
@@ -45,7 +45,7 @@ download_casper_image() {
     fi
     gpg --quiet --homedir "$gpghome" --export $cdimage_keyid > "$basedir/$cdimage_keyfile"
     rm -r "$gpghome"
-    
+
     echo "get checksum files for image"
     for i in SHA256SUMS SHA256SUMS.gpg; do
         echo "get $baseurl/$i"
@@ -71,7 +71,7 @@ download_casper_image() {
     fi
     echo "checksum image $imagename"
     echo "$imagehash *$basedir/$imagename" | sha256sum --check
-    
+
 }
 
 
@@ -93,11 +93,11 @@ extract_casper_iso() {
     cp -a -t "$targetdir/"       "$iso_mount/.disk"
     umount "$iso_mount"
     rmdir "$iso_mount"
-    
+
 }
 
 
-show_grub.cfg() {
+show_grub_cfg() {
     local grub_root casper_livemedia uuid_boot
     grub_root="$1"
     casper_livemedia="$2"
@@ -111,7 +111,7 @@ insmod mdraid1x
 insmod ext2
 insmod gzio
 
-# casper recovery 
+# casper recovery
 menuentry "Ubuntu 18.04 Casper Recovery" {
     set root="$grub_root"
     search --no-floppy --fs-uuid --set=root --hint="$grub_root" "$uuid_boot"
@@ -122,17 +122,17 @@ EOF
 }
 
 
-show_grub.d_recovery() {
+show_grub_d_recovery() {
     local grub_root casper_livemedia uuid_boot
     grub_root="$1"
     casper_livemedia="$2"
     uuid_boot="$3"
-    
+
     cat - << EOF
 #!/bin/sh
 exec tail -n +3 \$0
-# live system recovery 
-menuentry "Ubuntu 18.04 Casper Recovery" --id "recovery" {    
+# live system recovery
+menuentry "Ubuntu 18.04 Casper Recovery" --id "recovery" {
     set root="$grub_root"
     search --no-floppy --fs-uuid --set=root --hint="$grub_root" "$uuid_boot"
     linux  /casper/vmlinuz boot=casper toram textonly $casper_livemedia noeject noprompt ds=nocloud
@@ -170,8 +170,8 @@ if test "$cmd" = "create"; then
     downloaddir="$1"
     targetdir="$2"
     shift 2
-    for i in gpg gpgv curl; do 
-        if ! which $i > /dev/null; then 
+    for i in gpg gpgv curl; do
+        if ! which $i > /dev/null; then
             echo "Error: needed program $i not found."
             echo "execute 'apt-get install gnupg gpgv curl'"
             exit 1
@@ -192,9 +192,9 @@ elif test "$cmd" = "show"; then
         uuid_boot="$4"
         shift 4
         if test "$show_grub" = "grub.cfg"; then
-            show_grub.cfg "$grub_root" "$casper_livemedia" "$uuid_boot"
+            show_grub_cfg "$grub_root" "$casper_livemedia" "$uuid_boot"
         else
-            show_grub.d_recovery "$grub_root" "$casper_livemedia" "$uuid_boot"
+            show_grub_d_recovery "$grub_root" "$casper_livemedia" "$uuid_boot"
         fi
     fi
 fi
