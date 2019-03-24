@@ -2,13 +2,6 @@
 set -eo pipefail
 set -x
 
-restore_not_overwrite() {
-    test -e "$1" -a "$option_restore_backup" = "true"
-}
-
-restore_warning() {
-    echo "WARNING: --restore-from-backup: $@"
-}
 
 usage() {
     cat <<EOF
@@ -19,6 +12,14 @@ Usage: $0 hostname firstuser --yes [--restore-from-backup]
     and must follow the format "http://1.2.3.4:1234"
 EOF
     exit 1
+}
+
+restore_not_overwrite() {
+    test -e "$1" -a "$option_restore_backup" = "true"
+}
+
+restore_warning() {
+    echo "WARNING: --restore-from-backup: $@"
 }
 
 
@@ -203,29 +204,15 @@ touch /etc/dracut.conf.d/10-debian.conf
 
 echo "add grub casper recovery entry"
 mkdir -p /etc/grub.d
+uuid_boot="$(blkid -s UUID -o value /dev/disk/by-label/boot)"
+grub_root="hd0,gpt${BOOT_NR}"
+casper_livemedia=""
 if test -e "/dev/md/mdadm-boot" -o -e "/dev/md127"; then
     grub_root="md/mdadm-boot"
-    grub_hint="md/mdadm-boot"
     casper_livemedia="live-media=/dev/md127"
-else
-    grub_root="hd0,gpt${BOOT_NR}"
-    grub_hint="hd0,gpt${BOOT_NR}"
-    casper_livemedia=""
 fi
-cat > /etc/grub.d/40_recovery << EOF
-#!/bin/sh
-exec tail -n +3 \$0
-# live system recovery 
-menuentry "Ubuntu 18.04 Casper Recovery" --id "recovery" {    
-    set root="$grub_root"
-    search --no-floppy --fs-uuid --set=root --hint="$grub_hint" $(blkid -s UUID -o value /dev/disk/by-label/boot)
-    linux  /casper/vmlinuz boot=casper toram textonly $casper_livemedia noeject noprompt ds=nocloud
-    initrd /casper/initrd
-}
-
-fallback=recovery
-
-EOF
+/etc/recovery/build-recovery.sh show grub.d/recovery \
+    "$grub_root" "$casper_livemedia" "$uuid_boot" > /etc/grub.d/40_recovery
 chmod +x /etc/grub.d/40_recovery
 
 
@@ -240,7 +227,7 @@ else
     echo "install $flavor kernel, bootloader & tools needed for ubuntu-standard"
     apt upgrade --yes
     apt install --yes --no-install-recommends linux-$flavor linux-tools-$flavor
-    
+
     packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates bzip2 tmux zfs-dkms zfsutils-linux haveged debootstrap libc-bin"
     extra_packages="openssh-server plymouth-theme-ubuntu-gnome-logo"
     ubuntu_minimal=$(apt-cache depends ubuntu-minimal | grep "Depends:" | sed -r "s/ +Depends: (.+)$/\1/g" | grep -vE "(initramfs-tools|ubuntu-advantage-tools)")
@@ -251,7 +238,7 @@ else
     apt install --yes \
         $packages $extra_packages \
         $ubuntu_minimal $ubuntu_standard $ubuntu_standard_rec
-    # XXX to not overwrite dracut/10-debian.conf
+    # XXX force automatic not to overwrite dracut/10-debian.conf
     cat > /etc/apt/apt.conf.d/90bootstrap-dracut << EOF
 Dpkg::Options {
    "--force-confdef";
@@ -259,7 +246,8 @@ Dpkg::Options {
 }
 EOF
     apt install --yes \
-        ubuntu-minimal- initramfs-tools- ubuntu-advantage-tools- popularity-contest- \
+        ubuntu-minimal- initramfs-tools- \
+        ubuntu-advantage-tools- popularity-contest- \
         dracut dracut-network zfs-dracut
     rm /etc/apt/apt.conf.d/90bootstrap-dracut
 fi
@@ -288,7 +276,9 @@ awk '$5 >= 3071' /etc/ssh/moduli > /etc/ssh/moduli.tmp && mv /etc/ssh/moduli.tmp
 for i in ssh_host_ecdsa_key ssh_host_ecdsa_key.pub; do
     if test -e /etc/ssh/$i; then rm /etc/ssh/$i; fi
 done
-echo "fixme sshd_config restore from backup"
+if restore_not_overwrite /etc/ssh/sshd_config; then
+    restore_warning "but overwriting sshd_config"
+fi
 cat >> /etc/ssh/sshd_config <<EOF
 # Supported HostKey algorithms by order of preference.
 HostKey /etc/ssh/ssh_host_ed25519_key
@@ -307,7 +297,7 @@ echo "rewrite recovery squashfs"
 /etc/recovery/update-recovery-squashfs.sh --host $hostname
 
 
-echo "setup dracut"
+echo "setup dracut initrd"
 echo "writing new dracut /etc/ssh/initrd_ssh_host_ed25519_key[.pub]"
 if test -e /etc/ssh/initrd_ssh_host_ed25519_key; then
     echo "WARNING: removing old /etc/ssh/initrd_ssh_host_ed25519_key"
@@ -316,7 +306,7 @@ fi
 mkdir -p /etc/ssh
 ssh-keygen -q -t ed25519 -N '' -f "/etc/ssh/initrd_ssh_host_ed25519_key"
 echo "create initrd using dracut"
-for version in $(find /boot -maxdepth 1 -name "vmlinuz*" | sed -r "s#^/boot/vmlinuz-(.+)#\1#g"); do 
+for version in $(find /boot -maxdepth 1 -name "vmlinuz*" | sed -r "s#^/boot/vmlinuz-(.+)#\1#g"); do
     if test -e /lib/modules/$version; then
         dracut --force /boot/initrd.img-${version} "${version}"
     else
@@ -327,7 +317,7 @@ done
 
 echo "setup grub"
 if test -e "${EFI}2"; then
-    echo "Fixme: ERROR modify grub to use /boot/efi/EFI/grubenv as grubenv"
+    echo "Fixme: ERROR finish writing modify grub to use /boot/efi/EFI/grubenv as grubenv"
 fi
 sed -r -i.bak 's/^(GRUB_CMDLINE_LINUX=).*/\1"quiet splash"/g' /etc/default/grub
 # plymouth:debug
@@ -346,7 +336,7 @@ if test "$(grub-probe /)" != "zfs"; then
     echo "Warning: grub-probe didnt return zfs: $(grub-probe /)"
 fi
 update-grub
-grub-install --target=x86_64-efi --boot-directory=/boot --efi-directory=/boot/efi --bootloader-id=Ubuntu --recheck --no-floppy $GRUB_EFI_PARAM 
+grub-install --target=x86_64-efi --boot-directory=/boot --efi-directory=/boot/efi --bootloader-id=Ubuntu --recheck --no-floppy $GRUB_EFI_PARAM
 grub-install --target=i386-pc --boot-directory=/boot --recheck --no-floppy "/dev/$EFIDISK"
 
 if test -e "${EFI}2"; then
