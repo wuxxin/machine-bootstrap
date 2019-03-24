@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 self_path=$(dirname $(readlink -e "$0"))
-config_path="$(readlink -e "$self_path/../machine-config")"
+config_path="$(readlink -m "$self_path/../machine-config")"
 if test -n "$BOOTSTRAP_MACHINE_CONFIG_DIR"; then
     config_path="$BOOTSTRAP_MACHINE_CONFIG_DIR"
 fi
@@ -14,7 +14,7 @@ usage() {
 Usage: $0 [--show-args] temporary|recovery|initrd|luksopen|system [\$@]
 ssh connect with different ssh_hostkeys used.
 
-ssh keys and config are taken from directory $config_path 
+ssh keys and config are taken from directory $config_path
 
 luksopen uses the initrd host key for connection,
 and transfers the luks diskphrase keys to /lib/systemd/systemd-reply-password
