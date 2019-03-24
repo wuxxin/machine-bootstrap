@@ -1,8 +1,10 @@
-!/bin/sh
+#!/bin/sh
+
 set -e
 
 cat <<"EOF"
-+ recovery-replace-mirror.sh --valid-data sourceserial --new-mirror targetserial
+recovery-replace-mirror.sh --valid-data sourceserial --new-mirror targetserial
+
 + gdisk /dev/whateverhasdata | gdisk /dev/whatisnew
 + mkfs.fat -F 32 "${disk}-part${EFI_NR}"
 + copy contents of other efi part
@@ -17,3 +19,5 @@ cat <<"EOF"
 + grub-install newdisk
 
 EOF
+
+exit 1
