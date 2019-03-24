@@ -1,6 +1,6 @@
 # bootstrap machine
 
-Unattended ssh installer of Ubuntu 18.04 with luks encrypted zfs storage,
+Unattended ssh installer of Ubuntu 18.04/19.04 with luks encrypted zfs storage,
 suitable for executing from a linux liveimage/recoveryimage system via ssh.
 
 It is intended as a Desktop/Laptop or as a typical rootserver (2HD,headless)
@@ -9,12 +9,12 @@ Additionally, i really wanted to have a "cloud like" - little to no performance 
 
 ## Features
 
-+ unattended ssh install of Ubuntu 18.04 (bionic)
++ unattended ssh install of Ubuntu 18.04 LTS (bionic) or 19.04 (disco)
 + one or two disks (will be setup as mirror if two)
 + root on luks encrypted zfs / zfs mirror pool
 + efi and legacy bios boot compatible hybrid grub setup with grubenv support
-+ ssh in initramdisk for remote unlock luks on system startup using dracut
-+ recovery system installation (casper based) on boot partition
++ ssh in initial ramdisk for remote unlock luks on system startup using dracut
++ recovery system installation (based on casper ubuntu 18.04.01 liveserver) on boot partition
     + unattended cloud-init boot via custom squashfs with ssh ready to login
     + buildin scripts to mount/unmount root and update recovery boot parameter
 + loging of recovery and target system installation on calling machine in directory ./log
@@ -24,17 +24,20 @@ Additionally, i really wanted to have a "cloud like" - little to no performance 
     + partitions for ondisk zfs log (zil) and ondisk zfs cache (l2arc)
     + saltstack run at devop phase with states from salt-shared (eg. desktop)
     + git & git-crypt repository setup to store machine configuration inside a git repository and encrypt all sensitive data with git-crypt
+    + build a preconfigured bootstrap-0 livesystem image for physical bootstrap 
+        + execute `./bootstrap-machine/bootstrap.sh create-liveimage` to build image
+        + copy `run/liveimage/bootstrap-0-liveimage.iso` to usbstick
 + working on/planned
     + autorotating encrypted incremental snapshot backup to thirdparty storage with zfs and restic
     + desaster recovery from backup storage to new machine
     + recovery scripts to replace a faulty disk, to invalidate a disk
 
-installation on target is done in 4 steps:
+installation is done in 4 steps:
 
-+ 1 partition disk, recovery install to /boot, reboot into recovery
-+ 2 base installation, frankenstein, create zpool, debootstrap, configure system
-+ 3 chroot inside base installation, configure system, reboot into target
-+ 4 saltstack run on installed target system
++ 1 initial live system: partition disk, recovery install to /boot, reboot into recovery
++ 2 recovery live system: build patches, create zpool, debootstrap, configure system, chroot into target
++ 3 chroot target: configure system, kernel, initrd, install standard software, reboot into target
++ 4 target system: install and run saltstack on target system
 
 example configurations:
 
@@ -48,23 +51,22 @@ example configurations:
 ## Preparation
 
 Requirements:
-+ RAM:
-  + frankenstein=yes: Minimum 4GB Ram (for compiling zfs in ram)
++ Minimum RAM:
+  + frankenstein=yes: Minimum 4GB Ram (for compiling zfs in ram in recovery)
   + frankenstein=no : Minimum 2GB RAM
-+ Storage:
-  + swap=no : 10GB
-  + swap=yes: 10GB+ RAM-Size*1.25 (~15GB for 4GB Ram)
++ Minimum Storage:
+  + 10GB-15GB (10 += if swap=yes then RAM-Size*1.25 as default)
 
 ### make a new project repository (eg. box)
 ```
 mkdir box
 cd box
 git init
-mkdir -p machine-config log
-printf "#\nlog/\n" > .gitignore
+mkdir -p machine-config log run
+printf "#\nlog/\nrun/\n" > .gitignore
 git submodule add https://github.com/wuxxin/bootstrap-machine.git
 git add .
-git commit -v -m "initial commit"
+git commit -v -m "initial config"
 ```
 
 ### optional: add an upstream
@@ -74,11 +76,11 @@ git remote add origin ssh://git@somewhere.on.the.net/username/box.git
 
 ### optional: add files for devop task
 ```
-mkdir -p salt/custom _run
+mkdir -p salt/custom
 cd salt
 git submodule add https://github.com/wuxxin/salt-shared.git
 cd ..
-cat <<EOF > machine-config/top.sls
+cat > machine-config/top.sls << EOF
 base:
   '*':
     - custom
@@ -88,9 +90,8 @@ ln -s ../../bootstrap-machine/devop/bootstrap-pillar.sls \
   machine-config/bootstrap.sls
 cp bootstrap-machine/devop/top-state.sls salt/custom/top.sls
 touch salt/custom/custom.sls
-echo "_run/" >> .gitignore
 git add .
-git commit -v -m "added devop skeleton"
+git commit -v -m "add devop skeleton"
 ```
 
 ### optional: git-crypt config
@@ -119,7 +120,7 @@ remmina.pref filter=git-crypt diff=git-crypt
 EOF
 git-crypt add-gpg-user user.email@address.org
 git add .
-git commit -v -m "added git-crypt config"
+git commit -v -m "add git-crypt config"
 ```
 
 ### configure machine
@@ -133,12 +134,12 @@ firstuser=$(id -u -n)
 # storage_ids=""
 
 # optional
-# http_proxy="http://192.168.122.1:8123" # default = "" 
-# recovery_autologin="true" # default = "false"
+# http_proxy="http://192.168.122.1:8123" # default = ""
 # storage_opts="[--reuse] [--log yes|<logsizemb>]"
-# storage_opts="[--cache yes|<cachesizemb] [--swap yes|<swapsizemb>]" 
+# storage_opts="[--cache yes|<cachesizemb] [--swap yes|<swapsizemb>]"
 # storage_opts default=""
-# frankenstein="false" # default = "true"
+# recovery_autologin="true" # default = "false"
+# frankenstein="true" # default = "false"
 # devop_target="/home/$(id -u -n)"
 # devop_user="$(id -u -n)"
 EOF
@@ -168,15 +169,17 @@ echo $(printf 'storage_ids="'; for i in \
 ## Install System
 
 ```
-# test if everything is ready to go, but dont execute the call
+# test if everything needed is there
 ./bootstrap-machine/bootstrap.sh test
-# if everything looks fine, run
+# if alls looks fine, run
 ./bootstrap-machine/bootstrap.sh execute all box.local
+# logs of each step will be written to log/bootstrap-*.log 
+# but log directory is in .gitignore and content won't be comitted
 git add .
 git commit -v -m "bootstrap run"
 ```
 
-### optional: push committed changed to upstream
+### optional: push committed changes to upstream
 
 ```
 git push -u origin master
@@ -185,7 +188,20 @@ git push -u origin master
 
 ## Usage and Maintenance
 
-### reboot into recovery from target system
+### connect to machine
+
++ connect to running recovery / initrd or system
+```
+./bootstrap-machine/connect.sh recovery|initrd|system
+```
+
++ connect to initrd, open luks disks
+```
+./bootstrap-machine/connect.sh luksopen
+```
+
+### switch next boot to boot into recovery (from running target system)
 ```
 grub-reboot recovery
+reboot
 ```
