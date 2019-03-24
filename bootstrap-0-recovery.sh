@@ -4,7 +4,7 @@ set -eo pipefail
 
 
 usage() {
-    cat <<USAGEEOF
+    cat << EOF
 Usage: $0 hostname 'diskid+' --yes
         [--reuse]
         [--log      yes|<logsizemb>]
@@ -29,12 +29,12 @@ overwrite all existing data of all disks matching diskid+
 
 --recovery-autologin
     will set the first tty of the recovery boot process to autologin for physical recovery
-    
+
 "http_proxy" environment variable:
     the environment variable "http_proxy" will be used if set
     and must follow the format "http://1.2.3.4:1234"
 
-USAGEEOF
+EOF
     exit 1
 }
 
@@ -44,15 +44,15 @@ option_reuse="no"
 option_log="no"
 option_swap="no"
 option_cache="no"
-option_autologin="no"
 # hibernation swap size = mem*1.25
 opt_swapsizemb=$(grep MemTotal /proc/meminfo | awk '{print $2*1.25/1024}' | sed -r 's/([0-9]+)(\.[0-9]*)?/\1/g')
 # zil log should be ~= 5seconds io-write
 opt_logsizemb="1024"
-# memory arc space mb used for l2arc size =~ l2arcsize/58, 
+# memory arc space mb used for l2arc size =~ l2arcsize/58,
 # eg. around 1gb arc memory for a 58gb l2arc
 l2arcramsizemb="1024"
 opt_cachesizemb="$(( l2arcramsizemb * 1024 * 1024 / 70 * 4096 /1024 /1024))"
+recovery_autologin="false"
 
 
 # parse param
@@ -106,7 +106,7 @@ while true; do
         shift
         ;;
     --recovery-autologin)
-        option_autologin="yes"
+        recovery_autologin="true"
         ;;
     --)
         shift
@@ -126,11 +126,11 @@ if test "$http_proxy" != ""; then
 fi
 
 echo "hostname: $hostname, fulldisklist=$fulldisklist, http_proxy: $http_proxy"
-echo "options: reuse=$option_reuse , log=$option_log ($opt_logsizemb), swap=$option_swap ($opt_swapsizemb), cache=$option_cache ($opt_cachesizemb),  autologin=$option_autologin"
+echo "options: reuse=$option_reuse , log=$option_log ($opt_logsizemb), swap=$option_swap ($opt_swapsizemb), cache=$option_cache ($opt_cachesizemb),  autologin=$recovery_autologin"
 
 packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates bzip2 tmux"
 
-if which apt-get > /dev/null; then    
+if which apt-get > /dev/null; then
     echo "install required utils"
     DEBIAN_FRONTEND=noninteractive apt-get install --yes $packages
 else
@@ -170,7 +170,7 @@ for disk in $fulldisklist; do
     echo "partition disk $disk"
     sgdisk  "${disk}" \
         -n "$BIOS_NR:1M:+1M" \
-        -t "$BIOS_NR:EF02" 
+        -t "$BIOS_NR:EF02"
         # -c "$BIOS_NR:BIOS${disknr}"
         # legacy boot support: additional data for grub bios boot
     sgdisk  "${disk}" \
@@ -240,73 +240,33 @@ for disk in $fulldisklist; do
     disknr=$((disknr+1))
 done
 
-/tmp/recovery/update-recovery-squashfs.sh --custom /tmp/recovery.squashfs "$hostname" "-" /tmp/netplan.yaml /tmp/recovery_hostkeys /tmp/authorized_keys /tmp/recovery - $option_autologin "$http_proxy"
+echo "build recovery to /mnt/boot"
+/tmp/recovery/build-recovery.sh create /tmp/liveimage /mnt/boot
 
-echo "download live server iso image for casper"
-isohash="7b37dfcd082726303528e47c82f88f29c1dc9232f8fd39120d13749ae83cc463"
-isourl="http://old-releases.ubuntu.com/releases/18.04.1/ubuntu-18.04.1-live-server-amd64.iso"
-#isohash="ea6ccb5b57813908c006f42f7ac8eaa4fc603883a2d07876cf9ed74610ba2f53"
-#isourl="http://releases.ubuntu.com/bionic/ubuntu-18.04.2-live-server-amd64.iso"
-curl -f -# -L -s "$isourl"  -o /tmp/${isourl##*/}
-echo "checksum image"
-echo "$isohash */tmp/${isourl##*/}" | sha256sum --check
-
-echo "copy casper kernel,initrd,filesystem"
-mkdir -p /mnt/iso
-mount -o loop /tmp/${isourl##*/} /mnt/iso
-mkdir -p /mnt/boot/casper /mnt/boot/grub /mnt/boot/efi/EFI/BOOT
-cp -a -t /mnt/boot/casper /mnt/iso/casper/filesystem* 
-cp -a -t /mnt/boot/casper /mnt/iso/casper/initrd
-cp -a -t /mnt/boot/casper /mnt/iso/casper/vmlinuz
-cp -a -t /mnt/boot/       /mnt/iso/.disk
-umount /mnt/iso
-
-echo "copy recovery.squashfs for casper"
+echo "create recovery.squashfs and copy to /mnt/boot/casper"
+/tmp/recovery/update-recovery-squashfs.sh --custom \
+    /tmp/recovery.squashfs "$hostname" "-" /tmp/netplan.yaml \
+    /tmp/recovery_hostkeys /tmp/authorized_keys /tmp/recovery \
+    - "$recovery_autologin" "default" "$http_proxy"
 cp /tmp/recovery.squashfs /mnt/boot/casper/
+
+echo "write /mnt/boot/grub/grub.cfg"
+uuid_boot="$(blkid -s UUID -o value /dev/disk/by-label/boot)"
+grub_root="hd0,gpt${BOOT_NR}"
+casper_livemedia=""
+if test "$diskcount" -ge "2"; then
+    grub_root="md/mdadm-boot"
+    casper_livemedia="live-media=/dev/md127"
+fi
+/tmp/recovery/build-recovery.sh show grub.cfg \
+    "$grub_root" "$casper_livemedia" "$uuid_boot" > /mnt/boot/grub/grub.cfg
 
 echo "install grub"
 disk=$(echo $fulldisklist | head -1 | sed -r "s/^ *([^ ]+)( .*)?/\1/g")
 grub_efi_param=""
-if test ! -e "/sys/firmware/efi"; then
-    grub_efi_param="--no-nvram"
-fi
+if test ! -e "/sys/firmware/efi"; then grub_efi_param="--no-nvram"; fi
 grub-install --target=x86_64-efi --boot-directory=/mnt/boot --efi-directory=/mnt/boot/efi --bootloader-id=Ubuntu --recheck --no-floppy $grub_efi_param "$disk"
 grub-install --target=i386-pc --boot-directory=/mnt/boot --recheck --no-floppy "$disk"
-
-echo "write grub.cfg"
-if test "$diskcount" -ge "2"; then
-    grub_root="md/mdadm-boot"
-    grub_hint="md/mdadm-boot"
-    casper_livemedia="live-media=/dev/md127"
-else
-    grub_root="hd0,gpt${BOOT_NR}"
-    grub_hint="hd0,gpt${BOOT_NR}"
-    casper_livemedia=""
-fi
-cat > /mnt/boot/grub/grub.cfg << EOF
-if loadfont /grub/font.pf2 ; then
-	set gfxmode=auto
-    insmod efi_gop
-	insmod efi_uga
-	insmod gfxterm
-	terminal_output gfxterm
-fi
-
-set timeout=2
-
-insmod part_gpt
-insmod diskfilter
-insmod mdraid1x
-insmod ext2
-
-# casper recovery 
-menuentry "Ubuntu 18.04 Casper Recovery" {
-    set root="$grub_root"
-    search --no-floppy --fs-uuid --set=root --hint="$grub_hint" $(blkid -s UUID -o value /dev/disk/by-label/boot)
-    linux  /casper/vmlinuz boot=casper toram textonly $casper_livemedia noeject noprompt ds=nocloud
-    initrd /casper/initrd
-}
-EOF
 
 echo "unmount all mounted"
 for i in $(for j in $(seq 2 "$diskcount"); do echo "/mnt/boot/efi$j"; done) /mnt/boot/efi /mnt/boot; do
