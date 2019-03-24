@@ -1,61 +1,47 @@
 #!/bin/bash
 set -eo pipefail
-# set -x
+set -x
+
 self_path=$(dirname $(readlink -e "$0"))
-
-
-DEFAULT_netplan_data=$(cat <<"EOF"
-network:
-    version: 2
-    ethernets:
-        all-en:
-            match:
-                name: "en*"
-            dhcp4: true
-            optional: true
-        all-eth:
-            match:
-                name: "eth*"
-            dhcp4: true
-            optional: true
-EOF
-)
 
 
 usage() {
     cat << EOF
-# Usage
 
 + $0 execute [all|plain|recovery|install|devop] <hostname> [--restore-from-backup]
     + execute the requested stages of install on hostname
-    + all output from target host is displayed on screen and captured to ../log/
+        all output from target host is displayed on screen and captured to "log" dir
 
+    + all:      executes recovery,install,devop
+    + plain:    executes recovery,install
+    + recovery: execute step recovery (expects debianish live system)
+    + install:  execute step install (expects running recovery image)
+    + devop:    execute step devop (expects installed and running base machine,
+                will first try to connect to initrd and unlock storage)
+    <hostname>  must be the same value as in the config file config/hostname
+    --restore-from-backup
+                partition & format system, then restore from backup
 + $0 test
     + test the setup for mandatory files and settings, exits 0 if successful
 
-+ Stage
-  + all:        executes recovery,install,devop
-  + plain:      executes recovery,install
-  + recovery:   execute step recovery (expects debianish live system)
-  + install:    execute step install (expects running recovery image)
-  + devop:      execute step devop (expects installed and running base machine,
-                will first try to connect to initrd and unlock storage)
-<hostname>      must be the same value as in the config file config/hostname
---restore-from-backup
-                partition & format system, then restore from backup
++ $0 create-liveimage
+    + build a livesystem for a bootstrap-0 ready system waiting to be installed
+    + customized image will be placed in "run/liveimage" as "$bootstrap0liveimage"
 
-## Configuration Directory
+Configuration:
 
-+ config path used: `dirname($0)/../machine-config`
-    +  or overwritten with env var `BOOTSTRAP_MACHINE_CONFIG_DIR`
-+ mandatory config files (see `README.md` for detailed description):
-    + File: `disk.passphrase.gpg`
-    + File: `authorized_keys`
-    + Base Configuration File: `config`
++ config directory path: $config_path
+    + can be overwritten with env var "BOOTSTRAP_MACHINE_CONFIG_DIR"
++ mandatory config files (see "README.md" for detailed description):
+    + Base Configuration File: "config"
+    + File: "disk.passphrase.gpg"
+    + File: "authorized_keys"
 + optional config files:
-    + `netplan.yml` default created on step recovery install
-    + `recovery_hostkeys` created automatically on step recovery install
-    + `[temporary|recovery|initrd|system].known_hosts`: created on the fly
+    + "netplan.yml" default created on step recovery install
+    + "recovery_hostkeys" created automatically on step recovery install
+    + "[temporary|recovery|initrd|system].known_hosts": created on the fly
++ log directory path: $log_path
++ run directory path: $run_path
 
 EOF
     exit 1
@@ -115,9 +101,27 @@ EOF
 }
 
 
+DEFAULT_netplan_data=$(cat <<"EOF"
+network:
+    version: 2
+    ethernets:
+        all-en:
+            match:
+                name: "en*"
+            dhcp4: true
+            optional: true
+        all-eth:
+            match:
+                name: "eth*"
+            dhcp4: true
+            optional: true
+EOF
+)
+
+
 # main
 export LC_MESSAGES="POSIX"
-config_path="$(readlink -e "$self_path/../machine-config")"
+config_path="$(readlink -m "$self_path/../machine-config")"
 if test -n "$BOOTSTRAP_MACHINE_CONFIG_DIR"; then
     config_path="$BOOTSTRAP_MACHINE_CONFIG_DIR"
 fi
@@ -126,18 +130,42 @@ diskpassphrase_file=$config_path/disk.passphrase.gpg
 authorized_keys_file=$config_path/authorized_keys
 netplan_file=$config_path/netplan.yml
 recovery_hostkeys_file=$config_path/recovery_hostkeys
-base_path=$(readlink -e "$self_path/..")
+log_path=$(readlink -m "$config_path/../log")
+run_path=$(readlink -m "$config_path/../run")
+base_path=$(readlink -m "$self_path/..")
 base_name=$(basename "$base_path")
-
-# check requisites
-for i in nc ssh gpg scp; do 
-    if ! which $i > /dev/null; then echo "Error: needed program $i not found."; exit 1; fi
-done
+bootstrap0liveimage="bootstrap-0-liveimage.iso"
 
 # parse args
-if test "$1" != "test" -a "$1" != "execute"; then usage; fi
+if test "$1" != "test" -a "$1" != "execute" -a "$1" != "create-liveimage"; then usage; fi
 command=$1
 shift
+
+# check requisites
+for i in nc ssh gpg scp; do
+    if ! which $i > /dev/null; then
+        echo "Error: needed program $i not found."
+        echo "execute 'apt-get install netcat openssh-client gnupg'"
+        exit 1
+    fi
+done
+if test "$command" = "create-liveimage"; then
+    need_install=false
+    if test ! -e /usr/lib/ISOLINUX/isolinux.bin; then
+        echo "Error: isolinux not found"
+        need_install=true
+    fi
+    for i in isohybrid mkisofs curl gpg gpgv; do
+        if ! which $i > /dev/null; then
+            echo "Error: needed program $i not found."
+            need_install=true
+        fi
+    done
+    if $need_install; then
+        echo "execute 'apt-get install isolinux syslinux-utils genisoimage curl gnupg gpgv'"
+        exit 1
+    fi
+fi
 
 if test "$command" = "execute"; then
     if [[ ! "$1" =~ ^(all|plain|recovery|install|devop)$ ]]; then
@@ -181,7 +209,8 @@ fi
 # make defaults
 if test -z "$devop_target"; then devop_target="/home/$firstuser"; fi
 if test -z "$devop_user"; then devop_user="$firstuser"; fi
-if test "$frankenstein" = "" -o "$frankenstein" = "true"; then
+if test "$recovery_autologin" != "true"; then recovery_autologin="false"; fi
+if test "$frankenstein" = "true"; then
     frankenstein=true
     select_frankenstein="--frankenstein"
 else
@@ -192,11 +221,7 @@ fi
 # all set, exit if only test was requested
 if test "$command" = "test"; then exit 0; fi
 
-# execute
-if test "$hostname" != "$safety_hostname"; then
-    echo "ERROR: hostname on commandline ($safety_hostname) does not match hostname from configfile ($hostname)"
-    exit 1
-fi
+# load or generate hostkeys, netplan
 if test -e "$recovery_hostkeys_file"; then
     recovery_hostkeys=$(cat "$recovery_hostkeys_file")
 else
@@ -209,8 +234,37 @@ else
     netplan_data="$DEFAULT_netplan_data"
     echo "$netplan_data" > "$netplan_file"
 fi
-if test ! -e "$base_path/log"; then mkdir -p "$base_path/log"; fi
 
+# create log dir
+if test ! -e "$log_path"; then mkdir -p "$log_path"; fi
+
+
+if test "$command" = "create-liveimage"; then
+    echo "creating liveimage"
+    build_path="$run_path/liveimage"
+    isosrc_path="$build_path/build"
+    mkdir -p "$build_path" "$isosrc_path" "$isosrc_path/isolinux"
+    "$self_path/recovery/build-recovery.sh" create "$build_path" "$isosrc_path"
+    "$self_path/recovery/update-recovery-squashfs.sh" --custom \
+        "$isosrc_path/casper/recovery.squashfs" "$hostname" "-" "$netplan_file" \
+        "$recovery_hostkeys_file" "$authorized_keys_file" "$self_path/recovery" \
+        - "$recovery_autologin" "-" "$http_proxy"
+    cp /usr/lib/ISOLINUX/isolinux.bin "$isosrc_path/isolinux/isolinux.bin"
+    "$self_path/recovery/build-recovery.sh" show isolinux > "$isosrc_path/isolinux/isolinux.cfg"
+    mkisofs -o "$build_path/$bootstrap0liveimage" \
+        -b isolinux/isolinux.bin -c isolinux/boot.cat \
+        -no-emul-boot -boot-load-size 4 -boot-info-table "$isosrc_path"
+    isohybrid "$build_path/$bootstrap0liveimage"
+    rm -r "$isosrc_path"
+    exit 0
+fi
+
+
+# execute
+if test "$hostname" != "$safety_hostname"; then
+    echo "ERROR: hostname on commandline ($safety_hostname) does not match hostname from configfile ($hostname)"
+    exit 1
+fi
 
 # STEP recovery
 if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"; then
@@ -223,7 +277,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"
     scp $sshopts "$self_path/bootstrap-0-recovery.sh" \
         "${sshlogin}:/tmp"
     scp $sshopts -rp "$self_path/recovery" "${sshlogin}:/tmp"
-    
+
     echo "write out recovery hostkeys to local config"
     echo "$recovery_hostkeys" | grep "rsa_public:" | sed -r "s/[^:]+: +(.+)/${sshlogin##*@} \1/" > "$config_path/recovery.known_hosts"
     echo "$recovery_hostkeys" | grep "ed25519_public:" | sed -r "s/[^:]+: +(.+)/${sshlogin##*@} \1/" >> "$config_path/recovery.known_hosts"
@@ -234,8 +288,8 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"
     fi
 
     echo "call bootstrap-0, wipe disks, install tools, create partitions write recovery"
-    ssh $sshopts "${sshlogin}" "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-0-recovery.sh $hostname \"$storage_ids\" --yes $storage_opts" 2>&1 | tee "$base_path/log/bootstrap-recovery.log"
-    
+    ssh $sshopts "${sshlogin}" "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-0-recovery.sh $hostname \"$storage_ids\" --yes $storage_opts" 2>&1 | tee "$log_path/bootstrap-recovery.log"
+
     echo "reboot into recovery"
     ssh $sshopts "${sshlogin}" '{ sleep 1; reboot; } >/dev/null &' || true
     echo "sleep 10 seconds, for machine to stop responding to ssh"
@@ -266,7 +320,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
         "${sshlogin}:/tmp"
 
     echo "call bootstrap-1, add luks and zfs, debootstrap system or restore from backup"
-    echo -n "$diskphrase" | ssh $sshopts ${sshlogin} "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1-install.sh $hostname $firstuser \"$storage_ids\" --yes $select_frankenstein $@" 2>&1 | tee "$base_path/log/bootstrap-install.log"
+    echo -n "$diskphrase" | ssh $sshopts ${sshlogin} "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1-install.sh $hostname $firstuser \"$storage_ids\" --yes $select_frankenstein $@" 2>&1 | tee "$log_path/bootstrap-install.log"
 
     echo "copy initrd and system ssh hostkeys from target"
     printf "%s %s\n" "${sshlogin#*@}" "$(ssh $sshopts ${sshlogin} 'cat /tmp/ssh_hostkeys/initrd_ssh_host_ed25519_key.pub')" > "$config_path/initrd.known_hosts"
@@ -300,12 +354,12 @@ if test "$do_phase" = "all" -o "$do_phase" = "devop"; then
         sleep 6
         waitfor_ssh "${sshlogin#*@}"
     fi
-    
+
     echo "copy setup repository to target"
     sshopts="-o UserKnownHostsFile=$config_path/system.known_hosts"
     ssh $sshopts ${sshlogin} "mkdir -p $devop_target"
     scp $sshopts -rp "$base_path" "${sshlogin}:$devop_target"
-    
+
     echo "call bootstrap-3, install saltstack and run state.highstate"
-    ssh $sshopts ${sshlogin} "http_proxy=\"$http_proxy\"; export http_proxy; chown -R $devop_user:$devop_user $devop_target; chmod +x $devop_target/$base_name/bootstrap-machine/bootstrap-3-devop.sh; $devop_target/$base_name/bootstrap-machine/bootstrap-3-devop.sh --yes state.highstate" 2>&1 | tee "$base_path/log/bootstrap-devop.log"
+    ssh $sshopts ${sshlogin} "http_proxy=\"$http_proxy\"; export http_proxy; chown -R $devop_user:$devop_user $devop_target; chmod +x $devop_target/$base_name/bootstrap-machine/bootstrap-3-devop.sh; $devop_target/$base_name/bootstrap-machine/bootstrap-3-devop.sh --yes state.highstate" 2>&1 | tee "$log_path/bootstrap-devop.log"
 fi
