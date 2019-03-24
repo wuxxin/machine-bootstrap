@@ -6,20 +6,27 @@ usage() {
     
     cat << EOF
 Usage:  $0 --host [<hostname>]
-        $0 --custom <squashfsoutputfile> <hostname> <hostid>|-  
+        $0 --custom <squashfsoutputfile> <hostname> <hostid>|-
                     <netplan_file> <hostkeys_file> <authorized_keys_file>
-                    <scriptdir> <archivedir>|- <autologin(yes|no)> [<http_proxy>]
-defaults:
+                    <scriptdir> <archivedir>|- <autologin(true|false)>
+                    "<packagelist(default|-|package+)>" [<http_proxy>]
+
+hostid:         hostid in binary form, use "-" if no id
+archivedir:     expects local apt-archive with "Release" and "Packages" files,
+                use "-" if no archive
+packagelist:    "default" for default list, "-" for no packages, else list of packages
+
+--host defaults:
   squashfsoutputfile:   /boot/casper/recovery.squashfs
-  hostname:             if not set from commandline, get from hostname -f
+  hostname:             if not set from commandline, from hostname -f
   hostid:               if exists from /etc/hostid else "-"
-  netplan_file:         if exists from /etc/recovery/netplan.yml or from /etc/netplan/*
+  netplan_file:         if exists from /etc/recovery/netplan.yml else from /etc/netplan/*
   hostkeys_file:        from /etc/recovery/recovery_hostkeys
   authorized_keys_file: from /root/.ssh/authorized_keys
   scriptdir:            from  /etc/recovery (to recovery:/sbin/)
   archivedir:           if exists "/usr/local/lib/custom-apt-archive" else "-"
-                        expects local apt-archive with "Release" and "Packages" files
-  autologin:            "yes" if exists /etc/recovery/feature.autologin else "no"
+  autologin:            "true" if exists /etc/recovery/feature.autologin else "false"
+  packagelist:          "default" for default list
   http_proxy:           from default env
 
 EOF
@@ -29,10 +36,10 @@ EOF
 
 generate_recovery_squashfs() {
     local basedir cfgdir destfile hostname hostid netplan_data hostkeys_data
-    local authorized_keys_data scriptdir archivedir autologin http_proxy
+    local authorized_keys_data scriptdir archivedir autologin packages http_proxy
     destfile=$1; hostname=$2; hostid=$3; netplan_data="$4"; hostkeys_data="$5";
     authorized_keys_data="$6"; scriptdir=$7; archivedir=$8; autologin=$9;
-    http_proxy="${10}"
+    packages="${10}"; http_proxy="${11}"
     basedir=/tmp/mk.squashfs
     cfgdir="$basedir/etc/cloud/cloud.cfg.d"
 
@@ -55,7 +62,11 @@ generate_recovery_squashfs() {
         no_ssh_genkeytypes="ssh_genkeytypes: []"
     fi
 
-    packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates bzip2 tmux zfs-dkms zfsutils-linux haveged debootstrap libc-bin"
+    if test "$packages" = "default"; then
+        packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates bzip2 tmux zfs-dkms zfsutils-linux haveged debootstrap libc-bin"
+    elif test "$packages" = "-"; then
+        packages=""
+    fi
     
     cat > "$cfgdir/user-data.cfg" <<EOF
 #cloud-config
@@ -72,7 +83,7 @@ apt:
   $ci_http_proxy  
 
 package_upgrade: false
-packages:
+$(if test "$packages" != ""; then printf "packages:\n"; fi)
 $(for p in $packages; do printf "  - %s\n" "$p"; done)
 
 disable_root: false
@@ -97,7 +108,7 @@ EOF
         echo "write recovery_hostkeys to user-data.cfg"
         printf "%s\n\n" "$hostkeys_data" >> "$cfgdir/user-data.cfg"
     fi
-    if test "$autologin" = "yes"; then
+    if test "$autologin" = "true"; then
         echo "modify tty1 for autologin"
         mkdir -p "$basedir/etc/systemd/system/getty@tty1.service.d"
         cat > "$basedir/etc/systemd/system/getty@tty1.service.d/override.conf" <<"EOF"
@@ -132,6 +143,9 @@ EOF
     cd /
 }
 
+
+# ###
+# main
 if test "$1" != "--host" -a "$1" != "--custom"; then usage; fi
 
 if test "$1" = "--host"; then
@@ -144,11 +158,12 @@ if test "$1" = "--host"; then
     /root/.ssh/authorized_keys \
     /etc/recovery \
     $(test -e /usr/local/lib/custom-apt-archive && echo "/usr/local/lib/custom-apt-archive" || printf '%s' '-') \
-    $(test -e /etc/recovery/feature.autologin && echo "yes" || echo "no") \
+    $(test -e /etc/recovery/feature.autologin && echo "true" || echo "false") \
+    default \
     $http_proxy
 else
     shift
-    if test "$9" = ""; then usage; fi
+    if test "${10}" = ""; then usage; fi
     destfile=$1
     hostname=$2
     hostid_file=$3
@@ -158,7 +173,8 @@ else
     scriptdir=$7
     archivedir=$8
     autologin=$9
-    http_proxy="${10}"
+    packages="${10}"
+    http_proxy="${11}"
     for i in $netplan_file $hostkeys_file $authorized_keys_file; do
         if test ! -e "$i"; then
             echo "Error: file $i not found"
@@ -184,6 +200,7 @@ else
         echo "Warning: destination file already exists, renaming to ${destfile}.old"
         mv "$destfile" "${destfile}.old"
     fi
-    generate_recovery_squashfs "$destfile" "$hostname" "$hostid_data" "$netplan_data" \
-    "$hostkeys_data" "$authorized_keys_data" "$scriptdir" "$archivedir" "$autologin" "$http_proxy"
+    generate_recovery_squashfs "$destfile" "$hostname" "$hostid_data" \
+        "$netplan_data" "$hostkeys_data" "$authorized_keys_data" \
+        "$scriptdir" "$archivedir" "$autologin" "$packages" "$http_proxy"
 fi
