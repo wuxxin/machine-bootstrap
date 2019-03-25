@@ -248,7 +248,7 @@ EOF
 fi
 
 echo "install needed packages"
-packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl gnupg gpgv ca-certificates bzip2 tmux haveged debootstrap libc-bin zfs-dkms zfsutils-linux"
+packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl gnupg gpgv ca-certificates bzip2 libc-bin tmux haveged debootstrap zfs-dkms zfsutils-linux"
 DEBIAN_FRONTEND=noninteractive apt-get install --yes $packages
 
 
