@@ -24,7 +24,8 @@ Additionally, i really wanted to have a "cloud like" - little to no performance 
     + partitions for ondisk zfs log (zil) and ondisk zfs cache (l2arc)
     + saltstack run at devop phase with states from salt-shared (eg. desktop)
     + git & git-crypt repository setup to store machine configuration inside a git repository and encrypt all sensitive data with git-crypt
-    + build a preconfigured bootstrap-0 livesystem image for physical bootstrap 
+    + build a preconfigured bootstrap-0 livesystem image usable for physical installation
+        + resulting image is compatible as CD or USB-Stick with BIOS and EFI support
         + execute `./bootstrap-machine/bootstrap.sh create-liveimage` to build image
         + copy `run/liveimage/bootstrap-0-liveimage.iso` to usbstick
 + working on/planned
