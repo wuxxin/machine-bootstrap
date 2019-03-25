@@ -14,14 +14,15 @@ efi_ldlinux="/usr/lib/syslinux/modules/efi64/ldlinux.e64"
 
 
 usage() {
-
     cat << EOF
-$0 download <downloaddir>
-$0 extract  <downloaddir> <targetdir>
+$0 download             <downloaddir>
+$0 extract              <downloaddir> <targetdir>
+$0 create-liveimage     <downloaddir> <targetiso> [<recovery.squashfs>]
 $0 show grub.cfg        <grub_root> <casper_livemedia> <uuid_boot>
 $0 show grub.d/recovery <grub_root> <casper_livemedia> <uuid_boot>
 
-$0 create-liveimage <downloaddir> <targetiso> [<recovery.squashfs>]
+$0 show imagename
+    returns expected source image for recovery building
 $0 --check-req
     confirm all needed requisites are present, exit 0 if true
 
@@ -46,22 +47,23 @@ check_requisites() {
                 exit 1
             fi
         done
-    fi
-    for i in $bios_isolinux $bios_hybridmbr $bios_ldlinux $efi_syslinux $efi_ldlinux; do
-        if test ! -e "$i"; then
-            echo "Error: $(basename $i) not found"
-            need_install=true
+    else
+        for i in $bios_isolinux $bios_hybridmbr $bios_ldlinux $efi_syslinux $efi_ldlinux; do
+            if test ! -e "$i"; then
+                echo "Error: $(basename $i) not found"
+                need_install=true
+            fi
+        done
+        for i in xorrisofs syslinux mkfs.msdos curl gpg gpgv; do
+            if ! which $i > /dev/null; then
+                echo "Error: needed program $i not found."
+                need_install=true
+            fi
+        done
+        if $need_install; then
+            echo "execute 'apt-get install isolinux syslinux syslinux-efi syslinux-common xorriso dosfstools curl gnupg gpgv'"
+            exit 1
         fi
-    done
-    for i in xorrisofs syslinux mkfs.msdos curl gpg gpgv; do
-        if ! which $i > /dev/null; then
-            echo "Error: needed program $i not found."
-            need_install=true
-        fi
-    done
-    if $need_install; then
-        echo "execute 'apt-get install isolinux syslinux syslinux-efi syslinux-common xorriso dosfstools curl gnupg gpgv'"
-        exit 1
     fi
 }
 
@@ -178,7 +180,6 @@ show_grub_d_recovery() {
     grub_root="$1"
     casper_livemedia="$2"
     uuid_boot="$3"
-
     cat - << EOF
 #!/bin/sh
 exec tail -n +3 \$0
@@ -296,16 +297,19 @@ elif test "$cmd" = "extract"; then
     shift 2
     extract_casper_iso "$downloaddir/$imagename" "$downloaddir/isomount" "$targetdir"
 elif test "$cmd" = "show"; then
-    if test "$1" != "grub.cfg" -a "$1" != "grub.d/recovery"; then usage; fi
-    if test "$4" = ""; then usage; fi
-    show_grub="$1"
-    grub_root="$2"
-    casper_livemedia="$3"
-    uuid_boot="$4"
-    shift 4
-    if test "$show_grub" = "grub.cfg"; then
-        show_grub_cfg "$grub_root" "$casper_livemedia" "$uuid_boot"
-    else
-        show_grub_d_recovery "$grub_root" "$casper_livemedia" "$uuid_boot"
+    if test "$1" = "imagename"; then
+        echo "$imagename"
+    elif test "$1" = "grub.cfg" -o "$1" = "grub.d/recovery"; then
+        if test "$4" = ""; then usage; fi
+        show_grub="$1"
+        grub_root="$2"
+        casper_livemedia="$3"
+        uuid_boot="$4"
+        shift 4
+        if test "$show_grub" = "grub.cfg"; then
+            show_grub_cfg "$grub_root" "$casper_livemedia" "$uuid_boot"
+        else
+            show_grub_d_recovery "$grub_root" "$casper_livemedia" "$uuid_boot"
+        fi
     fi
 fi
