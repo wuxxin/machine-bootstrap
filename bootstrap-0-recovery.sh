@@ -132,6 +132,7 @@ packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi
 
 if which apt-get > /dev/null; then
     echo "install required utils"
+    DEBIAN_FRONTEND=noninteractive apt-get update --yes
     DEBIAN_FRONTEND=noninteractive apt-get install --yes $packages
 else
     echo "Warning: no debian system, packages ($packages) must be installed manually or program will fail"
