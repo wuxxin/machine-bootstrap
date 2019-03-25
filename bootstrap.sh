@@ -145,6 +145,19 @@ bootstrap0liveimage="bootstrap-0-liveimage.iso"
 if test "$1" != "test" -a "$1" != "execute" -a "$1" != "create-liveimage"; then usage; fi
 command=$1
 shift
+if test "$command" = "execute"; then
+    if [[ ! "$1" =~ ^(all|plain|recovery|install|devop)$ ]]; then
+        echo "ERROR: Stage must be one of 'all|plain|recovery|install|devop'"
+        usage
+    fi
+    if test "$2" = ""; then
+        echo "ERROR: hostname must be set on commandline and match config entry 'hostname' for safety reasons"
+        usage
+    fi
+    do_phase=$1
+    safety_hostname=$2
+    shift 2
+fi
 
 # check requisites
 for i in nc ssh gpg scp; do
@@ -156,20 +169,6 @@ for i in nc ssh gpg scp; do
 done
 if test "$command" = "create-liveimage"; then
     "$self_path/recovery/build-recovery.sh" --check-req
-fi
-
-if test "$command" = "execute"; then
-    if [[ ! "$1" =~ ^(all|plain|recovery|install|devop)$ ]]; then
-        echo "ERROR: Stage must be one of 'all|plain|recovery|install|devop'"
-        usage
-    fi
-    if test "$2" = ""; then
-        echo "ERROR: hostname must be set on commandline and match config entry for safety reasons"
-        usage
-    fi
-    do_phase=$1
-    safety_hostname=$2
-    shift 2
 fi
 
 # parse config file
@@ -197,6 +196,14 @@ if test "$diskphrase" = ""; then
     echo "Error: diskphrase is empty, abort"
     exit 1
 fi
+# safety check that cmdline argument hostname = config file var hostname
+if test "$command" = "execute"; then
+    if test "$hostname" != "$safety_hostname"; then
+        echo "ERROR: hostname on commandline ($safety_hostname) does not match hostname from configfile ($hostname)"
+        exit 1
+    fi
+fi
+
 # make defaults
 if test -z "$devop_target"; then devop_target="/home/$firstuser"; fi
 if test -z "$devop_user"; then devop_user="$firstuser"; fi
@@ -209,8 +216,11 @@ else
     select_frankenstein=""
 fi
 
-# all set, exit if only test was requested
+# all verified, exit if test was requested
 if test "$command" = "test"; then exit 0; fi
+
+# create log dir
+if test ! -e "$log_path"; then mkdir -p "$log_path"; fi
 
 # load or generate hostkeys, netplan
 if test -e "$recovery_hostkeys_file"; then
@@ -227,20 +237,19 @@ else
     echo "$netplan_data" > "$netplan_file"
 fi
 
-# create log dir
-if test ! -e "$log_path"; then mkdir -p "$log_path"; fi
 
+#
 # create-liveimage
 if test "$command" = "create-liveimage"; then
     echo "creating liveimage"
     download_path="$run_path/liveimage"
     mkdir -p "$download_path"
-    # download image (optional, but we use proxy here)
+    # download image:
+    #   optional but with a http proxy setting it will get downloaded from cache
     with_proxy "$self_path/recovery/build-recovery.sh" download "$download_path"
-    # write new hostkeys for bootstrap-0 included in recovery.squashfs
+    # write recovery.squashfs with new hostkeys for bootstrap-0
     generate_hostkeys
     echo "$generated_hostkeys" > "$download_path/bootstrap-0.hostkeys"
-    # write recovery.squashfs
     "$self_path/recovery/update-recovery-squashfs.sh" --custom \
         "$download_path/recovery.squashfs" "$hostname" "-" "$netplan_file" \
         "$download_path/bootstrap-0.hostkeys" "$authorized_keys_file" \
@@ -252,11 +261,6 @@ fi
 
 
 # execute
-if test "$hostname" != "$safety_hostname"; then
-    echo "ERROR: hostname on commandline ($safety_hostname) does not match hostname from configfile ($hostname)"
-    exit 1
-fi
-
 # STEP recovery
 if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"; then
     echo "Step: recovery"
@@ -268,7 +272,12 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"
     scp $sshopts "$self_path/bootstrap-0-recovery.sh" \
         "${sshlogin}:/tmp"
     scp $sshopts -rp "$self_path/recovery" "${sshlogin}:/tmp"
-
+    baseimage=$($self_path/recovery/build-recovery.sh show imagename)
+    if test -e "$run_path/liveimage/$baseimage"; then
+        echo "copy $baseimage to target (assuming it is a physical install without http proxy)"
+        ssh $sshopts "${sshlogin}" "mkdir -p /tmp/liveimage"
+        scp $sshopts "$run_path/liveimage/$baseimage" "${sshlogin}:/tmp/liveimage/$baseimage"
+    fi
     echo "write out recovery hostkeys to local config"
     echo "$recovery_hostkeys" | grep "rsa_public:" | sed -r "s/[^:]+: +(.+)/${sshlogin##*@} \1/" > "$config_path/recovery.known_hosts"
     echo "$recovery_hostkeys" | grep "ed25519_public:" | sed -r "s/[^:]+: +(.+)/${sshlogin##*@} \1/" >> "$config_path/recovery.known_hosts"
