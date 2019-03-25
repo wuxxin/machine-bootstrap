@@ -1,6 +1,6 @@
 #!/bin/bash
 set -eo pipefail
-set -x
+#set -x
 
 self_path=$(dirname $(readlink -e "$0"))
 
@@ -101,20 +101,8 @@ EOF
 }
 
 
-as_root() {
-    if test "$(id -u)" != "0"; then
-        sudo $@
-    else
-        $@
-    fi
-}
-
 with_proxy() {
-  if test "$http_proxy" != ""; then
-      http_proxy=$http_proxy $@
-  else
-      $@
-  fi
+    if test "$http_proxy" != ""; then http_proxy=$http_proxy $@; else $@; fi
 }
 
 
@@ -167,25 +155,7 @@ for i in nc ssh gpg scp; do
     fi
 done
 if test "$command" = "create-liveimage"; then
-    need_install=false
-    for i in /usr/lib/syslinux/modules/bios/ldlinux.c32 \
-        /usr/lib/SYSLINUX.EFI/efi64/syslinux.efi \
-        /usr/lib/ISOLINUX/isolinux.bin; do
-        if test ! -e "$i"; then
-            echo "Error: $(basename $i) not found"
-            need_install=true
-        fi
-    done
-    for i in isohybrid mkisofs curl gpg gpgv; do
-        if ! which $i > /dev/null; then
-            echo "Error: needed program $i not found."
-            need_install=true
-        fi
-    done
-    if $need_install; then
-        echo "execute 'apt-get install isolinux syslinux-efi syslinux-common syslinux-utils genisoimage curl gnupg gpgv'"
-        exit 1
-    fi
+    "$self_path/recovery/build-recovery.sh" --check-req
 fi
 
 if test "$command" = "execute"; then
@@ -260,68 +230,23 @@ fi
 # create log dir
 if test ! -e "$log_path"; then mkdir -p "$log_path"; fi
 
-
+# create-liveimage
 if test "$command" = "create-liveimage"; then
     echo "creating liveimage"
     download_path="$run_path/liveimage"
-    build_path="$download_path/build"
-    mkdir -p "$download_path" "$build_path/casper" "$build_path/isolinux" "$build_path/efi"
-
-    # download image
+    mkdir -p "$download_path"
+    # download image (optional, but we use proxy here)
     with_proxy "$self_path/recovery/build-recovery.sh" download "$download_path"
-
-    # write new hostkeys for bootstrap-0 to be included in recovery.squashfs
+    # write new hostkeys for bootstrap-0 included in recovery.squashfs
     generate_hostkeys
     echo "$generated_hostkeys" > "$download_path/bootstrap-0.hostkeys"
-
     # write recovery.squashfs
     "$self_path/recovery/update-recovery-squashfs.sh" --custom \
-        "$build_path/casper/recovery.squashfs" "$hostname" "-" "$netplan_file" \
+        "$download_path/recovery.squashfs" "$hostname" "-" "$netplan_file" \
         "$download_path/bootstrap-0.hostkeys" "$authorized_keys_file" \
         "$self_path/recovery" - "$recovery_autologin" "-" "$http_proxy"
-    echo "debug: copy recovery.squashfs also to download_path"
-    cp "$build_path/casper/recovery.squashfs" "$download_path/recovery.squashfs"
-
-    # write isolinux.cfg
-    "$self_path/recovery/build-recovery.sh" show isolinux > "$build_path/isolinux/isolinux.cfg"
-    # make minimal isolinux bios boot
-    cp /usr/lib/ISOLINUX/isolinux.bin "$build_path/isolinux/isolinux.bin"
-    cp /usr/lib/syslinux/modules/bios/ldlinux.c32 "$build_path/isolinux/ldlinux.c32"
-
-    # extract casper
-    as_root "$self_path/recovery/build-recovery.sh" extract "$download_path" "$build_path"
-    as_root chown -R $(id -u):$(id -g) "$build_path"
-    as_root chmod -R u+w "$build_path"
-
-    # make ESP partition image (efi/boot/bootx64.efi)
-    esp_img="$build_path/efi/esp.img"
-    esp_mount="$download_path/esp_mount"
-    if test -e "$esp_img"; then rm "$esp_img"; fi
-    if test -e "$esp_mount"; then rm "$esp_mount"; fi
-    truncate -s $((10796+128+128))k "$esp_img"
-    mkdir -p "$esp_mount"
-    as_root mount "$esp_img" "$esp_mount" -o uid=$(id -u)
-    mkdir -p "$esp_mount/boot" "$esp_mount/syslinux" "$esp_mount/efi/boot"
-    cp /usr/lib/SYSLINUX.EFI/efi64/syslinux.efi "$esp_mount/efi/boot/bootx64.efi"
-    cp /usr/lib/SYSLINUX.EFI/efi64/ldlinux.e64 "$esp_mount/syslinux/"
-    cp "$build_path/casper/vmlinuz" "$esp_mount/boot/"
-    cp "$build_path/casper/initrd" "$esp_mount/boot/"
-    cat "$build_path" | sed -r "s#/casper#/boot#g" > "$esp_mount/syslinux/syslinux.cfg"
-    as_root umount "$esp_mount"
-
-    # make iso
-    mkisofs -quiet -o "$download_path/$bootstrap0liveimage" \
-        -R -J -uid 0 -gid 0 \
-        -eltorito-boot isolinux/isolinux.bin -no-emul-boot \
-        -boot-load-size 4 -boot-info-table \
-        -eltorito-alt-boot -eltorito-platform efi  \
-        -eltorito-boot efi/esp.img -no-emul-boot \
-        -eltorito-catalog isolinux/boot.cat \
-        "$build_path"
-    # modify iso for hybrid usage
-    isohybrid --uefi "$download_path/$bootstrap0liveimage"
-    # remove build files
-    rm -r "$build_path"
+    # create liveimage
+    "$self_path/recovery/build-recovery.sh" create-liveimage "$download_path" "$download_path/$bootstrap0liveimage" "$download_path/recovery.squashfs"
     exit 0
 fi
 
