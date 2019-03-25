@@ -25,7 +25,7 @@ EOF
 
 create_zpool() {
     # call with create_zpool username zpool-create-args*
-    
+
     # create zpool
     # XXX ashift 12 or 13 (4096/8192 byte sectors) depending disk
     zpool create \
@@ -140,7 +140,7 @@ create_zpool() {
 create_zpool_swap()
 {
     swapsize="$1"
-    if "$swapsize" = ""; then 
+    if "$swapsize" = ""; then
         swapsize="1024"
     fi
     swapsize="${swapsize}M"
