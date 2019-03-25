@@ -253,6 +253,7 @@ echo "create recovery.squashfs and copy to /mnt/boot/casper"
 cp /tmp/recovery.squashfs /mnt/boot/casper/
 
 echo "write /mnt/boot/grub/grub.cfg"
+mkdir -p /mnt/boot/grub
 uuid_boot="$(blkid -s UUID -o value /dev/disk/by-label/boot)"
 grub_root="hd0,gpt${BOOT_NR}"
 casper_livemedia=""
