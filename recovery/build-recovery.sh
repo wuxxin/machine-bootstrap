@@ -1,6 +1,6 @@
 #!/bin/sh
 set -e
-set -x
+#set -x
 
 # Default Recovery Image Base
 baseurl="http://old-releases.ubuntu.com/releases/18.04.1"
@@ -10,7 +10,9 @@ imagename="ubuntu-18.04.1-live-server-amd64.iso"
 usage() {
 
     cat << EOF
-$0 create <downloaddir> <targetdir>
+$0 download <downloaddir>
+$0 extract  <downloaddir> <targetdir>
+    needs permissions to loop mount iso image
 $0 show grub.cfg        <grub_root> <casper_livemedia> <uuid_boot>
 $0 show grub.d/recovery <grub_root> <casper_livemedia> <uuid_boot>
 $0 show isolinux
@@ -21,7 +23,7 @@ EOF
 
 
 download_casper_image() {
-    local basedir baseurl gpghome imagename imagehash real_fingerprint
+    local basedir baseurl gpghome imagename imagehash validate_result real_fingerprint
     local cdimage_keyid cdimage_fingerprint cdimage_keyname cdimage_keyfile cdimage_keyserver
     basedir="$1"
     baseurl="$2"
@@ -52,13 +54,20 @@ download_casper_image() {
         curl -L -s "$baseurl/$i" > "$basedir/$i"
     done
 
-    echo "check if checksum files are signed with correct key"
-    gpgv --keyring="$basedir/$cdimage_keyfile" "$basedir/SHA256SUMS.gpg" "$basedir/SHA256SUMS"
-    fixme currently exits 2
+    echo "validate that checksum files are signed with correct key"
+    gpgv_result=$(LC_MESSAGES=POSIX gpgv --keyring="$basedir/$cdimage_keyfile" "$basedir/SHA256SUMS.gpg" "$basedir/SHA256SUMS" 2>&1 >/dev/null || true)
+    if ! $(printf "%s" "$gpgv_result" | \
+        grep -q -E "^gpgv: Good signature from.+<$cdimage_keyname>\"$"); then
+        echo "ERROR: signature verification failed"
+        exit 1
+    fi
+
     imagehash=$(cat "$basedir/SHA256SUMS" | grep "$imagename" | sed -r "s/^([^ ]+) \*.+/\1/g")
+    validate_result=1
 
     if test -e "$basedir/$imagename"; then
-        if $(echo "$imagehash *$basedir/$imagename" | sha256sum --check); then
+        echo "$imagehash *$basedir/$imagename" | sha256sum --check || validate_result=$? && validate_result=$?
+        if test "$validate_result" = "0"; then
             echo "$imagename already on storage, and hash is correct"
         else
             echo "Warning: $imagename already on storage, but hash is different, deleting image"
@@ -69,9 +78,10 @@ download_casper_image() {
         echo "download image $baseurl/$imagename"
         curl -f -# -L -s "$baseurl/$imagename" -o "$basedir/$imagename"
     fi
-    echo "checksum image $imagename"
-    echo "$imagehash *$basedir/$imagename" | sha256sum --check
-
+    if test "$validate_result" != "0"; then
+        echo "checksum image $imagename"
+        echo "$imagehash *$basedir/$imagename" | sha256sum --check
+    fi
 }
 
 
@@ -93,7 +103,6 @@ extract_casper_iso() {
     cp -a -t "$targetdir/"       "$iso_mount/.disk"
     umount "$iso_mount"
     rmdir "$iso_mount"
-
 }
 
 
@@ -148,8 +157,7 @@ EOF
 
 show_isolinux() {
     cat - << EOF
-say "bootstrap-machine bootstrap-0-liveimage, you have 3 seconds to abort loading"
-prompt 3
+say "bootstrap-machine bootstrap-0-liveimage"
 default bootstrap
 label bootstrap
     kernel /casper/vmlinuz
@@ -161,15 +169,12 @@ EOF
 
 
 # parse args
-if test "$1" != "create" -a "$1" != "show"; then usage; fi
+if test "$1" != "download" -a "$1" != "extract" -a "$1" != "show"; then usage; fi
 cmd="$1"
 shift
 
-if test "$cmd" = "create"; then
-    if test "$2" = ""; then usage; fi
-    downloaddir="$1"
-    targetdir="$2"
-    shift 2
+if test "$cmd" = "download"; then
+    if test "$1" = ""; then usage; fi
     for i in gpg gpgv curl; do
         if ! which $i > /dev/null; then
             echo "Error: needed program $i not found."
@@ -177,7 +182,14 @@ if test "$cmd" = "create"; then
             exit 1
         fi
     done
+    downloaddir="$1"
+    shift
     download_casper_image "$downloaddir" "$baseurl" "$imagename"
+elif test "$cmd" = "extract"; then
+    if test "$2" = ""; then usage; fi
+    downloaddir="$1"
+    targetdir="$2"
+    shift 2
     extract_casper_iso "$downloaddir/$imagename" "$downloaddir/isomount" "$targetdir"
 elif test "$cmd" = "show"; then
     if test "$1" = "isolinux"; then
