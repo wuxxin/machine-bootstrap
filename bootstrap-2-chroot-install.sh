@@ -228,7 +228,7 @@ else
     apt upgrade --yes
     apt install --yes --no-install-recommends linux-$flavor linux-tools-$flavor
 
-    packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates bzip2 tmux zfs-dkms zfsutils-linux haveged debootstrap libc-bin"
+    packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl gnupg gpgv ca-certificates bzip2 tmux haveged debootstrap libc-bin zfs-dkms zfsutils-linux"
     extra_packages="openssh-server plymouth-theme-ubuntu-gnome-logo"
     ubuntu_minimal=$(apt-cache depends ubuntu-minimal | grep "Depends:" | sed -r "s/ +Depends: (.+)$/\1/g" | grep -vE "(initramfs-tools|ubuntu-advantage-tools)")
     ubuntu_standard=$(apt-cache depends ubuntu-standard | grep "Depends:" | sed -r "s/ +Depends: (.+)$/\1/g" | grep -vE "(popularity-contest)")

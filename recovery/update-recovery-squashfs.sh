@@ -63,7 +63,7 @@ generate_recovery_squashfs() {
     fi
 
     if test "$packages" = "default"; then
-        packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl ca-certificates bzip2 tmux zfs-dkms zfsutils-linux haveged debootstrap libc-bin"
+        packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl gnupg gpgv ca-certificates bzip2 tmux haveged debootstrap libc-bin zfs-dkms zfsutils-linux"
     elif test "$packages" = "-"; then
         packages=""
     fi
