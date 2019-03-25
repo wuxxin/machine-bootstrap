@@ -241,7 +241,8 @@ for disk in $fulldisklist; do
 done
 
 echo "build recovery to /mnt/boot"
-/tmp/recovery/build-recovery.sh create /tmp/liveimage /mnt/boot
+/tmp/recovery/build-recovery.sh download /tmp/liveimage
+/tmp/recovery/build-recovery.sh extract /tmp/liveimage /mnt/boot
 
 echo "create recovery.squashfs and copy to /mnt/boot/casper"
 /tmp/recovery/update-recovery-squashfs.sh --custom \
