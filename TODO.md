@@ -43,11 +43,11 @@ Mär 01 00:03:22 box systemd[1]: systemd-cryptsetup@luks\x2droot.service: Failed
 
 ### devop stage
 + FIXME: proper saltcall logging
++ FIXME: add ppa snooper for ppa install to look if there is a In/Release file
++ switch to disco for desktop and make 2 other hops until next lts
 + install and configure zfs auto snapshot and ZFS Scrubbing
 + make ~/downloads extra dataset with no backup and only few snapshots
 + install desktop, install language german with de_AT
     + configure evolution to use caldav, carddav
 + make backup working
-+ make optional homesick configure if ./home exists (symlink to ~/.homesick/repos/$hostname)
-+ think how to backport gnome 3.32 to bionic, or switch to disco and make 2 other hops until next lts
-+ make repository data only available under a different group (not normally readable by user) and allow homeshick and others using a special command to operate on this file
++ make homesick configureable from pillar (checkout repo, git-crypt, a.s.o.)
