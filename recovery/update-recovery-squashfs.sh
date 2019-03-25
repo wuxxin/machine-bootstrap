@@ -3,7 +3,7 @@ set -e
 # set -x
 
 usage() {
-    
+
     cat << EOF
 Usage:  $0 --host [<hostname>]
         $0 --custom <squashfsoutputfile> <hostname> <hostid>|-
@@ -67,7 +67,7 @@ generate_recovery_squashfs() {
     elif test "$packages" = "-"; then
         packages=""
     fi
-    
+
     cat > "$cfgdir/user-data.cfg" <<EOF
 #cloud-config
 # XXX keep the "#cloud-config" line first and unchanged
@@ -80,7 +80,7 @@ apt:
       deb \$MIRROR \$RELEASE main restricted universe multiverse
       deb \$MIRROR \$RELEASE-updates main restricted universe multiverse
       deb \$SECURITY \$RELEASE-security main restricted universe multiverse
-  $ci_http_proxy  
+  $ci_http_proxy
 
 package_upgrade: false
 $(if test "$packages" != ""; then printf "packages:\n"; fi)
@@ -117,16 +117,16 @@ ExecStart=
 ExecStart=-/usr/bin/agetty --autologin root --noclear %I $TERM
 EOF
     fi
-    
+
     if test "$hostid" != "-"; then
         echo "add /etc/hostid"
         printf "%s" "$hostid" > $basedir/etc/hostid
     fi
-    
+
     echo "include helper scripts in squashfs"
     mkdir -p $basedir/sbin
     cp -a $scriptdir/*.sh $basedir/sbin/
-    
+
     if test "$archivedir" != "" -a "$archivedir" != "-"; then
         echo "include custom archive in squashfs"
         mkdir -p "$basedir$archivedir"
@@ -139,7 +139,7 @@ EOF
 
     echo "create squashfs"
     cd $basedir
-    mksquashfs . "$destfile"
+    mksquashfs . "$destfile" -no-progress -root-owned
     cd /
 }
 
@@ -183,7 +183,7 @@ else
     done
     if test "$hostid_file" = "-"; then
         hostid_data="-"
-    elif test -e "$hostid_file"; then 
+    elif test -e "$hostid_file"; then
         hostid_data=$(cat "$hostid_file")
     else
         echo "Error: file $hostid_file not found"
