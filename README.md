@@ -3,7 +3,9 @@
 Unattended ssh installer of Ubuntu 18.04/19.04 with luks encrypted zfs storage,
 suitable for executing from a linux liveimage/recoveryimage system via ssh.
 
-It is intended as a Desktop/Laptop or as a typical rootserver (2HD,headless)
+It has two use cases:
+    + as a Desktop/Laptop
+    + as a typical rootserver (2HD,headless)
 
 Additionally, i really wanted to have a "cloud like" - little to no performance impact, encrypted, incremental, autorotating snapshot backup system, from and to redundant checksuming data storage on a single machine with the abbility to use common thirdparty storage for this backup. So far it is a very busy journey... https://xkcd.com/974/
 
@@ -167,7 +169,15 @@ echo $(printf 'storage_ids="'; for i in \
 
 ```
 
-## Install System
+## optional: make physical bootstrap-0 liveimage
+
+```
+./bootstrap-machine/bootstrap.sh create-liveimage
+# copy run/liveimage/bootstrap-0-liveimage.iso to usbstick
+# boot target machine from usbstick
+```
+
+## install system
 
 ```
 # test if everything needed is there
@@ -187,7 +197,7 @@ git push -u origin master
 
 ```
 
-## Usage and Maintenance
+## usage and maintenance
 
 ### connect to machine
 
