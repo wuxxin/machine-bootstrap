@@ -72,7 +72,7 @@ waitfor_ssh() {
 }
 
 
-generate_recovery_hostkeys() {
+generate_hostkeys() {
     local rsa_private rsa_public ed25519_private ed25519_public t
     echo "generate rsa hostkey"
     rsa_private=$( \
@@ -88,7 +88,7 @@ generate_recovery_hostkeys() {
         cat "$t/id_ed25519" && rm -r "$t" \
     )
     ed25519_public=$(echo "$ed25519_private" | ssh-keygen -q -y -P '' -f /dev/stdin)
-    recovery_hostkeys=$(cat <<EOF
+    generated_hostkeys=$(cat <<EOF
 ssh_keys:
   rsa_private: |
 $(echo "${rsa_private}" | sed -e 's/^/      /')
@@ -98,6 +98,23 @@ $(echo "${ed25519_private}" | sed -e 's/^/      /')
   ed25519_public: ${ed25519_public}
 EOF
     )
+}
+
+
+as_root() {
+    if test "$(id -u)" != "0"; then
+        sudo $@
+    else
+        $@
+    fi
+}
+
+with_proxy() {
+  if test "$http_proxy" != ""; then
+      http_proxy=$http_proxy $@
+  else
+      $@
+  fi
 }
 
 
@@ -151,10 +168,14 @@ for i in nc ssh gpg scp; do
 done
 if test "$command" = "create-liveimage"; then
     need_install=false
-    if test ! -e /usr/lib/ISOLINUX/isolinux.bin; then
-        echo "Error: isolinux not found"
-        need_install=true
-    fi
+    for i in /usr/lib/syslinux/modules/bios/ldlinux.c32 \
+        /usr/lib/SYSLINUX.EFI/efi64/syslinux.efi \
+        /usr/lib/ISOLINUX/isolinux.bin; do
+        if test ! -e "$i"; then
+            echo "Error: $(basename $i) not found"
+            need_install=true
+        fi
+    done
     for i in isohybrid mkisofs curl gpg gpgv; do
         if ! which $i > /dev/null; then
             echo "Error: needed program $i not found."
@@ -162,7 +183,7 @@ if test "$command" = "create-liveimage"; then
         fi
     done
     if $need_install; then
-        echo "execute 'apt-get install isolinux syslinux-utils genisoimage curl gnupg gpgv'"
+        echo "execute 'apt-get install isolinux syslinux-efi syslinux-common syslinux-utils genisoimage curl gnupg gpgv'"
         exit 1
     fi
 fi
@@ -225,7 +246,8 @@ if test "$command" = "test"; then exit 0; fi
 if test -e "$recovery_hostkeys_file"; then
     recovery_hostkeys=$(cat "$recovery_hostkeys_file")
 else
-    generate_recovery_hostkeys
+    generate_hostkeys
+    recovery_hostkeys="$generated_hostkeys"
     echo "$recovery_hostkeys" > "$recovery_hostkeys_file"
 fi
 if test -e "$netplan_file"; then
@@ -241,21 +263,65 @@ if test ! -e "$log_path"; then mkdir -p "$log_path"; fi
 
 if test "$command" = "create-liveimage"; then
     echo "creating liveimage"
-    build_path="$run_path/liveimage"
-    isosrc_path="$build_path/build"
-    mkdir -p "$build_path" "$isosrc_path" "$isosrc_path/isolinux"
-    "$self_path/recovery/build-recovery.sh" create "$build_path" "$isosrc_path"
+    download_path="$run_path/liveimage"
+    build_path="$download_path/build"
+    mkdir -p "$download_path" "$build_path/casper" "$build_path/isolinux" "$build_path/efi"
+
+    # download image
+    with_proxy "$self_path/recovery/build-recovery.sh" download "$download_path"
+
+    # write new hostkeys for bootstrap-0 to be included in recovery.squashfs
+    generate_hostkeys
+    echo "$generated_hostkeys" > "$download_path/bootstrap-0.hostkeys"
+
+    # write recovery.squashfs
     "$self_path/recovery/update-recovery-squashfs.sh" --custom \
-        "$isosrc_path/casper/recovery.squashfs" "$hostname" "-" "$netplan_file" \
-        "$recovery_hostkeys_file" "$authorized_keys_file" "$self_path/recovery" \
-        - "$recovery_autologin" "-" "$http_proxy"
-    cp /usr/lib/ISOLINUX/isolinux.bin "$isosrc_path/isolinux/isolinux.bin"
-    "$self_path/recovery/build-recovery.sh" show isolinux > "$isosrc_path/isolinux/isolinux.cfg"
-    mkisofs -o "$build_path/$bootstrap0liveimage" \
-        -b isolinux/isolinux.bin -c isolinux/boot.cat \
-        -no-emul-boot -boot-load-size 4 -boot-info-table "$isosrc_path"
-    isohybrid "$build_path/$bootstrap0liveimage"
-    rm -r "$isosrc_path"
+        "$build_path/casper/recovery.squashfs" "$hostname" "-" "$netplan_file" \
+        "$download_path/bootstrap-0.hostkeys" "$authorized_keys_file" \
+        "$self_path/recovery" - "$recovery_autologin" "-" "$http_proxy"
+    echo "debug: copy recovery.squashfs also to download_path"
+    cp "$build_path/casper/recovery.squashfs" "$download_path/recovery.squashfs"
+
+    # write isolinux.cfg
+    "$self_path/recovery/build-recovery.sh" show isolinux > "$build_path/isolinux/isolinux.cfg"
+    # make minimal isolinux bios boot
+    cp /usr/lib/ISOLINUX/isolinux.bin "$build_path/isolinux/isolinux.bin"
+    cp /usr/lib/syslinux/modules/bios/ldlinux.c32 "$build_path/isolinux/ldlinux.c32"
+
+    # extract casper
+    as_root "$self_path/recovery/build-recovery.sh" extract "$download_path" "$build_path"
+    as_root chown -R $(id -u):$(id -g) "$build_path"
+    as_root chmod -R u+w "$build_path"
+
+    # make ESP partition image (efi/boot/bootx64.efi)
+    esp_img="$build_path/efi/esp.img"
+    esp_mount="$download_path/esp_mount"
+    if test -e "$esp_img"; then rm "$esp_img"; fi
+    if test -e "$esp_mount"; then rm "$esp_mount"; fi
+    truncate -s $((10796+128+128))k "$esp_img"
+    mkdir -p "$esp_mount"
+    as_root mount "$esp_img" "$esp_mount" -o uid=$(id -u)
+    mkdir -p "$esp_mount/boot" "$esp_mount/syslinux" "$esp_mount/efi/boot"
+    cp /usr/lib/SYSLINUX.EFI/efi64/syslinux.efi "$esp_mount/efi/boot/bootx64.efi"
+    cp /usr/lib/SYSLINUX.EFI/efi64/ldlinux.e64 "$esp_mount/syslinux/"
+    cp "$build_path/casper/vmlinuz" "$esp_mount/boot/"
+    cp "$build_path/casper/initrd" "$esp_mount/boot/"
+    cat "$build_path" | sed -r "s#/casper#/boot#g" > "$esp_mount/syslinux/syslinux.cfg"
+    as_root umount "$esp_mount"
+
+    # make iso
+    mkisofs -quiet -o "$download_path/$bootstrap0liveimage" \
+        -R -J -uid 0 -gid 0 \
+        -eltorito-boot isolinux/isolinux.bin -no-emul-boot \
+        -boot-load-size 4 -boot-info-table \
+        -eltorito-alt-boot -eltorito-platform efi  \
+        -eltorito-boot efi/esp.img -no-emul-boot \
+        -eltorito-catalog isolinux/boot.cat \
+        "$build_path"
+    # modify iso for hybrid usage
+    isohybrid --uefi "$download_path/$bootstrap0liveimage"
+    # remove build files
+    rm -r "$build_path"
     exit 0
 fi
 
