@@ -1,11 +1,10 @@
 # bootstrap machine
 
-Unattended ssh installer of Ubuntu 18.04/19.04 with luks encrypted zfs storage,
-suitable for executing from a linux liveimage/recoveryimage system via ssh.
+Unattended ssh installer of Ubuntu 18.04/19.04 with luks encrypted zfs storage, suitable for executing from a linux liveimage/recoveryimage system via ssh.
 
-It has two use cases:
-    + as a Desktop/Laptop
-    + as a typical rootserver (2HD,headless)
+It serves two use cases:
++ as a Desktop/Laptop
++ as a typical rootserver (2HD,headless)
 
 Additionally, i really wanted to have a "cloud like" - little to no performance impact, encrypted, incremental, autorotating snapshot backup system, from and to redundant checksuming data storage on a single machine with the abbility to use common thirdparty storage for this backup. So far it is a very busy journey... https://xkcd.com/974/
 
@@ -66,7 +65,7 @@ mkdir box
 cd box
 git init
 mkdir -p machine-config log run
-printf "#\nlog/\nrun/\n" > .gitignore
+printf "#\n/log\n/run\n" > .gitignore
 git submodule add https://github.com/wuxxin/bootstrap-machine.git
 git add .
 git commit -v -m "initial config"
