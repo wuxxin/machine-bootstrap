@@ -7,8 +7,7 @@ self_path=$(dirname $(readlink -e "$0"))
 
 usage() {
     cat << EOF
-
-+ $0 execute [all|plain|recovery|install|devop] <hostname> [--restore-from-backup]
++ $0 execute [all|plain|recovery|install|devop] <hostname> [optional install parameter]
     + execute the requested stages of install on hostname
         all output from target host is displayed on screen and captured to "log" dir
 
@@ -18,8 +17,12 @@ usage() {
     + install:  execute step install (expects running recovery image)
     + devop:    execute step devop (expects installed and running base machine,
                 will first try to connect to initrd and unlock storage)
+
     <hostname>  must be the same value as in the config file config/hostname
-    --restore-from-backup
+    [optional install parameter]
+        --distribution <codename>
+                select a specific distribution to be installed
+        --restore-from-backup
                 partition & format system, then restore from backup
 + $0 test
     + test the setup for mandatory files and settings, exits 0 if successful
