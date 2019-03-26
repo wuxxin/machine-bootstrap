@@ -23,11 +23,12 @@ minion_config() {
     mkdir -p "$run_path"
     cat << EOF > "$run_path/minion"
 root_dir: $run_path
-pidfile: salt-minion.pid
+pidfile: salt-call.pid
 pki_dir: pki
 cachedir: cache
 sock_dir: run
-log_file: salt-minion.log
+log_file: salt-call.log
+log_level_logfile: info
 file_client: local
 
 fileserver_backend:

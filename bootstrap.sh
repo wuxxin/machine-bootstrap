@@ -360,7 +360,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "devop"; then
     echo "copy setup repository to target"
     sshopts="-o UserKnownHostsFile=$config_path/system.known_hosts"
     ssh $sshopts ${sshlogin} "mkdir -p $devop_target"
-    tar -c --exclude "./run" --exclude "./log" -C "$base_path" | ssh $sshopts $sshlogin "mkdir -p $devop_target/$base_name; tar x -C $devop_target/$base_name"
+    tar -c --exclude "./run" --exclude "./log" -C "$base_path" . | ssh $sshopts $sshlogin "mkdir -p $devop_target/$base_name; tar x -C $devop_target/$base_name"
 
     echo "call bootstrap-3, install saltstack and run state.highstate"
     ssh $sshopts ${sshlogin} "http_proxy=\"$http_proxy\"; export http_proxy; chown -R $devop_user:$devop_user $devop_target; chmod +x $devop_target/$base_name/bootstrap-machine/bootstrap-3-devop.sh; $devop_target/$base_name/bootstrap-machine/bootstrap-3-devop.sh --yes state.highstate" 2>&1 | tee "$log_path/bootstrap-devop.log"
