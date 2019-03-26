@@ -89,7 +89,7 @@ base:
     - custom
 EOF
 cp bootstrap-machine/devop/custom-pillar.sls machine-config/custom.sls
-ln -s ../../bootstrap-machine/devop/bootstrap-pillar.sls \
+ln -s ../bootstrap-machine/devop/bootstrap-pillar.sls \
   machine-config/bootstrap.sls
 cp bootstrap-machine/devop/top-state.sls salt/custom/top.sls
 touch salt/custom/custom.sls
