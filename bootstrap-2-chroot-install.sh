@@ -228,7 +228,8 @@ else
     apt upgrade --yes
     apt install --yes --no-install-recommends linux-$flavor linux-tools-$flavor
 
-    packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl gnupg gpgv ca-certificates bzip2 libc-bin tmux haveged debootstrap zfs-dkms zfsutils-linux"
+    packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl gnupg gpgv ca-certificates bzip2 libc-bin tmux haveged debootstrap"
+    zfs_packages="spl-dkms zfs-dkms zfsutils-linux"
     extra_packages="openssh-server plymouth-theme-ubuntu-gnome-logo"
     ubuntu_minimal=$(apt-cache depends ubuntu-minimal | grep "Depends:" | sed -r "s/ +Depends: (.+)$/\1/g" | grep -vE "(initramfs-tools|ubuntu-advantage-tools)")
     ubuntu_standard=$(apt-cache depends ubuntu-standard | grep "Depends:" | sed -r "s/ +Depends: (.+)$/\1/g" | grep -vE "(popularity-contest)")
@@ -236,7 +237,7 @@ else
     # XXX workaround ubuntu-minimal, ubuntu-standard depending on initramfs-tools, friendly-recovery
     # XXX while there, remove other unwanted pkgs (ubuntu-advantage-tools, popularity-contest)
     apt install --yes \
-        $packages $extra_packages \
+        $packages $zfs_packages $extra_packages \
         $ubuntu_minimal $ubuntu_standard $ubuntu_standard_rec
     # XXX force automatic not to overwrite dracut/10-debian.conf
     cat > /etc/apt/apt.conf.d/90bootstrap-dracut << EOF

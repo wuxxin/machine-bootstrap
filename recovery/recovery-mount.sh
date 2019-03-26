@@ -29,10 +29,10 @@ if which cloud-init > /dev/null; then
 fi
 
 if test "$what" != "from_rpool"; then
-
-    echo "update sources, install zfs-dkms zfsutils-linux"
+    zfs_packages="spl-dkms zfs-dkms zfsutils-linux"
+    echo "update sources, install $zfs_packages"
     DEBIAN_FRONTEND=noninteractive apt-get update --yes
-    DEBIAN_FRONTEND=noninteractive apt-get install --yes zfs-dkms zfsutils-linux
+    DEBIAN_FRONTEND=noninteractive apt-get install --yes $zfs_packages
 
     cryptdisks=""
 
