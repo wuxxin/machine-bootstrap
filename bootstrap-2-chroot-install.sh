@@ -141,6 +141,14 @@ EOF
 echo "workaround zol < 0.8 missing zfs-mount-generator"
 cat /etc/recovery/legacy.fstab >> /etc/fstab
 
+# https://github.com/systemd/systemd/issues/867
+echo "workaround /var stays busy at shutdown due to journald"
+mkdir -p /etc/systemd/system/var.mount.d
+cat > /etc/systemd/system/var.mount.d/override.conf << EOF
+[Mount]
+LazyUnmount=yes
+EOF
+
 if test -e "/dev/mapper/luks-swap"; then
     echo "/dev/mapper/luks-swap swap swap defaults" >> /etc/fstab
 fi
@@ -278,7 +286,7 @@ for i in ssh_host_ecdsa_key ssh_host_ecdsa_key.pub; do
     if test -e /etc/ssh/$i; then rm /etc/ssh/$i; fi
 done
 if restore_not_overwrite /etc/ssh/sshd_config; then
-    restore_warning "but overwriting sshd_config"
+    restore_warning "but overwriting sshd_config to a secure minimal version"
 fi
 cat >> /etc/ssh/sshd_config <<EOF
 # Supported HostKey algorithms by order of preference.
