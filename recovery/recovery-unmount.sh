@@ -24,3 +24,5 @@ swapoff -a || true
 sleep 1
 echo "export rpool (unmount pool)"
 zpool export rpool
+
+echo "FIXME: force reboot with systemctl reboot --force if reboot hangs"

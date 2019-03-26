@@ -72,7 +72,7 @@ EOF
     fi
 
     echo "start cryptdisks $cryptdisks"
-    for i in $cryptdisks; do 
+    for i in $cryptdisks; do
         cryptdisks_start $i
     done
 fi
@@ -82,7 +82,7 @@ if test "$what" = "until_rpool"; then exit 0; fi
 echo "mount zfs rpool"
 zpool export -a
 import_opts="-N -R /mnt"
-if test "$force" = "yes"; then 
+if test "$force" = "yes"; then
     import_opts="$import_opts -f"
 fi
 zpool import $import_opts rpool
@@ -120,4 +120,4 @@ chroot /mnt /bin/bash --login
 
 echo "exited from chroot, to chroot again type 'chroot /mnt /bin/bash --login'"
 echo "when finished, use recovery-unmount.sh to unmount disks before reboot"
-echo "force reboot with systemctl reboot --force if reboot hangs"
+echo "FIXME: force reboot with systemctl reboot --force if reboot hangs"
