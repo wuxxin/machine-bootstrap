@@ -137,12 +137,13 @@ firstuser=$(id -u -n)
 # storage_ids=""
 
 # optional
-# http_proxy="http://192.168.122.1:8123" # default = ""
+# http_proxy="http://192.168.122.1:8123" # default ""
 # storage_opts="[--reuse] [--log yes|<logsizemb>]"
 # storage_opts="[--cache yes|<cachesizemb] [--swap yes|<swapsizemb>]"
 # storage_opts default=""
-# recovery_autologin="true" # default = "false"
-# frankenstein="true" # default = "false"
+# distribution="disco" # default "bionic"
+# recovery_autologin="true" # default "false"
+# frankenstein="true" # default "false"
 # devop_target="/home/$(id -u -n)"
 # devop_user="$(id -u -n)"
 EOF

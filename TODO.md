@@ -11,7 +11,7 @@
 ## done
 
 ## testing
-
++ add distribution to machine-config/config
 + FIXME: zfs-dkms installation (missing spl-dkms installed) on bootstrap-2-chroot dkms-zfs install
 + FIXME: bootstrap devop phase: copy files without run and log (everything in .gitignore)
 + FIXME: /var/log unmounting
@@ -24,11 +24,11 @@ Mär 01 00:03:22 box systemd[1]: systemd-cryptsetup@luks\x2droot.service: Failed
 ```
 
 ## working on
-+ FIXME: --recovery-autologin
 
 ## features to add/finish, known issues to fix
 
 ### recovery, install/restore stages
++ FIXME: --recovery-autologin
 + FIXME: step install reboot, recovery-unmount.sh reboot: reboot only working with --force
 + FIXME: recovery grub that does not succeed first time (while installing),
     + has no 3 seconds wait (as first time), but waits for user interaction the second time, but its the only option

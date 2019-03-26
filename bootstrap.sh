@@ -20,8 +20,6 @@ usage() {
 
     <hostname>  must be the same value as in the config file config/hostname
     [optional install parameter]
-        --distribution <codename>
-                select a specific distribution to be installed
         --restore-from-backup
                 partition & format system, then restore from backup
 + $0 test
@@ -208,6 +206,7 @@ if test "$command" = "execute"; then
 fi
 
 # make defaults
+if test -z "$distribution"; then distribution="bionic"; fi
 if test -z "$devop_target"; then devop_target="/home/$firstuser"; fi
 if test -z "$devop_user"; then devop_user="$firstuser"; fi
 if test "$recovery_autologin" != "true"; then recovery_autologin="false"; fi
@@ -323,7 +322,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
         "${sshlogin}:/tmp"
 
     echo "call bootstrap-1, add luks and zfs, debootstrap system or restore from backup"
-    echo -n "$diskphrase" | ssh $sshopts ${sshlogin} "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1-install.sh $hostname $firstuser \"$storage_ids\" --yes $select_frankenstein $@" 2>&1 | tee "$log_path/bootstrap-install.log"
+    echo -n "$diskphrase" | ssh $sshopts ${sshlogin} "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1-install.sh $hostname $firstuser \"$storage_ids\" --yes $select_frankenstein --distribution $distribution $@" 2>&1 | tee "$log_path/bootstrap-install.log"
 
     echo "copy initrd and system ssh hostkeys from target"
     printf "%s %s\n" "${sshlogin#*@}" "$(ssh $sshopts ${sshlogin} 'cat /tmp/ssh_hostkeys/initrd_ssh_host_ed25519_key.pub')" > "$config_path/initrd.known_hosts"
