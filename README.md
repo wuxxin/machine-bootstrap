@@ -4,7 +4,7 @@ Unattended ssh installer of Ubuntu 18.04/19.04 with luks encrypted zfs storage, 
 
 It serves two use cases:
 + as a Desktop/Laptop
-+ as a typical rootserver (2HD,headless)
++ as a typical rootserver (2xHD,headless)
 
 Additionally, i really wanted to have a "cloud like" - little to no performance impact, encrypted, incremental, autorotating snapshot backup system, from and to redundant checksuming data storage on a single machine with the abbility to use common thirdparty storage for this backup. So far it is a very busy journey... https://xkcd.com/974/
 
@@ -20,9 +20,9 @@ Additionally, i really wanted to have a "cloud like" - little to no performance 
     + buildin scripts to mount/unmount root and update recovery boot parameter
 + loging of recovery and target system installation on calling machine in directory ./log
 + optional
-    + luks encrypted hibernate compatible swap for desktop installation
+    + luks encrypted hibernate compatible swap for eg. a desktop installation
     + patched zfs-linux for overlay fs support on zfs (frankenstein=true)
-    + partitions for ondisk zfs log (zil) and ondisk zfs cache (l2arc)
+    + create partitions for ondisk zfs log (zil) and ondisk zfs cache (l2arc)
     + saltstack run at devop phase with states from salt-shared (eg. desktop)
     + git & git-crypt repository setup to store machine configuration inside a git repository and encrypt all sensitive data with git-crypt
     + build a preconfigured bootstrap-0 livesystem image usable for physical installation
@@ -33,31 +33,29 @@ Additionally, i really wanted to have a "cloud like" - little to no performance 
     + autorotating encrypted incremental snapshot backup to thirdparty storage with zfs and restic
     + desaster recovery from backup storage to new machine
     + recovery scripts to replace a faulty disk, to invalidate a disk
-
-installation is done in 4 steps:
-
-+ 1 initial live system: partition disk, recovery install to /boot, reboot into recovery
-+ 2 recovery live system: build patches, create zpool, debootstrap, configure system, chroot into target
-+ 3 chroot target: configure system, kernel, initrd, install standard software, reboot into target
-+ 4 target system: install and run saltstack on target system
+    + home-nas setup with 1 x internal:type:ssd + 2 x external:type:spindle harddisks
 
 example configurations:
 
 + a root server with one or two harddisks and static ip setup
     + add custom `$config_path/netplan.yml`
-+ a laptop with encrypted hibernation: `storage_opts="--swap yes"`
++ a laptop with encrypted hibernation: 
+    + `storage_opts="--swap yes"`
 + a vm: `http_proxy="http://proxyip:port"`
-+ a home-nas with 1(internal:type ssd)+2(external:type spindle) harddisks
-    + `storage_opts="--log yes --cache 4096"`
++ install ubuntu disco instead of bionic:
+    + `distribution=disco`
 
 ## Preparation
 
 Requirements:
-+ Minimum RAM:
-  + frankenstein=yes: Minimum 4GB Ram (for compiling zfs in ram in recovery)
-  + frankenstein=no : Minimum 2GB RAM
-+ Minimum Storage:
-  + 10GB-15GB (10 += if swap=yes then RAM-Size*1.25 as default)
+
++ Minimum RAM
+    + frankenstein=no : 2GB RAM
+    + frankenstein=yes: 4GB Ram (for compiling zfs in ram in recovery)
++ Minimum Storage
+    + 10GB (no swap, console) 
+    + \+ ~5GB (with swap for 4gb memory)
+    + \+ ~5GB (full desktop installation)
 
 ### make a new project repository (eg. box)
 ```
@@ -73,7 +71,7 @@ git commit -v -m "initial config"
 
 ### optional: add an upstream
 ```
-git remote add origin ssh://git@somewhere.on.the.net/username/box.git
+git remote add origin ssh://git@some.where.net/username/box.git
 ```
 
 ### optional: add files for devop task
@@ -117,8 +115,6 @@ cat > .gitattributes <<EOF
 credentials* filter=git-crypt diff=git-crypt
 csrftokens* filter=git-crypt diff=git-crypt
 random_seed filter=git-crypt diff=git-crypt
-sitemanager.xml filter=git-crypt diff=git-crypt
-remmina.pref filter=git-crypt diff=git-crypt
 EOF
 git-crypt add-gpg-user user.email@address.org
 git add .
@@ -169,7 +165,7 @@ echo $(printf 'storage_ids="'; for i in \
 
 ```
 
-## optional: make physical bootstrap-0 liveimage
+### optional: make physical bootstrap-0 liveimage
 
 ```
 ./bootstrap-machine/bootstrap.sh create-liveimage
@@ -177,7 +173,14 @@ echo $(printf 'storage_ids="'; for i in \
 # boot target machine from usbstick
 ```
 
-## install system
+## Installation
+
+installation is done in 4 steps:
+
++ 1 initial live system: partition disk, recovery install to /boot, reboot into recovery
++ 2 recovery live system: build patches, create zpool, debootstrap, configure system, chroot into target
++ 3 recovery chroot target: configure system, kernel, initrd, install standard software, reboot into target
++ 4 target system: install and run saltstack
 
 ```
 # test if everything needed is there
@@ -197,11 +200,11 @@ git push -u origin master
 
 ```
 
-## usage and maintenance
+## Maintenance
 
 ### connect to machine
 
-+ connect to running recovery / initrd or system
++ connect to target machine running in recovery, initrd or final system
 ```
 ./bootstrap-machine/connect.sh recovery|initrd|system
 ```
