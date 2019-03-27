@@ -137,12 +137,12 @@ cat >> /etc/fstab <<EOF
 rpool/ROOT/ubuntu / zfs defaults 0 0
 EOF
 
-# https://github.com/zfsonlinux/zfs/issues/5754
 echo "workaround zol < 0.8 missing zfs-mount-generator"
+echo "https://github.com/zfsonlinux/zfs/issues/5754"
 cat /etc/recovery/legacy.fstab >> /etc/fstab
 
-# https://github.com/systemd/systemd/issues/867
 echo "workaround /var stays busy at shutdown due to journald"
+echo "https://github.com/systemd/systemd/issues/867"
 mkdir -p /etc/systemd/system/var.mount.d
 cat > /etc/systemd/system/var.mount.d/override.conf << EOF
 [Mount]
@@ -259,6 +259,7 @@ EOF
         ubuntu-advantage-tools- popularity-contest- \
         dracut dracut-network zfs-dracut
     rm /etc/apt/apt.conf.d/90bootstrap-dracut
+    apt-get --yes clean
 fi
 
 echo "create missing system groups"
@@ -279,27 +280,26 @@ else
 fi
 
 echo "ssh config, 2019-02-26 snapshot (but without ecsda) of https://infosec.mozilla.org/guidelines/openssh.html "
-# only use >= 3072-bit-long moduli
+echo "only use >= 3072-bit-long moduli"
 awk '$5 >= 3071' /etc/ssh/moduli > /etc/ssh/moduli.tmp && mv /etc/ssh/moduli.tmp /etc/ssh/moduli
-# do not use ecdsa keys
+echo "do not use and remove ecdsa keys"
 for i in ssh_host_ecdsa_key ssh_host_ecdsa_key.pub; do
     if test -e /etc/ssh/$i; then rm /etc/ssh/$i; fi
 done
 if restore_not_overwrite /etc/ssh/sshd_config; then
-    restore_warning "but overwriting sshd_config to a secure minimal version"
+    restore_warning "but overwriting sshd_config to a minimal secure version, original renamed to .old"
+    mv /etc/ssh/sshd_config /etc/ssh/sshd_config.old
 fi
 cat >> /etc/ssh/sshd_config <<EOF
+# ### BOOTSTRAP-MACHINE BEGIN ###
 # Supported HostKey algorithms by order of preference.
 HostKey /etc/ssh/ssh_host_ed25519_key
 HostKey /etc/ssh/ssh_host_rsa_key
 AuthenticationMethods publickey
-
 KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256
-
 Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
-
 MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-512,hmac-sha2-256,umac-128@openssh.com
-
+# ### BOOTSTRAP-MACHINE END ###
 EOF
 
 echo "rewrite recovery squashfs"
