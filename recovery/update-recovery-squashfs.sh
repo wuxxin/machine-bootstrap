@@ -24,7 +24,7 @@ packagelist:    "default" for default list, "-" for no packages, else list of pa
   hostkeys_file:        from /etc/recovery/recovery_hostkeys
   authorized_keys_file: from /root/.ssh/authorized_keys
   scriptdir:            from  /etc/recovery (to recovery:/sbin/)
-  archivedir:           if exists "/usr/local/lib/custom-apt-archive" else "-"
+  archivedir:           if exists "$custom_archive" else "-"
   autologin:            "true" if exists /etc/recovery/feature.autologin else "false"
   packagelist:          "default" for default list
   http_proxy:           from default env
@@ -131,8 +131,8 @@ EOF
         echo "include custom archive in squashfs"
         mkdir -p "$basedir$archivedir"
         cp -t "$basedir$archivedir" $archivedir/*
-        mkdir -p $basedir/etc/apt/sources.list.d
-        cat > $basedir/etc/apt/sources.list.d/local-apt-archive.list << EOF
+        mkdir -p "$basedir$(dirname $custom_sources_list)"
+        cat > "$basedir$custom_sources_list" << EOF
 deb [ trusted=yes ] file:$archivedir ./
 EOF
     fi
@@ -146,6 +146,9 @@ EOF
 
 # ###
 # main
+custom_archive=/usr/local/lib/bootstrap-custom-archive
+custom_sources_list=/etc/apt/sources.list.d/local-bootstrap-custom.list
+
 if test "$1" != "--host" -a "$1" != "--custom"; then usage; fi
 
 if test "$1" = "--host"; then
@@ -157,7 +160,7 @@ if test "$1" = "--host"; then
     /etc/recovery/recovery_hostkeys \
     /root/.ssh/authorized_keys \
     /etc/recovery \
-    $(test -e /usr/local/lib/custom-apt-archive && echo "/usr/local/lib/custom-apt-archive" || printf '%s' '-') \
+    $(test -e $custom_archive && echo "$custom_archive" || printf '%s' '-') \
     $(test -e /etc/recovery/feature.autologin && echo "true" || echo "false") \
     default \
     $http_proxy
