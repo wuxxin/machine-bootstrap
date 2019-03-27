@@ -161,6 +161,10 @@ create_zpool_swap()
 
 # ### main
 
+# const
+custom_archive=/usr/local/lib/bootstrap-custom-archive
+custom_sources_list=/etc/apt/sources.list.d/local-bootstrap-custom.list
+
 # partition paths by label and partlabel
 EFI=/dev/disk/by-partlabel/EFI
 BOOT=/dev/disk/by-label/boot
@@ -228,19 +232,17 @@ hostnamectl set-hostname "$shortname"
 
 # compile custom zfs-linux if requested
 if $option_frankenstein; then
-    echo "selected frankenstein option"
     if test ! -e /tmp/zfs/build-custom-zfs.sh -o ! -e /tmp/zfs/no-dops-snapdirs.patch; then
         echo "error: could not find needed files for frankenstein zfs-linux build, continue without custom build"
     else
         echo "build-custom-zfs"
         chmod +x /tmp/zfs/build-custom-zfs.sh
         /tmp/zfs/build-custom-zfs.sh /tmp/zfs/basedir
-        custom_archive=/usr/local/lib/custom-apt-archive
         if test -e $custom_archive; then rm -rf $custom_archive; fi
         mkdir -p $custom_archive
         mv -t $custom_archive /tmp/zfs/basedir/zfsbuild/buildresult/*
         rm -rf /tmp/zfs/basedir
-        cat > /etc/apt/sources.list.d/local-apt-archive.list << EOF
+        cat > $custom_sources_list << EOF
 deb [ trusted=yes ] file:$custom_archive ./
 EOF
         DEBIAN_FRONTEND=noninteractive apt-get update --yes
@@ -375,7 +377,6 @@ cp -a /tmp/netplan.yaml /mnt/etc/netplan/80-lan.yaml
 
 if $option_frankenstein; then
     echo "copy custom archive files"
-    custom_archive=/usr/local/lib/custom-apt-archive
     if test -e "/mnt$custom_archive"; then
         if $option_restore_backup; then
             echo "WARNING: not deleting existing target dir $custom_archive because of --restore-from-backup"
@@ -386,9 +387,12 @@ if $option_frankenstein; then
     fi
     mkdir -p "/mnt$custom_archive"
     cp -t "/mnt$custom_archive" $custom_archive/*
-    cat > /mnt/etc/apt/sources.list.d/local-apt-archive.list << EOF
+    cat > "/mnt$custom_sources_list" << EOF
 deb [ trusted=yes ] file:$custom_archive ./
 EOF
+    # remove archive from ramdisk, it is already installed in running system and copied to target
+    rm -r $custom_archive
+    rm $custom_sources_list
 fi
 
 echo "copy additional bootstrap files"
