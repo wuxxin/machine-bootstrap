@@ -1,27 +1,16 @@
 # Todo
 
-+ IMPORTANT: 
++ Info:
     + kvm qxl does not work (kernel faults) on suspend and hibernate, use virtio vga instead
     + virtio vga does not work in X11, use qxl instead
 
-+ Reasons for overlay fs on zfs
-    + software this days, expect overlay fs support on any normal storage on linux
++ Reasons for overlay fs on zfs:
+    + 2 years after integrating overlayfs in the kernel, people expect overlay fs support on any normal storage on linux
     + systemd.volatile https://github.com/systemd/systemd/blob/adca059d55fe0a126dbdd62911b0705ddf8e9b8a/NEWS#L119
 
 ## done
 
 ## testing
-+ add distribution to machine-config/config
-+ FIXME: zfs-dkms installation (missing spl-dkms installed) on bootstrap-2-chroot dkms-zfs install
-+ FIXME: bootstrap devop phase: copy files without run and log (everything in .gitignore)
-+ FIXME: /var/log unmounting
-```
-var-log.mount: Mount process exited, code=exited status=32
-Mär 01 00:03:18 box systemd[1]: Failed unmounting /var/log.
-Mär 01 00:03:22 box systemd-cryptsetup[2952]: Failed to deactivate: Device or resource busy
-Mär 01 00:03:22 box systemd[1]: systemd-cryptsetup@luks\x2droot.service: Control process exited, code=exited status=1
-Mär 01 00:03:22 box systemd[1]: systemd-cryptsetup@luks\x2droot.service: Failed with result 'exit-code'.
-```
 
 ## working on
 
