@@ -96,4 +96,6 @@ fi
 if test ! -e "$run_path/minion"; then
     minion_config "$base_path" "$run_path"
 fi
+echo "salt-call $@"
+echo "(look at $run_path/salt-call.log for more verbosity)"
 salt-call --local --config-dir="$run_path" "$@"
