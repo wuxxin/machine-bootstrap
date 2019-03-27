@@ -50,7 +50,7 @@ quilt import "$self_path/no-dops-snapdirs.patch"
 quilt push
 current_version=$(head -1 debian/changelog | sed -r "s/[^(]+\(([^)]+)\).+/\1/g")
 new_version=${current_version:0:-1}$(( ${current_version: -1} +1 ))nodrevalidate
-debchange -v "$new_version" --distribution disco "enable overlayfs on zfs: debian/patches/no-d-revalidate.patch"
+debchange -v "$new_version" --distribution disco "enable overlayfs on zfs: no-d-revalidate.patch"
 dpkg-source -b .
 cd ..
 backportpackage -B cowbuilder --dont-sign -b -w zfsbuild zfs-linux*nodrevalidate*.dsc
