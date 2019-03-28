@@ -24,8 +24,7 @@ base:
 
   # any
   '*':
-    - tools
     - locale
-    - timezone
+    - tools
     - ssh
     - custom
