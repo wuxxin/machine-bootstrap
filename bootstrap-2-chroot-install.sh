@@ -255,8 +255,8 @@ Dpkg::Options {
 }
 EOF
     apt install --yes \
-        ubuntu-minimal- initramfs-tools- \
-        ubuntu-advantage-tools- popularity-contest- \
+        ubuntu-minimal- initramfs-tools- ubuntu-advantage-tools- \
+        popularity-contest- friendly-recovery- \
         dracut dracut-network zfs-dracut
     rm /etc/apt/apt.conf.d/90bootstrap-dracut
     apt-get --yes clean
