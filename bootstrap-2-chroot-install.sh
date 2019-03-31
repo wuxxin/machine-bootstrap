@@ -234,11 +234,11 @@ else
     if test "$(lsb_release -c -s)" = "bionic"; then flavor="${flavor}-hwe-18.04"; fi
     echo "install $flavor kernel, bootloader & tools needed for ubuntu-standard"
     apt upgrade --yes
-    apt install --yes --no-install-recommends linux-$flavor linux-tools-$flavor
+    apt install --yes --no-install-recommends linux-$flavor linux-headers-$flavor linux-image-$flavor linux-image-extra-$flavor linux-tools-$flavor
 
     packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl gnupg gpgv ca-certificates bzip2 libc-bin tmux haveged debootstrap"
     zfs_packages="spl-dkms zfs-dkms zfsutils-linux"
-    extra_packages="openssh-server plymouth-theme-ubuntu-gnome-logo"
+    extra_packages="openssh-server"
     ubuntu_minimal=$(apt-cache depends ubuntu-minimal | grep "Depends:" | sed -r "s/ +Depends: (.+)$/\1/g" | grep -vE "(initramfs-tools|ubuntu-advantage-tools)")
     ubuntu_standard=$(apt-cache depends ubuntu-standard | grep "Depends:" | sed -r "s/ +Depends: (.+)$/\1/g" | grep -vE "(popularity-contest)")
     ubuntu_standard_rec=$(apt-cache depends ubuntu-standard | grep "Recommends:" | sed -r "s/ +Recommends: (.+)$/\1/g" | grep -vE "(friendly-recovery)")
