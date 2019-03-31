@@ -15,7 +15,6 @@
 ## working on
 + FIXME: reboot after bootstrap-1&2-install not working
 + FIXME: --recovery-autologin
-+ FIXME: disco: module autofs4 not found (initrd, and other places)
 + desktop: install language
 
 ## features to add/finish, known issues to fix
@@ -43,6 +42,7 @@
 ### devop stage
 + install and configure zfs auto snapshot and ZFS Scrubbing
 + make backup working
++ think if we want to use zram-config
 + desktop: make ~/downloads extra dataset with no backup and only few snapshots
 + desktop: configure evolution to use caldav, carddav
 + desktop: make homesick configureable from pillar (checkout repo, git-crypt, a.s.o.)
