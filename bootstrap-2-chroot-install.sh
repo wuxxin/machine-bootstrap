@@ -99,7 +99,7 @@ if restore_not_overwrite /etc/modprobe.d/zfs.conf; then
 else
     echo "use cfq i/o scheduler for cgroup i/o quota support"
     echo "options zfs zfs_vdev_scheduler=cfq" > /etc/modprobe.d/zfs.conf
-    arc_max_bytes=$(grep MemTotal /proc/meminfo | awk '{print $2*1024*25/100}')
+    arc_max_bytes=$(grep MemTotal /proc/meminfo | awk '{printf("%u",$2*1024*25/100)}')
     echo "use maximum of 25% of available memory for arc zfs_arc_max=$arc_max_bytes bytes"
     echo "options zfs zfs_arc_max=${arc_max_bytes}" >> /etc/modprobe.d/zfs.conf
 fi
