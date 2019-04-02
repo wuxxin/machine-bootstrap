@@ -156,7 +156,8 @@ echo $(printf 'storage_ids="'; for i in \
         grep -E "^virtio-[^-]+$"); do \
     printf "$i "; done; printf '"') >> machine-config/config
 
-# create disk.passphrase.gpg (example)
+# create disk.passphrase.gpg
+# example: create a random diskphrase and encrypted with user gpg key
 (x=$(openssl rand -base64 9); echo -n "$x" | \
     gpg --encrypt -r username@email.address) \
     > machine-config/disk.passphrase.gpg
