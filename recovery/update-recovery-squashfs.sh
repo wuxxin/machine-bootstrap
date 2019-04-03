@@ -109,12 +109,12 @@ EOF
         printf "%s\n\n" "$hostkeys_data" >> "$cfgdir/user-data.cfg"
     fi
     if test "$autologin" = "true"; then
-        echo "modify tty1 for autologin"
-        mkdir -p "$basedir/etc/systemd/system/getty@tty1.service.d"
-        cat > "$basedir/etc/systemd/system/getty@tty1.service.d/override.conf" <<"EOF"
+        echo "modify tty4 for autologin"
+        mkdir -p "$basedir/etc/systemd/system/getty@tty4.service.d"
+        cat > "$basedir/etc/systemd/system/getty@tty4.service.d/override.conf" <<"EOF"
 [Service]
 ExecStart=
-ExecStart=-/usr/bin/agetty --autologin root --noclear %I $TERM
+ExecStart=-/sbin/agetty -o '-p -f root' --autologin root --noclear %I $TERM
 EOF
     fi
 
