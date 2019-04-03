@@ -336,7 +336,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
     done
 
     echo "reboot into target system (FIXME: needs reboot -f)"
-    ssh $sshopts "${sshlogin}" '{ sleep 1; reboot -f; } >/dev/null &' || true
+    ssh $sshopts "${sshlogin}" 'systemctl reboot -f' || true
     echo "sleep 10 seconds, for machine to stop responding to ssh"
     sleep 10
 fi
