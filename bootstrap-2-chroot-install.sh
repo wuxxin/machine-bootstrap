@@ -230,11 +230,11 @@ apt-get update --yes
 if $option_restore_backup; then
     restore_warning "not installing base packages"
 else
-    if systemd-detect-virt --vm; then flavor="virtual"; else flavor="generic"; fi
+    if systemd-detect-virt --vm --quiet; then flavor="virtual"; else flavor="generic"; fi
     if test "$(lsb_release -c -s)" = "bionic"; then flavor="${flavor}-hwe-18.04"; fi
     echo "install $flavor kernel, bootloader & tools needed for ubuntu-standard"
     apt upgrade --yes
-    apt install --yes --no-install-recommends linux-$flavor linux-headers-$flavor linux-image-$flavor linux-tools-$flavor $(systemd-detect-virt --vm && echo "linux-image-extra-$flavor" || true)
+    apt install --yes --no-install-recommends linux-$flavor linux-headers-$flavor linux-image-$flavor linux-tools-$flavor $(systemd-detect-virt --vm --quiet && echo "linux-image-extra-$flavor" || true)
 
     packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl gnupg gpgv ca-certificates bzip2 libc-bin tmux haveged debootstrap"
     zfs_packages="spl-dkms zfs-dkms zfsutils-linux"
