@@ -59,6 +59,6 @@ backportpackage -B cowbuilder --dont-sign -b -w zfsbuild zfs-linux*nodrevalidate
 cd zfsbuild/buildresult
 apt-ftparchive packages . > Packages
 gzip -c < Packages > Packages.gz
-apt-ftparchive release . > Release
+apt-ftparchive -o "APT::FTPArchive::Release::Origin=local" release . > Release
 gzip -c < Release > Release.gz
 cd ../..
