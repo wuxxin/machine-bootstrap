@@ -11,9 +11,9 @@
 ## done
 
 ## testing
++ FIXME: --recovery-autologin
 
 ## working on
-+ FIXME: --recovery-autologin
 + dev-disk-by\x2dpartuuid-f016b8e4\x2ddd6b\x2d46e5\x2d9851\x2dd5a0c2f49ead.device: Job dev-disk-by\x2dpartuuid-f016b8e4\x2ddd6b\x2d46e5\x2d9851\x2dd5a0c2f49ead.device/start timed out.
 + var-cache.mount: Directory /var/cache to mount over is not empty, mounting anyway
 
