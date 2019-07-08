@@ -128,6 +128,12 @@ create_zpool() {
                 -o mountpoint=/var/cache \
                 rpool/volatile/var-cache
 
+    # rpool/volatile/var-cache-puilder at /var/cache/pbuilder
+    zfs create  -o exec=on \
+                -o devices=on \
+                -o mountpoint=/var/cache/pbuilder \
+                rpool/volatile/var-cache-pbuilder
+
     # rpool/volatile/var-lib-apt-lists at /var/lib/apt/lists
     mkdir -p /mnt/var/lib/apt/lists
     zfs create  -o exec=off \
@@ -337,7 +343,7 @@ zfs set devices=off rpool
 
 # https://github.com/zfsonlinux/zfs/issues/5754
 echo "workaround zol < 0.8 missing zfs-mount-generator"
-for i in volatile/tmp volatile/var-tmp volatile/var-cache volatile/var-lib-apt-lists volatile/log; do
+for i in volatile/tmp volatile/var-tmp volatile/var-cache volatile/var-cache-pbuilder volatile/var-lib-apt-lists volatile/log; do
     zfs set mountpoint=legacy rpool/$i
 done
 mkdir -p /mnt/etc/recovery
@@ -348,6 +354,7 @@ else
 rpool/volatile/tmp          /tmp        zfs  nodev,relatime,xattr,posixacl          0 0
 rpool/volatile/var-tmp      /var/tmp    zfs  nodev,relatime,xattr,posixacl          0 0
 rpool/volatile/var-cache    /var/cache  zfs  nodev,noexec,relatime,xattr,posixacl   0 0
+rpool/volatile/var-cache-pbuilder    /var/cache/pbuilder  zfs  dev,exec,relatime,xattr,posixacl   0 0
 rpool/volatile/log          /var/log    zfs  nodev,noexec,relatime,xattr,posixacl   0 0
 rpool/volatile/var-lib-apt-lists  /var/lib/apt/lists  zfs nodev,noexec,relatime,xattr,posixacl  0 0
 EOF
@@ -385,6 +392,8 @@ if $option_frankenstein; then
             rm -rf "/mnt$custom_archive"
         fi
     fi
+    echo "insert distribution into /etc/pbuilderrc"
+    echo "DISTRIBUTION=$distribution" >> /mnt/etc/pbuilderrc
     mkdir -p "/mnt$custom_archive"
     cp -t "/mnt$custom_archive" $custom_archive/*
     cat > "/mnt$custom_sources_list" << EOF
