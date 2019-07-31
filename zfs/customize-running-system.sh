@@ -3,10 +3,10 @@ set -eo pipefail
 set -x
 self_path=$(dirname $(readlink -e "$0"))
 
-# parse args
-if test "$1" != "--yes"; then
+
+usage() {
     cat <<EOF
-Usage: $0 --yes
+Usage: $0 --yes [--without-recovery] [optional args to build-custom-zfs.sh]
 
 build and install a custom zfs version for:
 + the running system
@@ -17,16 +17,28 @@ for activation a reboot is needed after execution.
 
 EOF
     exit 1
-fi
-shift
+}
 
-echo "build-custom-zfs"
-$self_path/build-custom-zfs.sh /tmp/zfs/basedir
+# parse args
+if test "$1" != "--yes"; then usage; fi
+shift
+run_recovery="true"
+if test "$1" =0 "--without-recovery"; then
+    shift
+    run_recovery="false"
+fi
+
+# build custom zfs
+basedir=$(mktemp -d)
+echo "build-custom-zfs ($@) at $basedir"
+"$self_path/build-custom-zfs.sh" "$basedir" $@
+
+# move build artifacts and configure local machine to use them
 custom_archive=/usr/local/lib/bootstrap-custom-archive
 if test -e $custom_archive; then rm -rf $custom_archive; fi
 mkdir -p $custom_archive
-mv -t $custom_archive /tmp/zfs/basedir/zfsbuild/buildresult/*
-rm -rf /tmp/zfs/basedir
+mv -t $custom_archive $basedir/build/buildresult/*
+rm -rf "$basedir"
 cat > /etc/apt/sources.list.d/local-bootstrap-custom.list << EOF
 deb [ trusted=yes ] file:$custom_archive ./
 EOF
@@ -36,5 +48,7 @@ echo "install/upgrade packages in running system"
 zfs_packages="spl-dkms zfs-dkms zfsutils-linux"
 DEBIAN_FRONTEND=noninteractive apt-get install --upgrade --yes $zfs_packages
 
-echo "updating recovery.squashfs"
-/etc/recovery/udpate-recovery-squashfs.sh --host
+if $run_recovery; then
+    echo "updating recovery.squashfs"
+    /etc/recovery/udpate-recovery-squashfs.sh --host
+fi

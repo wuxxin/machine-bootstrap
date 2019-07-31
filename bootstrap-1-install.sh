@@ -241,12 +241,12 @@ if $option_frankenstein; then
     if test ! -e /tmp/zfs/build-custom-zfs.sh -o ! -e /tmp/zfs/no-dops-snapdirs.patch; then
         echo "error: could not find needed files for frankenstein zfs-linux build, continue without custom build"
     else
-        echo "build-custom-zfs"
+        echo "build-custom-zfs (0.8* from lp branch eoan)"
         chmod +x /tmp/zfs/build-custom-zfs.sh
-        /tmp/zfs/build-custom-zfs.sh /tmp/zfs/basedir
+        /tmp/zfs/build-custom-zfs.sh /tmp/zfs/basedir eoan
         if test -e $custom_archive; then rm -rf $custom_archive; fi
         mkdir -p $custom_archive
-        mv -t $custom_archive /tmp/zfs/basedir/zfsbuild/buildresult/*
+        mv -t $custom_archive /tmp/zfs/basedir/build/buildresult/*
         rm -rf /tmp/zfs/basedir
         cat > $custom_sources_list << EOF
 deb [ trusted=yes ] file:$custom_archive ./
