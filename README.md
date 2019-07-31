@@ -1,41 +1,46 @@
 # bootstrap machine
 
-Unattended ssh installer of Ubuntu 18.04/19.04 with luks encrypted zfs storage, suitable for executing from a linux liveimage/recoveryimage system via ssh.
+Unattended ssh installer of Ubuntu 18.04/19.04 with luks encrypted zfs storage,
+    executed to a linux liveimage/recoveryimage system via ssh.
 
-It serves two use cases:
-+ as a Desktop/Laptop
+It serves two use case:
++ as a experimental Desktop/Laptop Setup for getting handson experience of the setup
 + as a typical rootserver (2xHD,headless)
-
-Additionally, i really wanted to have a "cloud like" - little to no performance impact, encrypted, incremental, autorotating snapshot backup system, from and to redundant checksuming data storage on a single machine with the abbility to use common thirdparty storage for this backup. So far it is a very busy journey... https://xkcd.com/974/
+    + this is still in the writing and not ready yet, see `TODO.md` for details
 
 ## Features
 
 + unattended ssh install of Ubuntu 18.04 LTS (bionic) or 19.04 (disco)
++ root on luks encrypted zfs / zfs mirror pool (encrypted storage at rest)
 + one or two disks (will be setup as mirror if two)
-+ root on luks encrypted zfs / zfs mirror pool
 + efi and legacy bios boot compatible hybrid grub setup with grubenv support
 + ssh in initial ramdisk for remote unlock luks on system startup using dracut
 + recovery system installation (based on casper ubuntu 18.04.01 liveserver) on boot partition
     + unattended cloud-init boot via custom squashfs with ssh ready to login
     + buildin scripts to mount/unmount root and update recovery boot parameter
 + loging of recovery and target system installation on calling machine in directory ./log
-+ optional
-    + luks encrypted hibernate compatible swap for eg. a desktop installation
-    + patched zfs-linux for overlay fs support on zfs (frankenstein=true)
-    + create partitions for ondisk zfs log (zil) and ondisk zfs cache (l2arc)
-    + saltstack run at devop phase with states from salt-shared (eg. desktop)
-    + git & git-crypt repository setup to store machine configuration inside a git repository and encrypt all sensitive data with git-crypt
-    + build a preconfigured bootstrap-0 livesystem image usable for physical installation
-        + resulting image is compatible as CD or USB-Stick with BIOS and EFI support
-        + execute `./bootstrap-machine/bootstrap.sh create-liveimage` to build image
-        + copy `run/liveimage/bootstrap-0-liveimage.iso` to usbstick
-+ working on/planned
-    + autorotating encrypted incremental snapshot backup to thirdparty storage with zfs and restic
-    + desaster recovery from backup storage to new machine
-    + recovery scripts to replace a faulty disk, to invalidate a disk
-    + home-nas setup with 1 x internal:type:ssd + 2 x external:type:spindle harddisks
 
-example configurations:
+#### additional optional Features
++ luks encrypted hibernate compatible swap for eg. a desktop installation
++ overlay fs support on zfs by building patched zfs-linux (frankenstein=true)
++ saltstack run at devop phase with states from salt-shared (eg. desktop)
++ encrypt all sensitive data with git-crypt
+    + git & git-crypt repository setup to store machine configuration inside a git repository
++ build a preconfigured bootstrap-0 livesystem image usable for physical installation
+    + resulting image is compatible as CD or USB-Stick with BIOS and EFI support
+    + execute `./bootstrap-machine/bootstrap.sh create-liveimage` to build image
+    + copy `run/liveimage/bootstrap-0-liveimage.iso` to usbstick
+
+#### working on/planned
++ mirroring has some issues (eg. efi cloning) and needs some fixing
++ desaster recovery from backup storage to new machine
++ recovery scripts to replace a faulty disk, to invalidate a disk
++ "cloud like" autorotating encrypted incremental snapshot backup to thirdparty storage with zfs and restic
+    this should be a little to no performance impact, encrypted, incremental, autorotating snapshot backup system, from and to redundant checksuming data storage on a single machine with the abbility to use common thirdparty storage for this backup. So far it is a very busy journey... https://xkcd.com/974/
++ home-nas setup with 1 x internal:type:ssd + 2 x external:type:spindle harddisks
+    + some issues at least with 0.7* and shutdown platters on external hds
+    
+#### example configurations
 
 + a root server with one or two harddisks and static ip setup
     + add custom `$config_path/netplan.yml`
@@ -74,7 +79,7 @@ git commit -v -m "initial config"
 git remote add origin ssh://git@some.where.net/username/box.git
 ```
 
-### optional: add files for devop task
+### optional: add files for a devop task
 ```
 mkdir -p salt/custom
 cd salt
