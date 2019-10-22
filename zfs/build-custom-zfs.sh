@@ -6,7 +6,7 @@ self_path=$(dirname $(readlink -e "$0"))
 
 usage() {
     cat <<EOF
-Usage: $0 basedir [disco*,eoan]
+Usage: $0 basedir [disco,eoan*]
 
 basedir = directory to be used as basedir for compiling
 second parameter will default to disco, defines the launch-pad branch to use
@@ -20,7 +20,7 @@ EOF
 if test "$1" = "" -o "$1" = "--help" -o "$1" = "-h"; then usage; fi
 basedir=$1
 shift
-branch=disco
+branch=eoan
 if test "$1" != ""; then
     branch=$1
     shift

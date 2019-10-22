@@ -6,12 +6,13 @@ self_path=$(dirname $(readlink -e "$0"))
 
 usage() {
     cat <<EOF
-Usage: $0 --yes [--without-recovery] [optional args to build-custom-zfs.sh]
+Usage: $0 --yes [--with-recovery] [optional args to build-custom-zfs.sh]
 
 build and install a custom zfs version for:
 + the running system
 + the initrd of the running system
-+ the recovery squashfs
++ if "--with-recovery"
+    + the recovery squashfs
 
 for activation a reboot is needed after execution.
 
@@ -22,10 +23,10 @@ EOF
 # parse args
 if test "$1" != "--yes"; then usage; fi
 shift
-run_recovery="true"
-if test "$1" =0 "--without-recovery"; then
+run_recovery="false"
+if test "$1" =0 "--with-recovery"; then
     shift
-    run_recovery="false"
+    run_recovery="true"
 fi
 
 # build custom zfs
@@ -48,7 +49,7 @@ echo "install/upgrade packages in running system"
 zfs_packages="spl-dkms zfs-dkms zfsutils-linux"
 DEBIAN_FRONTEND=noninteractive apt-get install --upgrade --yes $zfs_packages
 
-if $run_recovery; then
+if test "$run_recovery" = "true"; then
     echo "updating recovery.squashfs"
     /etc/recovery/udpate-recovery-squashfs.sh --host
 fi

@@ -14,7 +14,7 @@
     that will have user namespace mount support, either eg.
     via ubuntu overlayfs that is patched for user ns,
     or via a fuseoverlayfs driver (developed by redhat),
-    overlayfs will be adopted in this cases (eg. podman, k3s, docker)
+    overlayfs will be adopted in these cases (eg. podman, k3s, docker)
 + other examples of underlying storage is expected to support overlayfs to support a specific feature, i found during my journey of installing zfs on linux:
     + systemd.volatile https://github.com/systemd/systemd/blob/adca059d55fe0a126dbdd62911b0705ddf8e9b8a/NEWS#L119
     + ubuntu build script (find url again) which obviously uses anything but zfs as underlying storage for their build script by assuming the underlying storage layer has overlayfs support

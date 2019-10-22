@@ -10,11 +10,11 @@ base:
     - match: compound
     - virtual
 
-  # any machine type (including virtual) but not on lxc (is same kernel)
+  # any machine type with a kernel (including virtual) but not on lxc (is same kernel)
   'P@virtual:(?!LXC)':
     - match: compound
-    - haveged
     - kernel
+    - haveged
     - acpi
 
   # ubuntu specific
