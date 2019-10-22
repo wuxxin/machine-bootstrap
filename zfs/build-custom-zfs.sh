@@ -6,24 +6,32 @@ self_path=$(dirname $(readlink -e "$0"))
 
 usage() {
     cat <<EOF
-Usage: $0 basedir [disco,eoan*]
+Usage: $0 basedir [--source distro] [--dest distro]
 
 basedir = directory to be used as basedir for compiling
-second parameter will default to disco, defines the launch-pad branch to use
+--source distro = defines the launch-pad branch to use, will default to "eoan"
+--dest   distro = build zfs for distribution codename eg. "bionic", default=running system
+
 successful run will put resulting packages in $basedir/build/buildresult
 
 EOF
     exit 1
 }
 
+source=eoan
+dest="$(lsb_release -c -s)"
+
 # parse args
 if test "$1" = "" -o "$1" = "--help" -o "$1" = "-h"; then usage; fi
 basedir=$1
 shift
-branch=eoan
-if test "$1" != ""; then
-    branch=$1
-    shift
+if test "$1" = "--source"; then
+    source=$2
+    shift 2
+fi
+if test "$1" = "--dest"; then
+    dest=$2
+    shift 2
 fi
 
 # setup builder
@@ -41,10 +49,11 @@ fi
 if ! grep -q "eoan" /usr/share/distro-info/ubuntu.csv; then
     echo "19.10,Eoan Ermine,eoan,2019-04-18,2019-10-17,2020-07-17" >>  /usr/share/distro-info/ubuntu.csv
 fi
-if test ! -e /var/cache/pbuilder/base.cow; then
-    cowbuilder --create
+BASEPATH="/var/cache/pbuilder/base-$dest.cow"
+if test ! -e "$BASEPATH"; then
+    cowbuilder --create --distribution "$dest" --basepath "$BASEPATH"
 else
-    cowbuilder --update
+    cowbuilder --update --basepath "$BASEPATH"
 fi
 
 # create build directories
@@ -52,22 +61,22 @@ mkdir -p "$basedir/build"
 cd "$basedir"
 
 # backport spl-linux (was merged into zfs-linux after disco)
-if test "$branch" = "disco"; then
-    pull-lp-source spl-linux $branch
-    backportpackage -B cowbuilder --dont-sign -b -w build spl-linux*.dsc
+if test "$source" = "disco"; then
+    pull-lp-source spl-linux "$source"
+    BASEPATH="$BASEPATH" backportpackage -B cowbuilder --dont-sign -b -w build spl-linux*.dsc
 fi
 
 # patch and backport zfs-linux
-pull-lp-source zfs-linux $branch
+pull-lp-source zfs-linux "$source"
 cd $(find . -type d -name "zfs-linux-*" -print -quit)
 quilt import "$self_path/no-dops-snapdirs.patch"
 quilt push
 current_version=$(head -1 debian/changelog | sed -r "s/[^(]+\(([^)]+)\).+/\1/g")
 new_version=${current_version:0:-1}$(( ${current_version: -1} +1 ))nodrevalidate
-debchange -v "$new_version" --distribution disco "enable overlayfs on zfs: no-d-revalidate.patch"
+debchange -v "$new_version" --distribution "$dest" "enable overlayfs on zfs: no-d-revalidate.patch"
 dpkg-source -b .
 cd ..
-backportpackage -B cowbuilder --dont-sign -b -w build zfs-linux*nodrevalidate*.dsc
+BASEPATH="$BASEPATH" backportpackage -B cowbuilder --dont-sign -b -w build zfs-linux*nodrevalidate*.dsc
 
 # generate local apt archive files
 cd build/buildresult
