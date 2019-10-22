@@ -24,7 +24,7 @@ EOF
 if test "$1" != "--yes"; then usage; fi
 shift
 run_recovery="false"
-if test "$1" =0 "--with-recovery"; then
+if test "$1" = "--with-recovery"; then
     shift
     run_recovery="true"
 fi
