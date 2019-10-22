@@ -321,6 +321,11 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
         "$self_path/initrd" \
         "${sshlogin}:/tmp"
 
+    if test "$recovery_autologin" = "true"; then
+        echo "recovery_autologin is true, touching /tmp/recovery/feature.autologin"
+        ssh $sshopts ${sshlogin} "touch /tmp/recovery/feature.autologin"
+    fi
+
     echo "call bootstrap-1, add luks and zfs, debootstrap system or restore from backup"
     echo -n "$diskphrase" | ssh $sshopts ${sshlogin} "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1-install.sh $hostname $firstuser \"$storage_ids\" --yes $select_frankenstein --distribution $distribution $@" 2>&1 | tee "$log_path/bootstrap-install.log"
 
