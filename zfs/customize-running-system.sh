@@ -46,7 +46,7 @@ EOF
 DEBIAN_FRONTEND=noninteractive apt-get update --yes
 
 echo "install/upgrade packages in running system"
-zfs_packages="spl-dkms zfs-dkms zfsutils-linux"
+zfs_packages="spl-dkms zfs-dkms zfsutils-linux zfs-dracut zfs-zed"
 DEBIAN_FRONTEND=noninteractive apt-get install --upgrade --yes $zfs_packages
 
 if test "$run_recovery" = "true"; then
