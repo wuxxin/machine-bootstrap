@@ -4,21 +4,6 @@
     + kvm qxl does not work (kernel faults) on suspend and hibernate, use virtio vga instead
     + virtio vga does not work in X11, use qxl instead
 
-## Reasons for overlay fs on zfs
-+ after integration of overlayfs in the kernel,
-    adoption of overlayfs based solutions is rapidly growing.
-    in 2019 many software projects expect to simply mount a overlayfs
-    on any underlying storage and expects overlayfs to work.
-+ overlayfs runs on ext3/4,xfs and even btrfs, you dont assume it doesn't on zfs
-+ overlayfs is the first and possible one of few solutions,
-    that will have user namespace mount support, either eg.
-    via ubuntu overlayfs that is patched for user ns,
-    or via a fuseoverlayfs driver (developed by redhat),
-    overlayfs will be adopted in these cases (eg. podman, k3s, docker)
-+ other examples of underlying storage is expected to support overlayfs to support a specific feature, i found during my journey of installing zfs on linux:
-    + systemd.volatile https://github.com/systemd/systemd/blob/adca059d55fe0a126dbdd62911b0705ddf8e9b8a/NEWS#L119
-    + ubuntu build script (find url again) which obviously uses anything but zfs as underlying storage for their build script by assuming the underlying storage layer has overlayfs support
-
 ## features to add/finish, known issues to fix
 
 ## target system
@@ -49,3 +34,18 @@
 ### devop stage
 + install and configure zfs auto snapshot and ZFS Scrubbing
 + make backup working
+
+## write reasons for overlayfs on zfs for presentation in zfs-linux mailinglist
++ after integration of overlayfs in the kernel,
+    adoption of overlayfs based solutions is rapidly growing.
+    in 2019 many software projects expect to simply mount a overlayfs
+    on any underlying storage and expects overlayfs to work.
++ overlayfs runs on ext3/4,xfs and even btrfs, you dont assume it doesn't on zfs
++ overlayfs is the first and possible one of few solutions,
+    that will have user namespace mount support, either eg.
+    via ubuntu overlayfs that is patched for user ns,
+    or via a fuseoverlayfs driver (developed by redhat),
+    overlayfs will be adopted in these cases (eg. podman, k3s, docker)
++ other examples of underlying storage is expected to support overlayfs to support a specific feature, i found during my journey of installing zfs on linux:
+    + systemd.volatile https://github.com/systemd/systemd/blob/adca059d55fe0a126dbdd62911b0705ddf8e9b8a/NEWS#L119
+    + ubuntu build script (find url again) which obviously uses anything but zfs as underlying storage for their build script by assuming the underlying storage layer has overlayfs support
