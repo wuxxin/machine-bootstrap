@@ -63,7 +63,7 @@ cd "$basedir"
 # backport spl-linux (was merged into zfs-linux after disco)
 if test "$source" = "disco"; then
     pull-lp-source spl-linux "$source"
-    BASEPATH="$BASEPATH" backportpackage -B cowbuilder --dont-sign -b -w build spl-linux*.dsc
+    BASEPATH="$BASEPATH" backportpackage -B cowbuilder -d "$dest" --dont-sign -b -w build spl-linux*.dsc
 fi
 
 # patch and backport zfs-linux
@@ -76,7 +76,7 @@ new_version=${current_version:0:-1}$(( ${current_version: -1} +1 ))nodrevalidate
 debchange -v "$new_version" --distribution "$dest" "enable overlayfs on zfs: no-d-revalidate.patch"
 dpkg-source -b .
 cd ..
-BASEPATH="$BASEPATH" backportpackage -B cowbuilder --dont-sign -b -w build zfs-linux*nodrevalidate*.dsc
+BASEPATH="$BASEPATH" backportpackage -B cowbuilder -d "$dest" --dont-sign -b -w build zfs-linux*nodrevalidate*.dsc
 
 # generate local apt archive files
 cd build/buildresult
