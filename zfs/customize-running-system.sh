@@ -51,5 +51,5 @@ DEBIAN_FRONTEND=noninteractive apt-get install --upgrade --yes $zfs_packages
 
 if test "$run_recovery" = "true"; then
     echo "updating recovery.squashfs"
-    /etc/recovery/udpate-recovery-squashfs.sh --host
+    /etc/recovery/update-recovery-squashfs.sh --host
 fi
