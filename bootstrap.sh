@@ -34,7 +34,7 @@ Configuration:
 + config directory path: $config_path
     + can be overwritten with env var "BOOTSTRAP_MACHINE_CONFIG_DIR"
 + mandatory config files (see "README.md" for detailed description):
-    + Base Configuration File: "config"
+    + Base Configuration File: "machine-config.env"
     + File: "disk.passphrase.gpg"
     + File: "authorized_keys"
 + optional config files:
@@ -127,11 +127,11 @@ EOF
 
 # main
 export LC_MESSAGES="POSIX"
-config_path="$(readlink -m "$self_path/../machine-config")"
+config_path="$(readlink -m "$self_path/../config")"
 if test -n "$BOOTSTRAP_MACHINE_CONFIG_DIR"; then
     config_path="$BOOTSTRAP_MACHINE_CONFIG_DIR"
 fi
-config_file=$config_path/config
+config_file=$config_path/machine-config.env
 diskpassphrase_file=$config_path/disk.passphrase.gpg
 authorized_keys_file=$config_path/authorized_keys
 netplan_file=$config_path/netplan.yml

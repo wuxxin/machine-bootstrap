@@ -1,7 +1,7 @@
 # bootstrap machine
 
-Unattended ssh installer of Ubuntu 18.04/19.04 with luks encrypted zfs storage,
-    executed to a linux liveimage/recoveryimage system via ssh.
+Unattended ssh installer of Ubuntu 18.04/19.04/19.10 with luks encrypted zfs storage,
+    to be executed on a linux liveimage/recoveryimage system via ssh.
 
 It serves two use case:
 + as a experimental Desktop/Laptop Setup for getting handson experience of the setup
@@ -10,7 +10,7 @@ It serves two use case:
 
 ## Features
 
-+ unattended ssh install of Ubuntu 18.04 LTS (bionic) or 19.04 (disco)
++ unattended ssh install of Ubuntu 18.04 LTS (bionic), 19.04 (disco) or 19.10 (eoan)
 + root on luks encrypted zfs / zfs mirror pool (encrypted storage at rest)
 + one or two disks (will be setup as mirror if two)
 + efi and legacy bios boot compatible hybrid grub setup with grubenv support
@@ -67,7 +67,7 @@ Requirements:
 mkdir box
 cd box
 git init
-mkdir -p machine-config log run
+mkdir -p config log run
 printf "#\n/log\n/run\n" > .gitignore
 git submodule add https://github.com/wuxxin/bootstrap-machine.git
 git add .
@@ -85,14 +85,14 @@ mkdir -p salt/custom
 cd salt
 git submodule add https://github.com/wuxxin/salt-shared.git
 cd ..
-cat > machine-config/top.sls << EOF
+cat > config/top.sls << EOF
 base:
   '*':
     - custom
 EOF
-cp bootstrap-machine/devop/custom-pillar.sls machine-config/custom.sls
+cp bootstrap-machine/devop/custom-pillar.sls config/custom.sls
 ln -s ../bootstrap-machine/devop/bootstrap-pillar.sls \
-  machine-config/bootstrap.sls
+  config/bootstrap.sls
 cp bootstrap-machine/devop/top-state.sls salt/custom/top.sls
 touch salt/custom/custom.sls
 git add .
@@ -129,7 +129,7 @@ git commit -v -m "add git-crypt config"
 ### configure machine
 
 ```
-cat > machine-config/config <<EOF
+cat > config/machine-config.env <<EOF
 # mandatory
 sshlogin=root@1.2.3.4
 hostname=box.local
@@ -150,7 +150,7 @@ EOF
 
 # copy current user ssh public key as authorized_keys
 cat ~/.ssh/id_rsa.pub ~/.ssh/id_ed25519.pub \
-    > machine-config/authorized_keys
+    > config/authorized_keys
 
 # list serial(s) of harddisk(s)
 ./bootstrap-machine/connect.sh temporary "ls /dev/disk/by-id/"
@@ -159,13 +159,13 @@ cat ~/.ssh/id_rsa.pub ~/.ssh/id_ed25519.pub \
 echo $(printf 'storage_ids="'; for i in \
     $(./bootstrap-machine/connect.sh temporary "ls /dev/disk/by-id/" | \
         grep -E "^virtio-[^-]+$"); do \
-    printf "$i "; done; printf '"') >> machine-config/config
+    printf "$i "; done; printf '"') >> config/machine-config.env
 
 # create disk.passphrase.gpg
 # example: create a random diskphrase and encrypted with user gpg key
 (x=$(openssl rand -base64 9); echo -n "$x" | \
     gpg --encrypt -r username@email.address) \
-    > machine-config/disk.passphrase.gpg
+    > config/disk.passphrase.gpg
 
 # optional: create a custom netplan.yml
 

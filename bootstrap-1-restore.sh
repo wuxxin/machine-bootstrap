@@ -8,14 +8,14 @@ cat << EOF
 + Configuration Directory:
     + mandatory config files:
         + File: backup.passphrase.gpg
-        + Base Configuration File: config
+        + Base Configuration File: machine-config.env
             + mandatory settings
             + backup_repository=/volatile/restic-backup
 
 + restic restore:
     + 1 restore user and groups (for file access restore)
     + 2 restore latest pool layout (including zfs options)
-        + modify legacy mounts 
+        + modify legacy mounts
     + 3 restore all files
     + 4 corrections
     + 5 last corrections to the setup will be done in 2-chroot-restore

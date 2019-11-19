@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 self_path=$(dirname $(readlink -e "$0"))
-config_path="$(readlink -m "$self_path/../machine-config")"
+config_path="$(readlink -m "$self_path/../config")"
 if test -n "$BOOTSTRAP_MACHINE_CONFIG_DIR"; then
     config_path="$BOOTSTRAP_MACHINE_CONFIG_DIR"
 fi
-config_file=$config_path/config
+config_file=$config_path/machine-config.env
 diskpassphrase_file=$config_path/disk.passphrase.gpg
 
 

@@ -47,6 +47,7 @@ create_zpool() {
                 rpool/ROOT
     zfs create  -o canmount=noauto \
                 -o mountpoint=/ \
+                -o com.sun:auto-snapshot=true \
                 rpool/ROOT/ubuntu
     # mount root and set bootfs default
     zfs mount   rpool/ROOT/ubuntu
@@ -58,6 +59,7 @@ create_zpool() {
                 -o exec=off \
                 -o canmount=off \
                 -o mountpoint=none \
+                -o com.sun:auto-snapshot=true \
                 rpool/data
 
     # rpool/data/__host__ at /data
@@ -93,7 +95,8 @@ create_zpool() {
 
     # ephemeral
     # rpool/volatile
-    zfs create  -o com.sun:auto-snapshot:daily=false \
+    zfs create  -o com.sun:auto-snapshot=true \
+                -o com.sun:auto-snapshot:daily=false \
                 -o com.sun:auto-snapshot:weekly=false \
                 -o com.sun:auto-snapshot:monthly=false \
                 -o custom.local:auto-backup=false \

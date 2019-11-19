@@ -35,7 +35,7 @@ fileserver_backend:
 - roots
 pillar_roots:
   base:
-  - $base_path/machine-config
+  - $base_path/config
 
 file_roots:
   base:
