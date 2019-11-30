@@ -1,60 +1,59 @@
-# bootstrap machine
+# Machine bootstrap
 
-Unattended ssh installer of Ubuntu 18.04/19.04/19.10 with luks encrypted zfs storage,
+Unattended ssh installer of Ubuntu 18.04/19.04/19.10 with build in recovery image, 
+    root storage on luks encrypted zfs and other specialized storage layouts,
     to be executed on a linux liveimage/recoveryimage system via ssh.
 
 It serves two use case:
-+ as a experimental Desktop/Laptop Setup for getting handson experience of the setup
-+ as a typical rootserver (2xHD,headless)
++ as an experimental Desktop/Laptop for getting experience with this setup
++ as a typical Rootserver (2xHD, headless)
     + this is still in the writing and not ready yet, see `TODO.md` for details
 
 ## Features
 
-+ unattended ssh install of Ubuntu 18.04 LTS (bionic), 19.04 (disco) or 19.10 (eoan)
-+ root on luks encrypted zfs / zfs mirror pool (encrypted storage at rest)
-+ one or two disks (will be setup as mirror if two)
 + efi and legacy bios boot compatible hybrid grub setup with grubenv support
++ one or two disks (will be automatically setup as mirror if two disks)
++ root on luks encrypted zfs / zfs mirror pool (encrypted storage at rest)
++ other common and less common storage setups
 + ssh in initial ramdisk for remote unlock luks on system startup using dracut
-+ recovery system installation (based on casper ubuntu 18.04.01 liveserver) on boot partition
++ recovery system installation (based on casper ubuntu 18.04.x liveserver) on EFI partition
     + unattended cloud-init boot via custom squashfs with ssh ready to login
     + buildin scripts to mount/unmount root and update recovery boot parameter
-+ loging of recovery and target system installation on calling machine in directory ./log
++ logging of recovery and target system installation on calling machine in directory ./log
 
 #### additional optional Features
 + luks encrypted hibernate compatible swap for eg. a desktop installation
 + overlay fs support on zfs by building patched zfs-linux (frankenstein=true)
 + saltstack run at devop phase with states from salt-shared (eg. desktop)
-+ encrypt all sensitive data with git-crypt
++ encrypt all sensitive data in setup repository with git-crypt
     + git & git-crypt repository setup to store machine configuration inside a git repository
 + build a preconfigured bootstrap-0 livesystem image usable for physical installation
     + resulting image is compatible as CD or USB-Stick with BIOS and EFI support
-    + execute `./bootstrap-machine/bootstrap.sh create-liveimage` to build image
+    + execute `./machine-bootstrap/bootstrap.sh create-liveimage` to build image
     + copy `run/liveimage/bootstrap-0-liveimage.iso` to usbstick
 
-#### working on/planned
-+ mirroring has some issues (eg. efi cloning) and needs some fixing
-+ desaster recovery from backup storage to new machine
+#### working on/todo/planned
 + recovery scripts to replace a faulty disk, to invalidate a disk
++ desaster recovery from backup storage to new machine
 + "cloud like" autorotating encrypted incremental snapshot backup to thirdparty storage with zfs and restic
     this should be a little to no performance impact, encrypted, incremental, autorotating snapshot backup system, from and to redundant checksuming data storage on a single machine with the abbility to use common thirdparty storage for this backup. So far it is a very busy journey... https://xkcd.com/974/
 + home-nas setup with 1 x internal:type:ssd + 2 x external:type:spindle harddisks
-    + some issues at least with 0.7* and shutdown platters on external hds
+    + todo: research issues at least with 0.7* and shutdown platters on external hds
     
 #### example configurations
-
 + a root server with one or two harddisks and static ip setup
     + add custom `$config_path/netplan.yml`
 + a laptop with encrypted hibernation: 
-    + `storage_opts="--swap yes"`
+    + `storage_opts="--swap=yes"`
 + a vm: `http_proxy="http://proxyip:port"`
-+ install ubuntu disco instead of bionic:
-    + `distribution=disco`
++ install ubuntu eoan instead of bionic:
+    + `distribution=eoan`
 
 ## Preparation
 
 Requirements:
 
-+ Minimum RAM
++ Minimum RAM: **currently 4GB**, may become less again, was
     + frankenstein=no : 2GB RAM
     + frankenstein=yes: 4GB Ram (for compiling zfs in ram in recovery)
 + Minimum Storage
@@ -68,15 +67,15 @@ mkdir box
 cd box
 git init
 mkdir -p config log run
-printf "#\n/log\n/run\n" > .gitignore
-git submodule add https://github.com/wuxxin/bootstrap-machine.git
+printf "# machine-bootstrap ignores\n/log\n/run\n" > .gitignore
+git submodule add https://github.com/wuxxin/machine-bootstrap.git
 git add .
 git commit -v -m "initial config"
 ```
 
 ### optional: add an upstream
 ```
-git remote add origin ssh://git@some.where.net/username/box.git
+git remote add origin ssh://git@some.where.net/path/box.git
 ```
 
 ### optional: add files for a devop task
@@ -90,10 +89,10 @@ base:
   '*':
     - custom
 EOF
-cp bootstrap-machine/devop/custom-pillar.sls config/custom.sls
-ln -s ../bootstrap-machine/devop/bootstrap-pillar.sls \
+cp machine-bootstrap/devop/custom-pillar.sls config/custom.sls
+ln -s ../machine-bootstrap/devop/bootstrap-pillar.sls \
   config/bootstrap.sls
-cp bootstrap-machine/devop/top-state.sls salt/custom/top.sls
+cp machine-bootstrap/devop/top-state.sls salt/custom/top.sls
 touch salt/custom/custom.sls
 git add .
 git commit -v -m "add devop skeleton"
@@ -138,10 +137,21 @@ firstuser=$(id -u -n)
 
 # optional
 # http_proxy="http://192.168.122.1:8123" # default ""
-# storage_opts="[--reuse] [--log yes|<logsizemb>]"
-# storage_opts="[--cache yes|<cachesizemb] [--swap yes|<swapsizemb>]"
-# storage_opts default=""
-# distribution="disco" # default "bionic"
+# storage_opts=""
+# [--reuse]
+# [--log=        true|*false|<logsizemb,   default if true: 1024 mb>]
+# [--cache=      true|*false|<cachesizemb, default if true: 59392 mb>]
+# [--swap=       true|*false|<swapsizemb,  default if true: 1.25xRAM mb>]
+# [--boot=       *true|false|<bootsizemb,  default if true: 600 mb>]
+# [--boot-fs=    *zfs|ext4|xfs]
+# [--root-fs=    *zfs|ext4|xfs]
+# [--root-lvm=   *""|<vgname>]
+# [--root-lvm-vol-size= <volsizemb, default if lvm is true: 20480 mb>]
+# [--root-crypt= *true|false]
+# [--root-size=  *all|<rootsizemb>]
+# [--data-fs=    *""|zfs|ext4|xfs|other]
+# [--data-crypt= *true|false]
+# distribution="eoan" # default "bionic"
 # recovery_autologin="true" # default "false"
 # frankenstein="true" # default "false"
 # devop_target="/home/$(id -u -n)"
@@ -153,17 +163,17 @@ cat ~/.ssh/id_rsa.pub ~/.ssh/id_ed25519.pub \
     > config/authorized_keys
 
 # list serial(s) of harddisk(s)
-./bootstrap-machine/connect.sh temporary "ls /dev/disk/by-id/"
+./machine-bootstrap/connect.sh temporary "ls /dev/disk/by-id/"
 
 # add serial(s) to config, eg. filter all virtio (but no partitions)
 echo $(printf 'storage_ids="'; for i in \
-    $(./bootstrap-machine/connect.sh temporary "ls /dev/disk/by-id/" | \
+    $(./machine-bootstrap/connect.sh temporary "ls /dev/disk/by-id/" | \
         grep -E "^virtio-[^-]+$"); do \
     printf "$i "; done; printf '"') >> config/machine-config.env
 
 # create disk.passphrase.gpg
 # example: create a random diskphrase and encrypted with user gpg key
-(x=$(openssl rand -base64 9); echo -n "$x" | \
+(x=$(openssl rand -base64 12); echo -n "$x" | \
     gpg --encrypt -r username@email.address) \
     > config/disk.passphrase.gpg
 
@@ -174,7 +184,7 @@ echo $(printf 'storage_ids="'; for i in \
 ### optional: make physical bootstrap-0 liveimage
 
 ```
-./bootstrap-machine/bootstrap.sh create-liveimage
+./machine-bootstrap/bootstrap.sh create-liveimage
 # copy run/liveimage/bootstrap-0-liveimage.iso to usbstick
 # boot target machine from usbstick
 ```
@@ -183,16 +193,16 @@ echo $(printf 'storage_ids="'; for i in \
 
 installation is done in 4 steps:
 
-+ 1 initial live system: partition disk, recovery install to /boot, reboot into recovery
-+ 2 recovery live system: build patches, create zpool, debootstrap, configure system, chroot into target
++ 1 initial live system: partition disk, recovery install to EFI partition, reboot into recovery
++ 2 recovery live system: build patches, create boot & root, debootstrap, configure system, chroot into target
 + 3 recovery chroot target: configure system, kernel, initrd, install standard software, reboot into target
 + 4 target system: install and run saltstack
 
 ```
 # test if everything needed is there
-./bootstrap-machine/bootstrap.sh test
+./machine-bootstrap/bootstrap.sh test
 # if alls looks fine, run
-./bootstrap-machine/bootstrap.sh execute all box.local
+./machine-bootstrap/bootstrap.sh execute all box.local
 # logs of each step will be written to log/bootstrap-*.log 
 # but log directory is in .gitignore and content won't be comitted
 git add .
@@ -212,12 +222,12 @@ git push -u origin master
 
 + connect to target machine running in recovery, initrd or final system
 ```
-./bootstrap-machine/connect.sh recovery|initrd|system
+./machine-bootstrap/connect.sh recovery|initrd|system
 ```
 
 + connect to initrd, open luks disks
 ```
-./bootstrap-machine/connect.sh luksopen
+./machine-bootstrap/connect.sh initrdluks
 ```
 
 ### switch next boot to boot into recovery (from running target system)
@@ -225,3 +235,48 @@ git push -u origin master
 grub-reboot recovery
 reboot
 ```
+
+## Notes
+
+### Limits and Contraints
+
++ SWAP
+    if using a SWAP partition, the swap partition will always be encrypted.
+    Also ROOT should be encrypted in this case.
+    This is because suspend to disk has all memory secrets written to disk,
+    so any suspend would store all secrets in plaintext to disk.
+    Any other usages of swap beside suspend to disk where encryption may not
+    be desired, can be created as swap file using create_file_swap()
+
++ ZFS or LVM but not both (ROOT, DATA)
+    currently only either of zfs or lvm can be used on a partition.
+    if both are specified the script will probably fail.
+
+### Examples
+
++ virtual machine with root on ext4
+    + storage_opts="--boot=false --root-fs=ext4 --root-crypt=false"
++ virtual machine with encrypted root on ext4
+    + storage_opts="--boot-fs=ext4 --root-fs=ext4"
++ virtual machine with encrypted lvm and root lv (30gb) on ext4
+    + storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-lvm=vgroot --root-lvm-vol-size=30720"
++ desktop: encrypted root and swap, boot and root on zfs, patched zfs for overlay support
+    + storage_opts="--swap=true --frankenstein=true"
++ server: one or two encrypted disks, boot and root on zfs, patched zfs for overlay support
+    + storage_opts="--frankenstein=true"
++ server: one or two encrypted disks with lvm storage (100gb) with root (25gb) and zfs on data (rest)
+    + storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-size=102400 --root-lvm=vgroot --root-lvm-vol-size=25600" --data-fs=zfs"
+
+### GPT Layout
+GPT Partitionnaming (max 36 x UTF16)
+
+Nr |Name|Description|
+---|---|---
+7  | `BIOS,1,2`  | GRUB-BIOS boot binary partition, used to host grub code on gpt for bios boot
+6  | `EFI,1,2`   | EFI vfat partition, dual efi & bios grub installation and recovery- fs,kernel,initrd
+5  | `LOG,1,2`   | optional ZFS Log or other usages
+4  | `CACHE,1,2` | optional ZFS Cache or other usages
+3  | `[raid_]luks_SWAP,1,2`  | optional encrypted hibernation compatible swap
+2  | `[raid_](zfs,ext4,xfs)_BOOT,1,2`  | optional boot partition, unencrypted, kernel,initrd
+1  | `[raid_][luks_][lvm.vg0_](zfs,ext4,xfs)_ROOT,1,2` | root partition
+8  | `[raid_][luks_][lvm.vgdata_](zfs,ext4,xfs,other)_DATA,1,2` | optional data partition

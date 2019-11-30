@@ -1,9 +1,10 @@
 #!/bin/bash
 set -e
-self_path=$(dirname $(readlink -e "$0"))
+
+self_path=$(dirname "$(readlink -e "$0")")
 config_path="$(readlink -m "$self_path/../config")"
-if test -n "$BOOTSTRAP_MACHINE_CONFIG_DIR"; then
-    config_path="$BOOTSTRAP_MACHINE_CONFIG_DIR"
+if test -n "$MACHINE_BOOTSTRAP_CONFIG_DIR"; then
+    config_path="$MACHINE_BOOTSTRAP_CONFIG_DIR"
 fi
 config_file=$config_path/machine-config.env
 diskpassphrase_file=$config_path/disk.passphrase.gpg
@@ -11,30 +12,64 @@ diskpassphrase_file=$config_path/disk.passphrase.gpg
 
 usage() {
     cat <<EOF
-Usage: $0 [--show-args] temporary|recovery|initrd|luksopen|system [\$@]
+Usage: $0 [--show-args] temporary|recovery|recoverymount|initrd|initrdluks|system [\$@]
 ssh connect with different ssh_hostkeys used.
 
 ssh keys and config are taken from directory $config_path
 
-luksopen uses the initrd host key for connection,
-and transfers the luks diskphrase keys to /lib/systemd/systemd-reply-password
+temporary, recovery, initrd, system: connect to system with the expected the ssh hostkey
 
---show-args: only displays the parameters for connecting, , may be used for scp $(./bootstrap-machine/connect.sh --show-args system):/root/test.txt .
+recoverymount uses the recovery host key for connection,
+    and transfers the luks diskphrase keys to recovery-mount.sh
+
+initrdluks uses the initrd host key for connection,
+    and transfers the luks diskphrase keys to /lib/systemd/systemd-reply-password
+
+--show-args: only displays the parameters for connecting,
+may be used for scp $($self_path/connect.sh --show-args system):/root/test.txt .
 
 EOF
     exit 1
 }
 
+
+ssh_uri() { # sshlogin ("",scp,host,port,user,known)
+    local sshlogin user userprefix port host known
+    sshlogin=$1; user=""; userprefix=""; port="22"; host="${sshlogin#ssh://}"
+    if test "$host" != "${host#*@}"; then
+        user="${host%@*}"; userprefix="${user}@"
+    fi
+    host="${host#*@}"
+    if test "${host}" != "${host%:*}"; then
+        port="${host##*:}"
+    fi
+    host="${host%:*}"
+    known="$(echo "$host" | sed -r 's/^([0-9.]+)$/[\1]/g')"
+    if test "$port" != "22"; then
+        known="${known}:${port}"
+    fi
+    if test "$2" = "host"; then     echo "$host"
+    elif test "$2" = "port"; then   echo "$port"
+    elif test "$2" = "user"; then   echo "$user"
+    elif test "$2" = "scp"; then    echo "scp://${userprefix}${host}:${port}/"
+    elif test "$2" = "known"; then  echo "$known"
+    else echo "ssh://${userprefix}${host}:${port}"
+    fi
+}
+
+
 waitfor_ssh() {
-    local retries maxretries retry sshhost
-    retries=0; maxretries=90; retry=true; sshhost=$1
+    local retries maxretries retry sshlogin hostname port
+    retries=0; maxretries=90; retry=true; sshlogin=$1
+    hostname=$(ssh_uri "$sshlogin" host)
+    port=$(ssh_uri "$sshlogin" port)
     while "$retry"; do
         ((retries+=1))
         if test "$retries" -ge "$maxretries"; then
-            echo "Error, could not connect to $sshhost in $maxretries tries, giving up"
+            echo "Error, could not connect to $hostname in $maxretries tries, giving up"
             exit 1
         fi
-        nc -z -w 2 "$sshhost" 22 && err=$? || err=$?
+        nc -z -w 2 "$hostname" "$port" && err=$? || err=$?
         if test "$err" -eq "0"; then
             retry=false
         else
@@ -49,7 +84,7 @@ waitfor_ssh() {
 export LC_MESSAGES="POSIX"
 showargs=false
 if test "$1" = "--show-args"; then showargs=true; shift; fi
-if [[ ! "$1" =~ ^(temporary|recovery|initrd|luksopen|system)$ ]]; then usage; fi
+if [[ ! "$1" =~ ^(temporary|recovery|recoverymount|initrd|initrdluks|system)$ ]]; then usage; fi
 hosttype="$1"
 shift 1
 
@@ -64,13 +99,13 @@ if test "$sshlogin" = ""; then
     exit 1
 fi
 
-if $showargs; then
-    if test "$hosttype" = "luksopen"; then hosttype="initrd"; fi
-    echo "-o UserKnownHostsFile=$config_path/${hosttype}.known_hosts ${sshlogin}"
+if test "$showargs" = "true"; then
+    if test "$hosttype" = "initrdluks"; then hosttype="initrd"; fi
+    if test "$hosttype" = "recoverymount"; then hosttype="recovery"; fi
+    echo "-o UserKnownHostsFile=$config_path/${hosttype}.known_hosts $(ssh_uri ${sshlogin})"
     exit 0
 fi
-if test "$hosttype" = "luksopen"; then
-    sshopts="-o UserKnownHostsFile=$config_path/initrd.known_hosts"
+if test "$hosttype" = "initrdluks" -o "$hosttype" = "recoverymount"; then
     if test ! -e "$diskpassphrase_file"; then
         echo "ERROR: diskphrase file $diskpassphrase_file not found"
         usage
@@ -80,11 +115,21 @@ if test "$hosttype" = "luksopen"; then
         echo "Error: diskphrase is empty, abort"
         exit 1
     fi
-    waitfor_ssh "${sshlogin#*@}"
-    echo -n "$diskphrase" | ssh $sshopts ${sshlogin} \
-        'phrase=$(cat -); for s in /var/run/systemd/ask-password/sck.*; do echo -n "$phrase" | /lib/systemd/systemd-reply-password 1 $s; done'
+    if test "$hosttype" = "recoverymount"; then
+        sshopts="-o UserKnownHostsFile=$config_path/recovery.known_hosts"
+        waitfor_ssh "$sshlogin"
+        echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
+            'recovery-mount.sh --yes --only-raid-crypt --luks-from-stdin'
+        ssh $sshopts $(ssh_uri ${sshlogin}) \
+            "recovery-mount.sh --yes --without-raid-crypt $@"
+    else
+        sshopts="-o UserKnownHostsFile=$config_path/initrd.known_hosts"
+        waitfor_ssh "$sshlogin"
+        echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
+            'phrase=$(cat -); for s in /var/run/systemd/ask-password/sck.*; do echo -n "$phrase" | /lib/systemd/systemd-reply-password 1 $s; done'
+    fi
 else
-    waitfor_ssh "${sshlogin#*@}"
+    waitfor_ssh "$sshlogin"
     sshopts="-o UserKnownHostsFile=$config_path/${hosttype}.known_hosts"
-    ssh $sshopts ${sshlogin} "$@"
+    ssh $sshopts $(ssh_uri ${sshlogin}) "$@"
 fi

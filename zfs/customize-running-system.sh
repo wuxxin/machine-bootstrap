@@ -1,7 +1,8 @@
 #!/bin/bash
 set -eo pipefail
 set -x
-self_path=$(dirname $(readlink -e "$0"))
+
+self_path=$(dirname "$(readlink -e "$0")")
 
 
 usage() {
@@ -36,11 +37,12 @@ echo "build-custom-zfs ($@) at $basedir"
 
 # move build artifacts and configure local machine to use them
 custom_archive=/usr/local/lib/bootstrap-custom-archive
+custom_sources_list=/etc/apt/sources.list.d/local-bootstrap-custom.list
 if test -e $custom_archive; then rm -rf $custom_archive; fi
 mkdir -p $custom_archive
 mv -t $custom_archive $basedir/build/buildresult/*
 rm -rf "$basedir"
-cat > /etc/apt/sources.list.d/local-bootstrap-custom.list << EOF
+cat > $custom_sources_list << EOF
 deb [ trusted=yes ] file:$custom_archive ./
 EOF
 DEBIAN_FRONTEND=noninteractive apt-get update --yes

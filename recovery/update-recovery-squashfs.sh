@@ -2,28 +2,37 @@
 set -e
 # set -x
 
+self_path=$(dirname "$(readlink -e "$0")")
+
+
 usage() {
 
     cat << EOF
-Usage:  $0 --host [<hostname>]
+Usage:  $0 --host [--output <squashfsoutputfile>] [<hostname>]
         $0 --custom <squashfsoutputfile> <hostname> <hostid>|-
                     <netplan_file> <hostkeys_file> <authorized_keys_file>
                     <scriptdir> <archivedir>|- <autologin(true|false)>
                     "<packagelist(default|-|package+)>" [<http_proxy>]
 
-hostid:         hostid in binary form, use "-" if no id
-archivedir:     expects local apt-archive with "Release" and "Packages" files,
-                use "-" if no archive
-packagelist:    "default" for default list, "-" for no packages, else list of packages
+--custom        create a recovery squashfs file on custom parameter
+    hostid:         hostid in binary form, use "-" if no id
+    archivedir:     expects local apt-archive with "Release" and
+                    "Packages" files, use "-" if no archive
+    <packagelist>:  "default" for default list, "-" for no packages, else list of packages
 
---host defaults:
-  squashfsoutputfile:   /boot/casper/recovery.squashfs
+--host          create a recovery squash file based on the hosts default parameter
+    --output <squashfsoutputfile>
+                write to different outputfile
+    <hostname>  set different hostname
+
+defaults:
+  squashfsoutputfile:   /efi/casper/recovery.squashfs
   hostname:             if not set from commandline, from hostname -f
   hostid:               if exists from /etc/hostid else "-"
   netplan_file:         if exists from /etc/recovery/netplan.yml else from /etc/netplan/*
-  hostkeys_file:        from /etc/recovery/recovery_hostkeys
-  authorized_keys_file: from /root/.ssh/authorized_keys
-  scriptdir:            from  /etc/recovery (to recovery:/sbin/)
+  hostkeys_file:        /etc/recovery/recovery_hostkeys
+  authorized_keys_file: /root/.ssh/authorized_keys
+  scriptdir:            /etc/recovery (will be copied to recovery:/sbin/)
   archivedir:           if exists "$custom_archive" else "-"
   autologin:            "true" if exists /etc/recovery/feature.autologin else "false"
   packagelist:          "default" for default list
@@ -40,11 +49,10 @@ generate_recovery_squashfs() {
     destfile=$1; hostname=$2; hostid=$3; netplan_data="$4"; hostkeys_data="$5";
     authorized_keys_data="$6"; scriptdir=$7; archivedir=$8; autologin=$9;
     packages="${10}"; http_proxy="${11}"
-    basedir=/tmp/mk.squashfs
+    basedir=$(mktemp -d || (echo "error making temporary dir"; exit 1))
     cfgdir="$basedir/etc/cloud/cloud.cfg.d"
 
     echo "create recovery.squashfs"
-    if test -d $basedir; then rm -rf $basedir; fi
     mkdir -p "$cfgdir"
 
     echo "write meta-data.cfg"
@@ -61,9 +69,8 @@ generate_recovery_squashfs() {
     if test "$hostkeys_data" != ""; then
         no_ssh_genkeytypes="ssh_genkeytypes: []"
     fi
-
     if test "$packages" = "default"; then
-        packages="cryptsetup gdisk mdadm grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools curl gnupg gpgv ca-certificates bzip2 libc-bin tmux haveged debootstrap"
+        packages="$(get_default_packages)"
     elif test "$packages" = "-"; then
         packages=""
     fi
@@ -80,6 +87,7 @@ apt:
       deb \$MIRROR \$RELEASE main restricted universe multiverse
       deb \$MIRROR \$RELEASE-updates main restricted universe multiverse
       deb \$SECURITY \$RELEASE-security main restricted universe multiverse
+      deb \$MIRROR \$RELEASE-backports main restricted universe multiverse
   $ci_http_proxy
 
 package_upgrade: false
@@ -91,17 +99,20 @@ ssh_pwauth: false
 ssh_deletekeys: true
 $no_ssh_genkeytypes
 
+ssh_authorized_keys:
+$(printf "%s" "$authorized_keys_data" | sed -e 's/^/  - /')
+
 users:
   - name: root
     lock_passwd: true
+
+EOF
+cat > /dev/null << EOF
   - name: ubuntu
     sudo: ALL=(ALL) NOPASSWD:ALL
     lock_passwd: true
     ssh_authorized_keys:
 $(printf "%s" "$authorized_keys_data" | sed -e 's/^/      - /')
-
-ssh_authorized_keys:
-$(printf "%s" "$authorized_keys_data" | sed -e 's/^/  - /')
 
 EOF
     if test "$hostkeys_data" != ""; then
@@ -124,8 +135,8 @@ EOF
     fi
 
     echo "include helper scripts in squashfs"
-    mkdir -p $basedir/sbin
-    cp -a $scriptdir/*.sh $basedir/sbin/
+    mkdir -p $basedir/usr/sbin
+    cp -a $scriptdir/*.sh $basedir/usr/sbin/
 
     if test "$archivedir" != "" -a "$archivedir" != "-"; then
         echo "include custom archive in squashfs"
@@ -141,6 +152,8 @@ EOF
     cd $basedir
     mksquashfs . "$destfile" -no-progress -root-owned
     cd /
+    echo "remote workdir $basedir"
+    if test -d $basedir; then rm -r $basedir; fi
 }
 
 
@@ -151,10 +164,23 @@ custom_sources_list=/etc/apt/sources.list.d/local-bootstrap-custom.list
 
 if test "$1" != "--host" -a "$1" != "--custom"; then usage; fi
 
+for i in . ..; do
+    if test -e "$self_path/$i/bootstrap-library.sh"; then
+        . "$self_path/$i/bootstrap-library.sh"
+    fi
+done
+
 if test "$1" = "--host"; then
+    shift
+    if test "$1" = "--output"; then
+        destfile="$2"
+        shift 2
+    else
+        destfile="/efi/casper/recovery.squashfs"
+    fi
     $0 --custom \
-    /boot/casper/recovery.squashfs \
-    $(test "$2" != "" && echo "$2" || echo $(hostname -f)) \
+    $destfile \
+    $(test "$1" != "" && echo "$1" || echo $(hostname -f)) \
     "$(test -e /etc/hostid && echo "/etc/hostid" || printf '%s' '-')" \
     "$(test -e /etc/recovery/netplan.yml && echo '/etc/recovery/netplan.yml' || echo '/etc/netplan/*')" \
     /etc/recovery/recovery_hostkeys \

@@ -1,28 +1,28 @@
-#!/bin/sh
+#!/bin/bash
 set -e
+
+self_path=$(dirname "$(readlink -e "$0")")
+
+if test "$1" != "--yes"; then
+    cat <<EOF
+Usage: $0 --yes
+EOF
+    exit 1
+fi
+shift
+
+. "$self_path/bootstrap-library.sh"
+
 cd /
-
-echo "unmount bind mounts"
-for i in run sys proc dev; do
-    if mountpoint -q "/mnt/$i"; then umount -lf "/mnt/$i"; fi
-done
-
-echo "unmount legacy"
-for mountname in $(cat /mnt/etc/recovery/legacy.fstab | \
-    sed -r "s/^([^ ]+)( +)([^ ]+)( +)(.+)/\/mnt\3/g" | sort -r); do
-    umount -lf "$mountname" || echo "Warning: could not unmount legacy volume $mountname !"
-done
-
-echo "unmount boot, efi*"
-for i in boot/efi boot/efi2 boot; do
-    if mountpoint -q "/mnt/$i"; then umount -lf "/mnt/$i"; fi
-done
-
-echo "swap off"
-swapoff -a || true
-
+echo "swap off"; swapoff -a || true
+unmount_bind_mounts /mnt
+unmount_data /mnt
+unmount_efi /mnt
+unmount_boot /mnt
 sleep 1
-echo "export rpool (unmount pool)"
-zpool export rpool
+unmount_root /mnt
 
-echo "FIXME: force reboot with systemctl reboot --force if reboot hangs"
+deactivate_crypt
+deactivate_raid
+
+echo "unmounted everything, it should be safe now to reboot"
