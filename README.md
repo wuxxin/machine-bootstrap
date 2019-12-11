@@ -283,6 +283,6 @@ Nr |Name|Description|
 5  | `LOG,1,2`   | **optional** ZFS Log or other usages
 4  | `CACHE,1,2` | **optional** ZFS Cache or other usages
 3  | `[raid_]luks_SWAP,1,2`  | **optional** encrypted hibernation compatible swap
-2  | `[raid_](zfs|ext4|xfs)_BOOT,1,2`  | **optional** boot partition, unencrypted, kernel,initrd
-1  | `[raid_][luks_][lvm.vg0_](zfs|ext4|xfs)_ROOT,1,2` | root partition
-8  | `[raid_][luks_][lvm.vgdata_](zfs|ext4|xfs|other)_DATA,1,2` | **optional** data partition
+2  | `[raid_](zfs:ext4:xfs)_BOOT,1,2`  | **optional** boot partition, unencrypted, kernel,initrd
+1  | `[raid_][luks_][lvm.vg0_](zfs:ext4:xfs)_ROOT,1,2` | root partition
+8  | `[raid_][luks_][lvm.vgdata_](zfs:ext4:xfs:other)_DATA,1,2` | **optional** data partition
