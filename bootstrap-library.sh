@@ -354,11 +354,11 @@ create_file_swap() { # <swap_size-in-mb:default=1024>
 }
 
 
-# ### Activate/Deactivate raid & crypt, write out storage configuration
+# ### Activate/Deactivate raid,crypt,lvm, write out storage configuration
 
 activate_raid() {
     local p all_mdadm this_md
-    all_mdadm=$(mdadm --examine --brief --scan  --config=partitions)
+    all_mdadm=$(mdadm --examine --brief --scan --config=partitions)
     for p in BOOT SWAP ROOT DATA; do
         if is_raid "$(by_partlabel $p)"; then
             if test ! -e /dev/md/mdadm-${p,,}; then
@@ -440,7 +440,7 @@ deactivate_crypt() {
 
 activate_lvm() {
     local p
-    if (is_lvm "$(by_partlabel ROOT)" || is_lvm "$(by_partlabel DATA)"; then
+    if (is_lvm "$(by_partlabel ROOT)" || is_lvm "$(by_partlabel DATA)"); then
         lvm vgscan -v
     fi
     for p in ROOT DATA; do
