@@ -357,12 +357,22 @@ create_file_swap() { # <swap_size-in-mb:default=1024>
 # ### Activate/Deactivate raid & crypt, write out storage configuration
 
 activate_raid() {
-    local p
+    local p all_mdadm this_md
+    all_mdadm=$(mdadm --examine --brief --scan  --config=partitions)
     for p in BOOT SWAP ROOT DATA; do
         if is_raid "$(by_partlabel $p)"; then
             if test ! -e /dev/md/mdadm-${p,,}; then
+                this_md=$(echo "$all_mdadm" \
+                    | grep -E ".+name=[^:]+:mdadm-${p,,}$" \
+                    | sed -r "s/ARRAY ([^ ]+) .+/\1/g")
+                if test "$this_md" != ""; then
+                    echo "deactivate mdadm raid on $this_md because name is different"
+                    mdadm --manage --stop $this_md
+                fi
                 echo "activate mdadm raid on $p"
                 mdadm --assemble /dev/md/mdadm-${p,,} $(by_partlabel $p)
+            else
+                echo "warning: mdadm raid on ${p,,} already activated"
             fi
         fi
     done
@@ -385,10 +395,15 @@ crypt_start_one() { # luksname passphrase
     luksname="$1"
     passphrase="$2"
     device="$(cat /etc/crypttab | grep "^$1" | sed -r "s/$1 ([^ ]+)( .+)/\1/g")"
-    if test "$passphrase" = ""; then
-        cryptsetup open --type luks "$device" "$luksname"
+    if test -e /dev/mapper/$luksname; then
+        echo "warning: luks mapper $luksname already activated"
     else
-        printf "%s" "$passphrase" | cryptsetup open --type luks  "$device" "$luksname" --key-file=-
+        if test "$passphrase" = ""; then
+            cryptsetup open --type luks "$device" "$luksname"
+        else
+            printf "%s" "$passphrase" \
+                | cryptsetup -q open --type luks  "$device" "$luksname" --key-file=-
+        fi
     fi
 }
 
@@ -420,6 +435,30 @@ deactivate_crypt() {
                 cryptdisks_stop "luks-${p,,}"
             fi
         fi
+    done
+}
+
+activate_lvm() {
+    local p
+    if (is_lvm "$(by_partlabel ROOT)" || is_lvm "$(by_partlabel DATA)"; then
+        lvm vgscan -v
+    fi
+    for p in ROOT DATA; do
+        if is_lvm "$(by_partlabel $p)"; then
+            lvm vgchange --activate y "$(substr_vgname "$devlist")"
+        fi
+    done
+}
+
+deactivate_lvm() {
+    local lv vg
+    for lv in $(lvm lvs -o vg_name,lv_name,lv_device_open --no-headings \
+        | grep -E ".+open[[:space:]]*$" \
+        | sed -r "s/[[:space:]]+([^[:space:]]+)[[:space:]]+([^[:space:]]+)[[:space:]]+.+/\1\/\2/g"); do
+        lvchange -a n $lv
+    done
+    for vg in $(lvm vgs -o vg_name --no-headings); do
+        vgchange -a n $vg
     done
 }
 
@@ -536,8 +575,7 @@ mount_root() { # basedir force:true|false
         zfs mount rpool/ROOT/ubuntu
         zfs mount -a || echo "Warning: could not mount all zfs volumes!"
     elif is_lvm "$devlist"; then
-        lvm vgscan -v
-        lvm vgchange --activate y "$(substr_vgname "$devlist")"
+        echo "mount $(substr_vgname "$devlist")/lvm-root at $basedir"
         mount "/dev/$(substr_vgname "$devlist")/lvm-root" "$basedir"
     else
         echo "mount root at $basedir"
@@ -579,8 +617,7 @@ mount_data() { # basedir force:true|false
             mkdir -p "$basedir/data"
             zpool import $import_opts -N -R "$basedir/data" dpool
         elif is_lvm "$devlist"; then
-            lvm vgscan -v
-            lvm vgchange --activate y "$(substr_vgname "$devlist")"
+            echo "doing nothing, as lvm VG of DATA has no default volumes"
         fi
     fi
 }

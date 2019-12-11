@@ -32,20 +32,22 @@ if test "$what" != "after_crypt"; then
     echo "update sources, install $zfs_packages"
     DEBIAN_FRONTEND=noninteractive apt-get update --yes
     DEBIAN_FRONTEND=noninteractive apt-get install --yes $zfs_packages
-    for i in /dev/md1*; do mdadm --manage --stop $i; done
     activate_raid
     create_crypttab
     activate_crypt "$passphrase"
 fi
 if test "$what" = "until_crypt"; then exit 0; fi
 
+activate_lvm
 mount_root /mnt $force
 mount_boot /mnt $force
 mount_efi /mnt
 mount_data /mnt $force
 mount_bind_mounts /mnt
 
-echo "chroot to system, use exit to exit"
-chroot /mnt /bin/bash --login
-echo "exited from chroot, to chroot again type 'chroot /mnt /bin/bash --login'"
-echo "before reboot, use 'recovery-unmount.sh --yes' to unmount disks, then reboot"
+cat << EOF
+mounting complete.
++ use 'chroot /mnt /bin/bash --login' to chroot into system
++ once returned from the chroot system, and storage is no longer used
+  + use 'recovery-unmount.sh --yes' to unmount disks, then reboot
+EOF

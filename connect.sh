@@ -115,13 +115,13 @@ if test "$hosttype" = "initrdluks" -o "$hosttype" = "recoverymount"; then
         echo "Error: diskphrase is empty, abort"
         exit 1
     fi
-    if test "$hosttype" = "recoverymount"; then
+    if test "$hosttype" = "recoveryluks"; then
         sshopts="-o UserKnownHostsFile=$config_path/recovery.known_hosts"
         waitfor_ssh "$sshlogin"
         echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
             'recovery-mount.sh --yes --only-raid-crypt --luks-from-stdin'
         ssh $sshopts $(ssh_uri ${sshlogin}) \
-            "recovery-mount.sh --yes --without-raid-crypt $@"
+            "recovery-mount.sh --yes --continue $@"
     else
         sshopts="-o UserKnownHostsFile=$config_path/initrd.known_hosts"
         waitfor_ssh "$sshlogin"

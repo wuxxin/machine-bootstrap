@@ -6,7 +6,9 @@
 
 ## to fix, to finish
 
-+ FIXME: make snapd on recovery working again (currently timeouts)
++ fixme: connect initrdluks, sometimes nees two incovations?
++ FIXME: make snapd on recovery working again (currently timeouts) 
+    + make rebuild installer on live system, and test if its still there
 + FIXME: dkms install spl zfs (maybe only 0.7.5 ?)
 configure: error: Failed to find spl_config.h in any of the following:
 	/usr/src/spl-0.7.5/5.0.0-23-generic
@@ -24,6 +26,8 @@ Consult /var/lib/dkms/zfs/0.7.5/build/make.log for more information.
   linux-tools-common linux-tools-virtual-hwe-18.04 linux-virtual-hwe-18.04
 
 ## todo
+### tested combinations
++ 4gb ram, 2 x 10g disks, distribution=bionic, frankenstein=false, recovery_autologin=true, storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --swap=1024 --reuse"
 
 ### todo recovery, install, restore
 + grub: recovery failsafe and target system failsafe

@@ -66,7 +66,7 @@ if test "$diskpassword" = ""; then
     echo "ERROR: script needs diskpassword from stdin, abort"
     exit 1
 fi
-if test "$1" = "--root-lvm-vol-size"; then root_lvm_vol_size="$2"; shift; fi
+if test "$1" = "--root-lvm-vol-size"; then root_lvm_vol_size="$2"; shift 2; fi
 if test "$1" = "--frankenstein"; then option_frankenstein=true; shift; fi
 if test "$1" = "--distribution"; then distribution=$2; shift 2; fi
 if test "$1" = "--restore-from-backup"; then option_restore_backup=true; shift; fi
@@ -198,7 +198,7 @@ cp /tmp/bootstrap-library.sh /mnt/tmp
 cp /tmp/bootstrap-2-chroot-install.sh /mnt/tmp
 chmod +x /mnt/tmp/bootstrap-2-chroot-install.sh
 
-mount_bind_mounts "/mnt"
+mount_bind_mounts /mnt
 
 bootstrap2_postfix=""
 if test "$option_restore_backup" = "true"; then

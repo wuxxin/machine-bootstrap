@@ -89,9 +89,9 @@ base:
   '*':
     - custom
 EOF
-cp machine-bootstrap/devop/custom-pillar.sls config/custom.sls
-ln -s ../machine-bootstrap/devop/bootstrap-pillar.sls \
-  config/bootstrap.sls
+for i in custom bootstrap; do
+    cp machine-bootstrap/devop/${i}-pillar.sls config/${i}.sls
+done
 cp machine-bootstrap/devop/top-state.sls salt/custom/top.sls
 touch salt/custom/custom.sls
 git add .
@@ -151,6 +151,7 @@ firstuser=$(id -u -n)
 # [--root-size=  *all|<rootsizemb>]
 # [--data-fs=    *""|zfs|ext4|xfs|other]
 # [--data-crypt= *true|false]
+# [--data-lvm=   *""|<vgname>]
 # distribution="eoan" # default "bionic"
 # recovery_autologin="true" # default "false"
 # frankenstein="true" # default "false"
@@ -230,6 +231,11 @@ git push -u origin master
 ./machine-bootstrap/connect.sh initrdluks
 ```
 
++ connect to recovery, open luks disks
+```
+./machine-bootstrap/connect.sh recoveryluks
+```
+
 ### switch next boot to boot into recovery (from running target system)
 ```
 grub-reboot recovery
@@ -274,9 +280,9 @@ Nr |Name|Description|
 ---|---|---
 7  | `BIOS,1,2`  | GRUB-BIOS boot binary partition, used to host grub code on gpt for bios boot
 6  | `EFI,1,2`   | EFI vfat partition, dual efi & bios grub installation and recovery- fs,kernel,initrd
-5  | `LOG,1,2`   | optional ZFS Log or other usages
-4  | `CACHE,1,2` | optional ZFS Cache or other usages
-3  | `[raid_]luks_SWAP,1,2`  | optional encrypted hibernation compatible swap
-2  | `[raid_](zfs,ext4,xfs)_BOOT,1,2`  | optional boot partition, unencrypted, kernel,initrd
-1  | `[raid_][luks_][lvm.vg0_](zfs,ext4,xfs)_ROOT,1,2` | root partition
-8  | `[raid_][luks_][lvm.vgdata_](zfs,ext4,xfs,other)_DATA,1,2` | optional data partition
+5  | `LOG,1,2`   | **optional** ZFS Log or other usages
+4  | `CACHE,1,2` | **optional** ZFS Cache or other usages
+3  | `[raid_]luks_SWAP,1,2`  | **optional** encrypted hibernation compatible swap
+2  | `[raid_](zfs|ext4|xfs)_BOOT,1,2`  | **optional** boot partition, unencrypted, kernel,initrd
+1  | `[raid_][luks_][lvm.vg0_](zfs|ext4|xfs)_ROOT,1,2` | root partition
+8  | `[raid_][luks_][lvm.vgdata_](zfs|ext4|xfs|other)_DATA,1,2` | **optional** data partition

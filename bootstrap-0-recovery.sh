@@ -42,12 +42,14 @@ install a recovery system and overwrite all existing data of all disks matching 
 
   --data-fs=    *""|zfs|ext4|xfs|other
     # if not empty create and configure filesystem for a data partition,
-    # will be created last and take all still available space
-    # set a size to root partition, to give the rest to data
+    # will be created last and take all still available space.
+    # set a size to root partition, to give the rest to data.
     # filesystem "other": creates partition[s], but no raid if two disks,
     #   encrypt if true, but dont configure any filesystem
   --data-crypt= *true|false
     # enable or disable encryption for data
+  --data-lvm=   *""|<vgname>
+    # create a lvm volume group, do not create a logical volume
 
   --log=       true|*false|<logsizemb, if true: logsizemb=1024mb>
   --cache=     true|*false|<cachesizemb, if true: cachesizemb=59392mb>
