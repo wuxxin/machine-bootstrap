@@ -291,7 +291,8 @@ chmod +x /usr/sbin/update-grub
 # install on first disk only
 echo "install grub"
 update-grub
-efi_disk="/dev/$(lsblk -no pkname "$(by_partlabel EFI | first_of)")"
+efi_disk=/dev/$(basename "$(readlink -f \
+    "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | first_of)")/..")")
 install_grub /efi "$efi_disk"
 
 echo "exit from chroot"

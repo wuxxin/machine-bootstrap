@@ -311,7 +311,8 @@ mkdir -p /mnt/efi/grub
     "$efi_grub" "$casper_livemedia" "$efi_fs_uuid" > /mnt/efi/grub/grub.cfg
 
 echo "install grub"
-efi_disk="/dev/$(lsblk -no pkname "$(by_partlabel EFI | first_of)")"
+efi_disk=/dev/$(basename "$(readlink -f \
+    "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | first_of)")/..")")
 install_grub /mnt/efi "$efi_disk"
 
 unmount_efi

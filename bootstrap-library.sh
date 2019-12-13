@@ -64,8 +64,7 @@ install_grub() { # efi_dir efi_disk
                     --boot-directory="$efi_dir" \
                     --efi-directory="$efi_dir" \
                     --bootloader-id=Ubuntu \
-                    --recheck --no-floppy $efi_grub_param \
-                    "$efi_disk"
+                    --recheck --no-floppy $efi_grub_param
     grub-install    --target=i386-pc \
                     --boot-directory="$efi_dir" \
                     --recheck --no-floppy \

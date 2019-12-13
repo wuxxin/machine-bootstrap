@@ -230,5 +230,7 @@ unmount_bind_mounts /mnt
 unmount_data /mnt
 unmount_efi /mnt
 unmount_boot /mnt
-sleep 1
 unmount_root /mnt
+deactivate_lvm
+deactivate_crypt
+deactivate_raid
