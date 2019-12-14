@@ -6,15 +6,15 @@
 
 ## to fix, to finish
 
++ recovery on usr/sbin in recovery squash, and at /etc/recovery on target should also include bootstrap-library
++ make snapd on recovery working again (currently timeouts) 
+    + make rebuild installer on live system, and test if its still there
 + bootstrap.sh create liveimage
 
 rm: remove write-protected regular file '/volatile/wuxxin/work_box_run/liveimage/installer/update-initramfs'? y
 rm: remove write-protected regular empty file '/volatile/wuxxin/work_box_run/liveimage/installer/resolv.conf.tmp'? y
 rm: remove write-protected regular file '/volatile/wuxxin/work_box_run/liveimage/installer/systemd-detect-virt'? y
 
-+ fixme: connect initrdluks, sometimes nees two incovations?
-+ FIXME: make snapd on recovery working again (currently timeouts) 
-    + make rebuild installer on live system, and test if its still there
 + FIXME: dkms install spl zfs (maybe only 0.7.5 ?)
 configure: error: Failed to find spl_config.h in any of the following:
 	/usr/src/spl-0.7.5/5.0.0-23-generic

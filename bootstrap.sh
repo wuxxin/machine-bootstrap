@@ -283,11 +283,15 @@ if test "$command" = "create-liveimage"; then
     with_proxy "$self_path/recovery/build-recovery.sh" download "$download_path"
     # write recovery.squashfs with new hostkeys for bootstrap-0
     generate_hostkeys
+    if test -e "$download_path/scripts"; then rm -r "$download_path/scripts"; fi
+    mkdir -p "$download_path/scripts"
+    cp -a $self_path/recovery/* "$download_path/scripts"
+    cp $self_path/bootstrap-library.sh "$download_path/scripts/"
     echo "$generated_hostkeys" > "$download_path/bootstrap-0.hostkeys"
     "$self_path/recovery/update-recovery-squashfs.sh" --custom \
         "$download_path/recovery.squashfs" "$hostname" "-" "$netplan_file" \
         "$download_path/bootstrap-0.hostkeys" "$authorized_keys_file" \
-        "$self_path/recovery" - "$recovery_autologin" "default" "$http_proxy"
+        "$download_path/scripts" - "$recovery_autologin" "default" "$http_proxy"
     # create liveimage
     "$self_path/recovery/build-recovery.sh" create liveimage "$download_path" \
             "$download_path/$bootstrap0liveimage" \

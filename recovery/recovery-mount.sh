@@ -24,7 +24,7 @@ if test "$1" = "--force"; then force=true; shift; fi
 
 if which cloud-init > /dev/null; then
     printf "waiting for cloud-init finish..."
-    cloud-init status --wait
+    cloud-init status --wait || echo "warning, cloud init finished with error"
 fi
 
 if test "$what" != "after_crypt"; then

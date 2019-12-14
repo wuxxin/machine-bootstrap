@@ -32,7 +32,7 @@ defaults:
   netplan_file:         if exists from /etc/recovery/netplan.yml else from /etc/netplan/*
   hostkeys_file:        /etc/recovery/recovery_hostkeys
   authorized_keys_file: /root/.ssh/authorized_keys
-  scriptdir:            /etc/recovery (will be copied to recovery:/sbin/)
+  scriptdir:            /etc/recovery (will be copied to recovery:/usr/sbin/)
   archivedir:           if exists "$custom_archive" else "-"
   autologin:            "true" if exists /etc/recovery/feature.autologin else "false"
   packagelist:          "default" for default list
