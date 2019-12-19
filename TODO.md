@@ -1,21 +1,31 @@
 # machine-bootstrap work list
 
-+ Info: if using this in a vm on a xenial host
+### tested combinations
++ 4gb ram, 2 x 10g disks, distribution=bionic, frankenstein=false, recovery_autologin=true, storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --swap=1024 --reuse"
++ vm on a xenial host
     + kvm qxl does not work (kernel faults) on suspend and hibernate, use virtio vga instead
     + virtio vga does not work in X11, use qxl instead
 
-## to fix, to finish
+## todo
 
-+ recovery on usr/sbin in recovery squash, and at /etc/recovery on target should also include bootstrap-library
+### testing
++ commit and test: recovery on usr/sbin in recovery squash, and at /etc/recovery on target should also include bootstrap-library
++ keep EFI synced
+
+### todo
 + make snapd on recovery working again (currently timeouts) 
+    + probably to core snap related, there is a function in cdimage-rootfs functions
     + make rebuild installer on live system, and test if its still there
++ system: recovery failsafe and target system failsafe
+    + on recovery: if grub that does not succeed first time (while installing) timeout changes from 3s to interactive
+    + on target: does timeout different (25 seconds) but does not pre select recovery
 + bootstrap.sh create liveimage
-
-rm: remove write-protected regular file '/volatile/wuxxin/work_box_run/liveimage/installer/update-initramfs'? y
-rm: remove write-protected regular empty file '/volatile/wuxxin/work_box_run/liveimage/installer/resolv.conf.tmp'? y
-rm: remove write-protected regular file '/volatile/wuxxin/work_box_run/liveimage/installer/systemd-detect-virt'? y
-
-+ FIXME: dkms install spl zfs (maybe only 0.7.5 ?)
+    rm: remove write-protected regular file '/volatile/wuxxin/work_box_run/liveimage/installer/update-initramfs'? y
+    rm: remove write-protected regular empty file '/volatile/wuxxin/work_box_run/liveimage/installer/resolv.conf.tmp'? y
+    rm: remove write-protected regular file '/volatile/wuxxin/work_box_run/liveimage/installer/systemd-detect-virt'? y
++ make zfs work again
+    + FIXME: dkms install spl zfs (maybe only 0.7.5 ?)
+```
 configure: error: Failed to find spl_config.h in any of the following:
 	/usr/src/spl-0.7.5/5.0.0-23-generic
 	/usr/src/spl-0.7.5
@@ -30,36 +40,25 @@ Consult /var/lib/dkms/zfs/0.7.5/build/make.log for more information.
   linux-image-virtual-hwe-18.04 linux-modules-5.0.0-37-generic
   linux-modules-extra-5.0.0-37-generic linux-tools-5.0.0-37-generic
   linux-tools-common linux-tools-virtual-hwe-18.04 linux-virtual-hwe-18.04
-
-## todo
-### tested combinations
-+ 4gb ram, 2 x 10g disks, distribution=bionic, frankenstein=false, recovery_autologin=true, storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --swap=1024 --reuse"
-
-### todo recovery, install, restore
-+ grub: recovery failsafe and target system failsafe
-    + on recovery: if grub that does not succeed first time (while installing) timeout changes from 3s to interactive
-    + on target: does timeout different (25 seconds) but does not pre select recovery
-+ keep EFI synced
-+ server: optional use of tmux for long running ssh connections of bootstrap.sh
-+ server: add script to replace a changed faulty disk: recovery-replace-mirror.sh
-+ server: add script to deactivate (invalidate) one of two disks: storage-invalidate-mirror.sh
-+ make restore from backup: script bootstrap-1-restore and bootstrap-2-chroot-restore
-
-### todo devop
-+ install and configure ZFS Scrubbing
-+ make backup working
+```
++ all: optional use of tmux for long running ssh connections of bootstrap.sh
++ all: add script to replace a changed faulty disk: recovery-replace-mirror.sh
++ all: add script to deactivate (invalidate) one of two disks: storage-invalidate-mirror.sh
++ install: make restore from backup: script bootstrap-1-restore and bootstrap-2-chroot-restore
++ devop: install and configure ZFS Scrubbing
++ devop: make backup working
 
 ### write reasons for overlayfs on zfs for presentation in zfs-linux mailinglist
 + after integration of overlayfs in the kernel,
     adoption of overlayfs based solutions is rapidly growing.
-    in 2019 many software projects expect to simply mount a overlayfs
-    on any underlying storage and expects overlayfs to work.
-+ overlayfs runs on ext3/4,xfs and even btrfs, you dont assume it doesn't on zfs
-+ overlayfs is the first and possible one of few solutions,
+    in 2019 many software projects assume to be able
+    to use overlayfs on any underlying storage.
++ overlayfs runs on ext3/4,xfs,ramfs and even btrfs, you dont assume it doesn't on zfs
++ overlayfs is the first will probably be one of the few solutions
     that will have user namespace mount support, either eg.
     via ubuntu overlayfs that is patched for user ns,
     or via a fuseoverlayfs driver (developed by redhat),
-    overlayfs will be adopted in these cases (eg. podman, k3s, docker)
+    overlayfs in user ns has been adopted by eg. podman, k3s
 + other examples of underlying storage is expected to support overlayfs to support a specific feature, i found during my journey of installing zfs on linux:
     + systemd.volatile https://github.com/systemd/systemd/blob/adca059d55fe0a126dbdd62911b0705ddf8e9b8a/NEWS#L119
     + ubuntu build script (find url again) which obviously uses anything but zfs as underlying storage for their build script by assuming the underlying storage layer has overlayfs support
@@ -133,46 +132,4 @@ cat > /etc/systemd/system/systemd-journald.service.d/override.conf << EOF
 Requires=zfs-mount.service
 After=zfs-mount.service
 EOF
-```
-
-+ keep EFI synced
-
-```
-    echo "moving grubenv to efi,efi2"
-    grub-editenv /boot/efi/EFI/grubenv create
-    echo "Sync contents of efi"
-    cp -a /boot/efi/. /boot/efi2
-    if test -e /boot/efi2/EFI/grubenv; then rm /boot/efi2/EFI/grubenv; fi
-    grub-editenv /boot/efi2/EFI2/grubenv create
-    echo "write second boot entry"
-    EFI2DISK=$(lsblk /dev/disk/by-partlabel/EFI2 -o kname -n | sed -r "s/([^0-9]+)([0-9]+)/\1/")
-    EFI2PART=$(lsblk /dev/disk/by-partlabel/EFI2 -o kname -n | sed -r "s/([^0-9]+)([0-9]+)/\2/")
-    if test -e "/sys/firmware/efi"; then
-        efibootmgr -c --gpt -d /dev/$EFI2DISK -p $EFI2PART -w -L Ubuntu2 -l '\EFI\Ubuntu\grubx64.efi'
-    fi
-    grub-install --target=i386-pc --boot-directory=/boot --recheck --no-floppy "/dev/$EFI2DISK"
-```
-
-/etc/systemd/system/efistub-update.path
-```
-[Unit]
-Description=Copy EFISTUB Kernel to EFI System Partition
-
-[Path]
-PathChanged=/boot/initramfs-linux-fallback.img
-
-[Install]
-WantedBy=multi-user.target
-WantedBy=system-update.target
-
-/etc/systemd/system/efistub-update.service
-
-[Unit]
-Description=Copy EFISTUB Kernel to EFI System Partition
-
-[Service]
-Type=oneshot
-ExecStart=/usr/bin/cp -af /boot/vmlinuz-linux esp/EFI/arch/
-ExecStart=/usr/bin/cp -af /boot/initramfs-linux.img esp/EFI/arch/
-ExecStart=/usr/bin/cp -af /boot/initramfs-linux-fallback.img esp/EFI/arch/
 ```
