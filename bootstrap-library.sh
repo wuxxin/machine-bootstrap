@@ -1,11 +1,12 @@
 #!/bin/bash
 
 get_default_packages() {
-    echo "cryptsetup gdisk mdadm lvm2 grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools openssh-server curl gnupg gpgv ca-certificates bzip2 libc-bin tmux haveged debootstrap"
+    echo "cryptsetup gdisk mdadm lvm2 grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools openssh-server curl gnupg gpgv ca-certificates bzip2 libc-bin rsync tmux haveged debootstrap"
 }
 
 get_zfs_packages() {
     # echo "spl-dkms zfs-dkms zfsutils-linux"
+    # fixme: make zfs work again
     echo "zfsutils-linux"
 }
 
@@ -69,6 +70,58 @@ install_grub() { # efi_dir efi_disk
                     --boot-directory="$efi_dir" \
                     --recheck --no-floppy \
                     "$efi_disk"
+}
+
+install_efi_sync() {
+
+cat > /etc/systemd/system/efi-update.path << EOF
+[Unit]
+Description=Copy EFISTUB Kernel to EFI System Partition
+
+[Path]
+PathChanged=/boot/initramfs-linux-fallback.img
+
+[Install]
+WantedBy=multi-user.target
+WantedBy=system-update.target
+EOF
+
+cat > /etc/systemd/system/efistub-update.service << EOF
+[Unit]
+Description=Copy EFISTUB Kernel to EFI System Partition
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/cp -af /boot/vmlinuz-linux esp/EFI/arch/
+ExecStart=/usr/bin/cp -af /boot/initramfs-linux.img esp/EFI/arch/
+ExecStart=/usr/bin/cp -af /boot/initramfs-linux-fallback.img esp/EFI/arch/
+EOF
+}
+
+
+sync_efi() { # efi_src efi_dest
+    local efi_src efi_dest efi_fs_uuid efi2_fs_uuid
+    efi_src="$1"; efi_dest="$2"
+
+    echo "Sync contents of $efi_src to $efi_dest"
+    rsync -a --exclude EFI/Ubuntu/grub.cfg --exclude grub/grub.cfg \
+        --delete-during "$efi_src/" "$efi_dest/"
+
+    echo "copy and modify EFI/Ubuntu/grub.cfg and grub/grub.cfg for fsuuid of efi2"
+    efi_fs_uuid=$(dev_fs_uuid "$(by_partlabel EFI | first_of)")
+    efi2_fs_uuid=$(dev_fs_uuid "$(by_partlabel EFI | x_of 2)")
+    cat "$efi_src/EFI/Ubuntu/grub.cfg" \
+        | sed -r "s/$efi_fs_uuid/$efi2_fs_uuid/g" \
+        > "$efi_dest/EFI/Ubuntu/grub.cfg"
+    cat "$efi_src/grub/grub.cfg" \
+        | sed -r "s/$efi_fs_uuid/$efi2_fs_uuid/g" \
+        > "$efi_dest/grub/grub.cfg"
+
+    echo "copy grubenv of $efi_src to $efi_dest"
+    if test ! -e "$efi_dest/grub/grubenv"; then
+        grub-editenv "$efi_dest/grub/grubenv" create
+    fi
+    dd if="$efi_src/grub/grubenv" of="$efi_dest/grub/grubenv" bs=1024 count=1
 }
 
 mk_partlabel() { # diskcount luks=true/false lvm=vgname/""/false fs=""/ext4/xfs/zfs partname
@@ -476,7 +529,7 @@ EOF
             devtarget="$devlist"
             if is_raid "$devlist"; then devtarget="/dev/md/mdadm-boot"; fi
             cat >> /etc/fstab << EOF
-UUID=$(dev_fs_uuid "$devtarget") /boot $(substr_fstype "$devlist") defaults 0 1
+UUID=$(dev_fs_uuid "$devtarget") /boot $(substr_fstype "$devlist") defaults,nofail 0 1
 EOF
         fi
     fi
@@ -485,12 +538,12 @@ EOF
     devcount=$(echo "$devlist" | wc -w)
     if test "$devcount" = "1"; then
         cat >> /etc/fstab << EOF
-PARTUUID=$(dev_part_uuid "$devlist") /efi vfat 0 1
+PARTUUID=$(dev_part_uuid "$devlist") /efi vfat defaults,nofail 0 1
 EOF
     else
         cat >> /etc/fstab << EOF
-PARTUUID=$(dev_part_uuid "$(echo "$devlist" | x_of 1)") /efi   vfat defaults 0 1
-PARTUUID=$(dev_part_uuid "$(echo "$devlist" | x_of 2)") /efi2  vfat defaults 0 1
+PARTUUID=$(dev_part_uuid "$(echo "$devlist" | x_of 1)") /efi   vfat defaults,nofail 0 1
+PARTUUID=$(dev_part_uuid "$(echo "$devlist" | x_of 2)") /efi2  vfat defaults,nofail 0 1
 EOF
     fi
 

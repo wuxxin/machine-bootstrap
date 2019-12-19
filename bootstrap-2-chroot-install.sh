@@ -39,11 +39,7 @@ fi
 # include library
 . "$self_path/bootstrap-library.sh"
 
-# partition paths by label and partlabel
-EFI=/dev/disk/by-partlabel/EFI
-
 export DEBIAN_FRONTEND=noninteractive
-
 
 echo "configure locale & timezone"
 export LC_MESSAGES="POSIX"
@@ -78,6 +74,9 @@ if test ! -e /etc/mtab; then
 fi
 create_fstab
 create_crypttab
+
+echo "symlink /boot/grub pointing to /efi/grub"
+ln -s /efi/grub /boot/grub
 
 echo "workaround /var staying busy at shutdown due to journald"
 echo "https://github.com/systemd/systemd/issues/867"
@@ -288,11 +287,18 @@ exec grub-mkconfig -o /efi/grub/grub.cfg "$@"
 EOF
 chmod +x /usr/sbin/update-grub
 
-# install on first disk only
 echo "install grub"
 update-grub
+if test ! -e /efi/grub/grubenv; then
+    grub-editenv /efi/grub/grubenv create
+fi
 efi_disk=/dev/$(basename "$(readlink -f \
     "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | first_of)")/..")")
 install_grub /efi "$efi_disk"
-
+if test "$(by_partlabel EFI | wc -w)" = "2"; then
+    efi_disk=/dev/$(basename "$(readlink -f \
+    "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | x_of 2)")/..")")
+    install_grub /efi2 "$efi_disk"
+    sync_efi /efi /efi2
+fi
 echo "exit from chroot"
