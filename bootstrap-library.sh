@@ -72,34 +72,36 @@ install_grub() { # efi_dir efi_disk
                     "$efi_disk"
 }
 
-install_efi_sync() {
-
-cat > /etc/systemd/system/efi-update.path << EOF
+install_efi_sync() { # rootprefix(default="")
+    local rootprefix
+    rootprefix=""
+    if test "$1" != ""; then rootprefix="$1"; shift; fi
+    cat > "$rootprefix/etc/systemd/system/efi-sync.path" << EOF
 [Unit]
-Description=Copy EFISTUB Kernel to EFI System Partition
+Description=Copy EF to EFI2 System Partition
 
 [Path]
-PathChanged=/boot/initramfs-linux-fallback.img
+PathChanged=/efi
 
 [Install]
 WantedBy=multi-user.target
 WantedBy=system-update.target
 EOF
-
-cat > /etc/systemd/system/efistub-update.service << EOF
+    cat > "$rootprefix/etc/systemd/system/efi-sync.service" << EOF
 [Unit]
-Description=Copy EFISTUB Kernel to EFI System Partition
+Description=Copy EFI to EFI2 System Partition
+RequiresMountsFor=/efi
+RequiresMountsFor=/efi2
 
 [Service]
 Type=oneshot
-ExecStart=/usr/bin/cp -af /boot/vmlinuz-linux esp/EFI/arch/
-ExecStart=/usr/bin/cp -af /boot/initramfs-linux.img esp/EFI/arch/
-ExecStart=/usr/bin/cp -af /boot/initramfs-linux-fallback.img esp/EFI/arch/
+ExecStart=/etc/recovery/efi-sync.sh --yes
 EOF
+    systemctl enable efi-sync.{path,service}
 }
 
 
-sync_efi() { # efi_src efi_dest
+efi_sync() { # efi_src efi_dest
     local efi_src efi_dest efi_fs_uuid efi2_fs_uuid
     efi_src="$1"; efi_dest="$2"
 

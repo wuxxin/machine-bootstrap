@@ -17,7 +17,7 @@ shift
 . "$self_path/bootstrap-library.sh"
 
 if test "$(by_partlabel EFI | wc -w)" = "2"; then
-    sync_efi /efi /efi2
+    efi_sync /efi /efi2
 else
     echo "no second EFI partition found, doing nothing"
 fi

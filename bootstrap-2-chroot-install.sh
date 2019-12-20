@@ -87,7 +87,7 @@ LazyUnmount=yes
 EOF
 
 echo "add grub casper recovery entry"
-EFI_NR="6"
+EFI_NR=$(cat "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | first_of)")/partition")
 efi_grub="hd0,gpt${EFI_NR}"
 efi_fs_uuid=$(dev_fs_uuid "$(by_partlabel EFI | first_of)")
 casper_livemedia=""
@@ -299,6 +299,8 @@ if test "$(by_partlabel EFI | wc -w)" = "2"; then
     efi_disk=/dev/$(basename "$(readlink -f \
     "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | x_of 2)")/..")")
     install_grub /efi2 "$efi_disk"
-    sync_efi /efi /efi2
+    install_efi_sync
+    # efi_sync will be started on next reboot automatically, do a manual sync now
+    efi_sync /efi /efi2
 fi
 echo "exit from chroot"

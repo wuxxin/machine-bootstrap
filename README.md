@@ -1,8 +1,8 @@
 # Machine bootstrap
 
-Unattended ssh installer of Ubuntu 18.04/19.04/19.10 with build in recovery image, 
-    root storage on luks encrypted zfs and other specialized storage layouts,
-    to be executed on a linux liveimage/recoveryimage system via ssh.
+Unattended ssh installer of Ubuntu 18.04/19.04/19.10 with buildin recovery image, 
+    root storage on luks encrypted zfs or other specialized storage layouts,
+    to be executed from a linux liveimage/recoveryimage system via ssh.
 
 It serves two use case:
 + as an experimental Desktop/Laptop for getting experience with this setup
@@ -15,7 +15,7 @@ It serves two use case:
 + one or two disks (will be automatically setup as mirror if two disks)
 + root on luks encrypted zfs / zfs mirror pool (encrypted storage at rest)
 + other common and less common storage setups
-+ ssh in initial ramdisk for remote unlock luks on system startup using dracut
++ dracut initial ramdisk with ssh for remote unlock luks on system startup
 + recovery system installation (based on casper ubuntu 18.04.x liveserver) on EFI partition
     + unattended cloud-init boot via custom squashfs with ssh ready to login
     + buildin scripts to mount/unmount root and update recovery boot parameter
@@ -42,12 +42,13 @@ It serves two use case:
     
 #### example configurations
 + a root server with one or two harddisks and static ip setup
-    + add custom `$config_path/netplan.yml`
+    + add custom `netplan.yml`
 + a laptop with encrypted hibernation: 
-    + `storage_opts="--swap=yes"`
-+ a vm: `http_proxy="http://proxyip:port"`
+    + add `storage_opts="--swap=yes"` to `machine-config.env`
++ a vm with a http proxy on its host:
+    + add `http_proxy="http://proxyip:port"`to `machine-config.env`
 + install ubuntu eoan instead of bionic:
-    + `distribution=eoan`
+    + add `distribution=eoan` to `machine-config.env`
 
 ## Preparation
 
