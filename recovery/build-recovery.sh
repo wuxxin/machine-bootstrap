@@ -341,16 +341,16 @@ EOF
 chmod 0755 "$dest_mount/usr/sbin/policy-rc.d"
 
 # create dummy update-initramfs
-cat > update-initramfs << EOF
+cat > $workdir/update-initramfs << EOF
 #! /bin/sh
 echo "update-initramfs: diverted" >&2
 exit 0
 EOF
-chmod +x update-initramfs
+chmod +x $workdir/update-initramfs
 
 # create exit early version of systemd-detect-virt, will be copied after dpkg diversion
-echo "exit 1" > systemd-detect-virt
-chmod +x systemd-detect-virt
+echo "exit 1" > $workdir/systemd-detect-virt
+chmod +x $workdir/systemd-detect-virt
 
 POSTMOUNTEOF
 
@@ -359,8 +359,8 @@ POSTMOUNTEOF
         deb_chroot "$dest_mount" dpkg-divert --local --rename \
             --divert $i.dpkg-divert --add $i
     done
-    as_root cp -f update-initramfs "$dest_mount/usr/sbin/update-initramfs"
-    as_root cp -f systemd-detect-virt "$dest_mount/usr/bin/systemd-detect-virt"
+    as_root cp -f $workdir/update-initramfs "$dest_mount/usr/sbin/update-initramfs"
+    as_root cp -f $workdir/systemd-detect-virt "$dest_mount/usr/bin/systemd-detect-virt"
 
     # Make installer layer
     # Install casper for live session magic and other selected packages
@@ -403,8 +403,7 @@ if test -e $overlay_dir/usr/sbin/policy-rc.d; then
     rm $overlay_dir/usr/sbin/policy-rc.d
 fi
 
-# remove all files in /run and /boot
-rm -rf $overlay_dir/run
+#rm -rf $overlay_dir/run
 rm -rf $overlay_dir/boot
 if test -e "$overlay_dir/var/lib/dpkg/triggers"; then
     rm -rf "$overlay_dir/var/lib/dpkg/triggers"
@@ -448,6 +447,7 @@ POSTUNMOUNTEOF
     # create squashfs from overlay
     cd "$overlay_dir"
     if test -e "${dest_squash}"; then as_root rm -f ${dest_squash}; fi
+    echo "mksquashfs ${dest_squash}"
     as_root mksquashfs . "${dest_squash}" -no-progress -xattrs -comp xz
     as_root chown "$(id -u -n):$(id -u -n)" "${dest_squash}"
     cd "$workdir"
