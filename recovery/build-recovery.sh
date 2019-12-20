@@ -55,7 +55,7 @@ EOF
 
 
 as_root() {
-    if test "$(id -u)" != "0"; then sudo $@; else $@; fi
+    if test "$(id -u)" != "0"; then sudo -- "$@"; else $@; fi
 }
 
 
@@ -373,8 +373,8 @@ POSTMOUNTEOF
     deb_chroot "$dest_mount" apt-get clean
 
     # remove diverts
-    deb_chroot "$dest_mount" rm /usr/sbin/update-initramfs
-    deb_chroot "$dest_mount" rm /usr/bin/systemd-detect-virt
+    deb_chroot "$dest_mount" rm -f /usr/sbin/update-initramfs
+    deb_chroot "$dest_mount" rm -f /usr/bin/systemd-detect-virt
     for i in /etc/grub.d/30_os-prober /usr/sbin/update-initramfs /usr/bin/systemd-detect-virt; do
         deb_chroot "$dest_mount" dpkg-divert --local --rename --remove $i
     done

@@ -15,8 +15,8 @@ It serves two use case:
 + one or two disks (will be automatically setup as mirror if two disks)
 + root on luks encrypted zfs / zfs mirror pool (encrypted storage at rest)
 + other common and less common storage setups
-+ dracut initial ramdisk with ssh for remote unlock luks on system startup
-+ recovery system installation (based on casper ubuntu 18.04.x liveserver) on EFI partition
++ modern initial ramdisk based on dracut with ssh for remote unlock luks on startup
++ recovery system installation (based on ubuntu casper) on EFI partition
     + unattended cloud-init boot via custom squashfs with ssh ready to login
     + buildin scripts to mount/unmount root and update recovery boot parameter
 + logging of recovery and target system installation on calling machine in directory ./log
@@ -24,7 +24,7 @@ It serves two use case:
 #### additional optional Features
 + luks encrypted hibernate compatible swap for eg. a desktop installation
 + overlay fs support on zfs by building patched zfs-linux (frankenstein=true)
-+ saltstack run at devop phase with states from salt-shared (eg. desktop)
++ saltstack provision run at devop stage with states from salt-shared (eg. desktop)
 + encrypt all sensitive data in setup repository with git-crypt
     + git & git-crypt repository setup to store machine configuration inside a git repository
 + build a preconfigured bootstrap-0 livesystem image usable for physical installation
@@ -40,8 +40,9 @@ It serves two use case:
 + home-nas setup with 1 x internal:type:ssd + 2 x external:type:spindle harddisks
     + todo: research issues at least with 0.7* and shutdown platters on external hds
     
-#### example configurations
-+ a root server with one or two harddisks and static ip setup
+#### Example Configurations
+
++ a root server with custom network (eg. static ip)
     + add custom `netplan.yml`
 + a laptop with encrypted hibernation: 
     + add `storage_opts="--swap=yes"` to `machine-config.env`
@@ -49,6 +50,21 @@ It serves two use case:
     + add `http_proxy="http://proxyip:port"`to `machine-config.env`
 + install ubuntu eoan instead of bionic:
     + add `distribution=eoan` to `machine-config.env`
+
+##### Storage Examples
+
++ virtual machine with root on ext4
+    + storage_opts="--boot=false --root-fs=ext4 --root-crypt=false"
++ virtual machine with encrypted root on ext4
+    + storage_opts="--boot-fs=ext4 --root-fs=ext4"
++ virtual machine with encrypted lvm and root lv (30gb) on ext4
+    + storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-lvm=vgroot --root-lvm-vol-size=30720"
++ desktop: encrypted root and swap, boot and root on zfs, patched zfs for overlay support
+    + storage_opts="--swap=true --frankenstein=true"
++ server: one or two encrypted disks, boot and root on zfs, patched zfs for overlay support
+    + storage_opts="--frankenstein=true"
++ server: one or two encrypted disks with lvm storage (100gb) with root (25gb) and zfs on data (rest)
+    + storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-size=102400 --root-lvm=vgroot --root-lvm-vol-size=25600" --data-fs=zfs"
 
 ## Preparation
 
@@ -79,7 +95,7 @@ git commit -v -m "initial config"
 git remote add origin ssh://git@some.where.net/path/box.git
 ```
 
-### optional: add files for a devop task
+### optional: add files for a salstack run
 ```
 mkdir -p salt/custom
 cd salt
@@ -96,7 +112,7 @@ done
 cp machine-bootstrap/devop/top-state.sls salt/custom/top.sls
 touch salt/custom/custom.sls
 git add .
-git commit -v -m "add devop skeleton"
+git commit -v -m "add saltstack skeleton"
 ```
 
 ### optional: git-crypt config
@@ -247,6 +263,8 @@ reboot
 
 ### Limits and Contraints
 
++ one or two disks only
+
 + SWAP
     if using a SWAP partition, the swap partition will always be encrypted.
     Also ROOT should be encrypted in this case.
@@ -258,21 +276,6 @@ reboot
 + ZFS or LVM but not both (ROOT, DATA)
     currently only either of zfs or lvm can be used on a partition.
     if both are specified the script will probably fail.
-
-### Examples
-
-+ virtual machine with root on ext4
-    + storage_opts="--boot=false --root-fs=ext4 --root-crypt=false"
-+ virtual machine with encrypted root on ext4
-    + storage_opts="--boot-fs=ext4 --root-fs=ext4"
-+ virtual machine with encrypted lvm and root lv (30gb) on ext4
-    + storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-lvm=vgroot --root-lvm-vol-size=30720"
-+ desktop: encrypted root and swap, boot and root on zfs, patched zfs for overlay support
-    + storage_opts="--swap=true --frankenstein=true"
-+ server: one or two encrypted disks, boot and root on zfs, patched zfs for overlay support
-    + storage_opts="--frankenstein=true"
-+ server: one or two encrypted disks with lvm storage (100gb) with root (25gb) and zfs on data (rest)
-    + storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-size=102400 --root-lvm=vgroot --root-lvm-vol-size=25600" --data-fs=zfs"
 
 ### GPT Layout
 GPT Partitionnaming (max 36 x UTF16)
