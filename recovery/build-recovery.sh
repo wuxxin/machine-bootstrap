@@ -421,18 +421,24 @@ ln -s /bin/true $overlay_dir/lib/systemd/systemd-networkd-wait-online
 
 # do not ratelimit journald
 mkdir -p $overlay_dir/etc/systemd/journald.conf.d
-printf '[Journal]\nRateLimitIntervalSec=0\n' > $overlay_dir/etc/systemd/journald.conf.d/no-rate-limit.conf
+printf '[Journal]\nRateLimitIntervalSec=0\n' \
+    > $overlay_dir/etc/systemd/journald.conf.d/no-rate-limit.conf
+
+# copied from original installer.squashfs, in the hope to make snapd working
+mkdir -p $overlay_dir/lib/systemd/system/snapd.service.d
+printf '[Service]\nEnvironment=SNAP_REEXEC=0\n' \
+    > $overlay_dir/lib/systemd/system/snapd.service.d/no-reexec.conf
 
 # remove other stray files
 for i in \
-    /initrd.img /initrd.img.old /vmlinuz /vmlinuz.old \
-    /etc/.pwd.lock /etc/shadow- /etc/passwd- \
-    /etc/ssh/ssh_host_ecdsa_key /etc/ssh/ssh_host_ecdsa_key.pub \
-    /etc/ssh/ssh_host_ed25519_key /etc/ssh/ssh_host_ed25519_key.pub \
-    /etc/ssh/ssh_host_rsa_key /etc/ssh/ssh_host_rsa_key.pub \
-    /var/lib/dpkg/lock /var/lib/dpkg/lock-frontend /var/lib/dpkg/status-old \
-    /var/lib/dpkg/triggers/Lock \
-    /var/lib/update-notifier/updates-available; do
+    initrd.img initrd.img.old vmlinuz vmlinuz.old \
+    etc/.pwd.lock etc/shadow- etc/passwd- \
+    etc/ssh/ssh_host_ecdsa_key etc/ssh/ssh_host_ecdsa_key.pub \
+    etc/ssh/ssh_host_ed25519_key etc/ssh/ssh_host_ed25519_key.pub \
+    etc/ssh/ssh_host_rsa_key etc/ssh/ssh_host_rsa_key.pub \
+    var/lib/dpkg/lock var/lib/dpkg/lock-frontend var/lib/dpkg/status-old \
+    var/lib/dpkg/triggers/Lock \
+    var/lib/update-notifier/updates-available; do
     if test -e $overlay_dir/\$i; then
         rm -f $overlay_dir/\$i
     fi

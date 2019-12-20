@@ -76,7 +76,12 @@ create_fstab
 create_crypttab
 
 echo "symlink /boot/grub pointing to /efi/grub"
-ln -s /efi/grub /boot/grub
+if test -L /boot/grub; then
+    echo "already existing"
+else
+    if test -e /boot/grub; then rm -rf /boot/grub; fi
+    ln -s /efi/grub /boot/grub
+fi
 
 echo "workaround /var staying busy at shutdown due to journald"
 echo "https://github.com/systemd/systemd/issues/867"
