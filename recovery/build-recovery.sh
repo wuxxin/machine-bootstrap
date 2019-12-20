@@ -178,24 +178,25 @@ download_casper_image() {
 }
 
 
-extract_casper_iso() {
+extract_casper_from_iso() {
     local iso_file iso_mount targetdir loopdev
     iso_file="$1"
     iso_mount="$2"
     targetdir="$3"
     echo "extract casper kernel,initrd,filesystem from $iso_file to $targetdir"
 
-    mkdir -p "$iso_mount"
+    as_root mkdir -p "$iso_mount"
     loopdev=$(as_root losetup --show -f "$iso_file")
     as_root mount "$loopdev" "$iso_mount"
-    mkdir -p "$targetdir/casper"
-    cp -a -t "$targetdir/casper" "$iso_mount/casper/$kernel_name"
-    cp -a -t "$targetdir/casper" "$iso_mount/casper/$initrd_name"
-    cp -a -t "$targetdir/casper" $iso_mount/casper/filesystem*
-    cp -a -t "$targetdir/"       "$iso_mount/.disk"
+    as_root mkdir -p "$targetdir/casper"
+    as_root cp -a -t "$targetdir/casper" \
+        "$iso_mount/casper/$kernel_name" \
+        "$iso_mount/casper/$initrd_name" \
+        $iso_mount/casper/filesystem*
+    as_root cp -a -t "$targetdir/" "$iso_mount/.disk"
     as_root umount "$iso_mount"
     as_root losetup -d "$loopdev"
-    rmdir "$iso_mount"
+    as_root rmdir "$iso_mount"
 }
 
 
@@ -278,7 +279,7 @@ teardown_mountpoint() {
 umount_loop() {
     dir=$1
     ! mountpoint -q -- "$dir" && return
-    # Bug: can only find processes using mountpoint before unmount
+    # limitation: can only find processes using mountpoint before unmount
     # https://github.com/karelzak/util-linux/issues/484
     open_files=$(as_root lsof "$dir" 2>/dev/null || true)
     # Exits non-zero if object not in use
@@ -373,8 +374,7 @@ POSTMOUNTEOF
     deb_chroot "$dest_mount" apt-get clean
 
     # remove diverts
-    deb_chroot "$dest_mount" rm -f /usr/sbin/update-initramfs
-    deb_chroot "$dest_mount" rm -f /usr/bin/systemd-detect-virt
+    deb_chroot "$dest_mount" rm -f /usr/sbin/update-initramfs  /usr/bin/systemd-detect-virt
     for i in /etc/grub.d/30_os-prober /usr/sbin/update-initramfs /usr/bin/systemd-detect-virt; do
         deb_chroot "$dest_mount" dpkg-divert --local --rename --remove $i
     done
@@ -465,20 +465,20 @@ create_liveimage() {
     installer_path="$download_path/installer"
     liveimage="$2"
     recoverysquash="$3"
-    mkdir -p "$download_path" "$build_path/casper" "$build_path/isolinux" "$installer_path"
 
     # download image
+    mkdir -p "$download_path"
     download_casper_image "$download_path" "$baseurl" "$imagename"
 
     # extract casper
-    extract_casper_iso "$download_path/$imagename" "$download_path/isomount" "$build_path"
+    as_root mkdir -p "$build_path/casper" "$build_path/isolinux" "$installer_path"
+    extract_casper_from_iso "$download_path/$imagename" "$download_path/isomount" "$build_path"
     as_root chmod -R u+w "$build_path"
     kernel_version=$(file "$build_path/casper/$kernel_name" -b | sed -r "s/^.+version ([^ ]+) .+/\1/g")
 
-    # add installer.squashfs (what is needed for recovery, eg. ssh)
+    # add installer.squashfs (tools that are needed for recovery, eg. ssh)
     create_installer_squashfs "$build_path/casper/filesystem.squashfs" \
-        "$download_path/installer.squashfs" "$installer_path" "$kernel_version"
-    cp -f "$download_path/installer.squashfs" "$build_path/casper/installer.squashfs"
+        "$build_path/casper/installer.squashfs" "$installer_path" "$kernel_version"
 
     # add recovery settings squashfs if set as calling parameter
     if test "$recoverysquash" != ""; then
@@ -584,7 +584,7 @@ elif test "$cmd" = "extract"; then
     downloaddir="$1"
     targetdir="$2"
     shift 2
-    extract_casper_iso "$downloaddir/$imagename" "$downloaddir/isomount" "$targetdir"
+    extract_casper_from_iso "$downloaddir/$imagename" "$downloaddir/isomount" "$targetdir"
 elif test "$cmd" = "show"; then
     if test "$1" = "imagename"; then
         echo "$imagename"
