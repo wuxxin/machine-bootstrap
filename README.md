@@ -14,7 +14,7 @@ It serves two use case:
 + efi and legacy bios boot compatible hybrid grub setup with grubenv support
 + one or two disks (will be automatically setup as mirror if two disks)
 + root on luks encrypted zfs / zfs mirror pool (encrypted storage at rest)
-+ other common and less common storage setups
+    + and other common and less common, easy to configure storage setups
 + modern initial ramdisk based on dracut with ssh for remote unlock luks on startup
 + recovery system installation (based on ubuntu casper) on EFI partition
     + unattended cloud-init boot via custom squashfs with ssh ready to login
@@ -263,7 +263,7 @@ reboot
 
 ### Limits and Contraints
 
-+ one or two disks only
++ one or two disks only, if machine has more disks they have to be setup later
 
 + SWAP
     if using a SWAP partition, the swap partition will always be encrypted.
@@ -274,8 +274,8 @@ reboot
     be desired, can be created as swap file using create_file_swap()
 
 + ZFS or LVM but not both (ROOT, DATA)
-    currently only either of zfs or lvm can be used on a partition.
-    if both are specified the script will probably fail.
+    currently only either of zfs or lvm can be used on one partition.
+    if both are specified at the same time, the script will fail.
 
 ### GPT Layout
 GPT Partitionnaming (max 36 x UTF16)

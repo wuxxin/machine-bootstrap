@@ -313,7 +313,7 @@ create_installer_squashfs() { # src_squash dest_squash workdir kernel_version
     local loopdev
 
     cd "$workdir"
-    mkdir -p "$src_mount" "$dest_mount" "$overlay_dir" "$overlay_work_dir"
+    as_root mkdir -p "$src_mount" "$dest_mount" "$overlay_dir" "$overlay_work_dir"
 
     # mount source squash, mount overlay, mount bind mounts
     loopdev=$(as_root losetup --show -f "$src_squash")
