@@ -136,7 +136,7 @@ EOF
 
     echo "include helper scripts in squashfs"
     mkdir -p $basedir/usr/sbin
-    cp -a $scriptdir/*.sh $basedir/usr/sbin/
+    cp $scriptdir/*.sh $basedir/usr/sbin/
 
     if test "$archivedir" != "" -a "$archivedir" != "-"; then
         echo "include custom archive in squashfs"

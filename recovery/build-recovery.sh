@@ -483,7 +483,7 @@ create_liveimage() {
     # add recovery settings squashfs if set as calling parameter
     if test "$recoverysquash" != ""; then
       # add recovery.squashfs if specified
-      cp "$recoverysquash" "$build_path/casper/recovery.squashfs"
+      as_root cp "$recoverysquash" "$build_path/casper/recovery.squashfs"
     fi
 
     # BIOS booting: make bios syslinux config
@@ -534,8 +534,8 @@ EOF
         "$build_path"
 
     # remove build files
-    rm -r "$build_path"
-    rm -r "$installer_path"
+    as_root rm -r "$build_path"
+    as_root rm -r "$installer_path"
 }
 
 
