@@ -353,6 +353,12 @@ chmod +x $workdir/update-initramfs
 echo "exit 1" > $workdir/systemd-detect-virt
 chmod +x $workdir/systemd-detect-virt
 
+if test "$http_proxy" != ""; then
+  mkdir -p "$dest_mount/etc/apt/apt.conf.d"
+  cat > "$dest_mount/etc/apt/apt.conf.d/02proxy << EOF
+Acquire::http { Proxy "$http_proxy"; };
+EOF
+
 POSTMOUNTEOF
 
     # diverts
@@ -431,6 +437,7 @@ printf '[Service]\nEnvironment=SNAP_REEXEC=0\n' \
 # remove other stray files
 for i in \
     initrd.img initrd.img.old vmlinuz vmlinuz.old \
+    etc/apt/apt.conf.d/02proxy \
     etc/.pwd.lock etc/shadow- etc/passwd- \
     etc/ssh/ssh_host_ecdsa_key etc/ssh/ssh_host_ecdsa_key.pub \
     etc/ssh/ssh_host_ed25519_key etc/ssh/ssh_host_ed25519_key.pub \
