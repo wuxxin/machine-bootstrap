@@ -487,7 +487,7 @@ create_liveimage() {
     fi
 
     # BIOS booting: make bios syslinux config
-    cat - > "$build_path/isolinux/isolinux.cfg" << EOF
+    as_root tee "$build_path/isolinux/isolinux.cfg" << EOF
 say "machine-bootstrap - bootstrap-0-liveimage"
 default bootstrap
 label bootstrap
@@ -495,15 +495,15 @@ label bootstrap
     initrd /casper/$initrd_name
     append boot=casper toram textonly noeject noprompt ds=nocloud
 EOF
-    cp "$bios_isolinux" "$build_path/isolinux/isolinux.bin"
-    cp "$bios_ldlinux" "$build_path/isolinux/ldlinux.c32"
+    as_root cp "$bios_isolinux" "$build_path/isolinux/isolinux.bin"
+    as_root cp "$bios_ldlinux" "$build_path/isolinux/ldlinux.c32"
 
     # EFI booting: make ESP partition image (efi/boot/bootx64.efi)
     esp_img="$build_path/isolinux/esp.img"
     esp_mount="$download_path/espmount"
     if mountpoint -q "$esp_mount"; then as_root umount "$esp_mount"; fi
-    if test -e "$esp_img"; then rm "$esp_img"; fi
-    if test -e "$esp_mount"; then rmdir "$esp_mount"; fi
+    if test -e "$esp_img"; then as_root rm "$esp_img"; fi
+    if test -e "$esp_mount"; then as_root rmdir "$esp_mount"; fi
     mkdir -p "$esp_mount"
     esp_size=0
     for i in "$build_path/casper/$kernel_name" \
@@ -520,8 +520,8 @@ EOF
     cp "$build_path/casper/$initrd_name" "$esp_mount/boot/"
     cat "$build_path/isolinux/isolinux.cfg" | sed -r "s#/casper#/boot#g" > "$esp_mount/syslinux/syslinux.cfg"
     as_root umount "$esp_mount"
-    if test -e "$esp_mount"; then rmdir "$esp_mount"; fi
-    syslinux --install --directory syslinux/ "$esp_img"
+    if test -e "$esp_mount"; then as_root rmdir "$esp_mount"; fi
+    as_root syslinux --install --directory syslinux/ "$esp_img"
 
     # make iso
     xorrisofs -o "$liveimage" \
