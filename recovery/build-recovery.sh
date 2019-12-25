@@ -510,7 +510,7 @@ EOF
         "$build_path/casper/$initrd_name" $efi_syslinux $efi_ldlinux; do
         esp_size=$(( esp_size+ ($(stat -c %b*%B "$i")/1024) ))
     done
-    truncate -s $((esp_size+100*1024))k "$esp_img"
+    as_root truncate -s $((esp_size+100*1024))k "$esp_img"
     mkfs.msdos -v -F 16 -f 1 -M 0xF0 -r 112 -R 1 -S 512 -s 8 "$esp_img"
     as_root mount "$esp_img" "$esp_mount" -o uid=$(id -u)
     mkdir -p "$esp_mount/boot" "$esp_mount/syslinux" "$esp_mount/efi/boot"
