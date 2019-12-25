@@ -288,7 +288,7 @@ if test "$command" = "create-liveimage"; then
     cp -a $self_path/recovery/* "$download_path/scripts"
     cp $self_path/bootstrap-library.sh "$download_path/scripts/"
     echo "$generated_hostkeys" > "$download_path/bootstrap-0.hostkeys"
-    with_proxy "$self_path/recovery/update-recovery-squashfs.sh" --custom \
+    "$self_path/recovery/update-recovery-squashfs.sh" --custom \
         "$download_path/recovery.squashfs" "$hostname" "-" "$netplan_file" \
         "$download_path/bootstrap-0.hostkeys" "$authorized_keys_file" \
         "$download_path/scripts" - "$recovery_autologin" "default" "$http_proxy"

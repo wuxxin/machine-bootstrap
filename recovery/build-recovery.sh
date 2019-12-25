@@ -546,6 +546,9 @@ if test "$1" != "download" -a "$1" != "extract" \
 cmd="$1"
 shift
 
+# if http_proxy is set, reexport for sub-processes
+if test "$http_proxy" != ""; then export http_proxy; fi
+
 for i in . ..; do
     if test -e "$self_path/$i/bootstrap-library.sh"; then
         . "$self_path/$i/bootstrap-library.sh"
