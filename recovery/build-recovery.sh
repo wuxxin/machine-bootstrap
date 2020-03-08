@@ -372,7 +372,7 @@ chmod +x $workdir/systemd-detect-virt
 
 if test "$http_proxy" != ""; then
   mkdir -p "$dest_mount/etc/apt/apt.conf.d"
-  cat > "$dest_mount/etc/apt/apt.conf.d/02proxy << EOF
+  cat > "$dest_mount/etc/apt/apt.conf.d/02proxy" << EOF
 Acquire::http { Proxy "$http_proxy"; };
 EOF
 
