@@ -1,10 +1,11 @@
 # Machine bootstrap
 
-Unattended ssh installer of Ubuntu 18.04/19.04/19.10 with buildin recovery image, 
-    root storage on luks encrypted zfs or other specialized storage layouts,
+Unattended ssh based installer of Ubuntu 18.04-20.04, Debian 10, or NixOS,
+    with buildin recovery image, root storage on luks encrypted zfs
+    or other specialized storage layouts,
     to be executed from a linux liveimage/recoveryimage system via ssh.
 
-It serves two use case:
+It serves two major use cases:
 + as an experimental Desktop/Laptop for getting experience with this setup
 + as a typical Rootserver (2xHD, headless)
     + this is still in the writing and not ready yet, see `TODO.md` for details
@@ -15,31 +16,30 @@ It serves two use case:
 + one or two disks (will be automatically setup as mirror if two disks)
 + root on luks encrypted zfs / zfs mirror pool (encrypted storage at rest)
     + and other common and less common, easy to configure storage setups
-+ modern initial ramdisk based on dracut with ssh for remote unlock luks on startup
++ ubuntu: modern initial ramdisk based on dracut with ssh for remote unlock luks on startup
 + recovery system installation (based on ubuntu casper) on EFI partition
     + unattended cloud-init boot via custom squashfs with ssh ready to login
     + buildin scripts to mount/unmount root and update recovery boot parameter
-+ logging of recovery and target system installation on calling machine in directory ./log
++ logging of recovery and target system installation on the calling machine in directory ./log
 
 #### additional optional Features
 + luks encrypted hibernate compatible swap for eg. a desktop installation
-+ overlay fs support on zfs by building patched zfs-linux (frankenstein=true)
-+ saltstack provision run at devop stage with states from salt-shared (eg. desktop)
++ ubuntu: overlay fs support on zfs by building patched zfs-linux (frankenstein=true)
++ ubuntu: saltstack provision run at devop stage with states from salt-shared (eg. desktop)
 + encrypt all sensitive data in setup repository with git-crypt
     + git & git-crypt repository setup to store machine configuration inside a git repository
-+ build a preconfigured bootstrap-0 livesystem image usable for physical installation
++ build a preconfigured bootstrap-0 livesystem image usable for headless physical installation
     + resulting image is compatible as CD or USB-Stick with BIOS and EFI support
+    + optional netplan for static or other non dhcp based ip configurations
     + execute `./machine-bootstrap/bootstrap.sh create-liveimage` to build image
     + copy `run/liveimage/bootstrap-0-liveimage.iso` to usbstick
+    + use ssh with preconfigured key or physical terminal/console 4 of livesystem for interaction
 
-#### working on/todo/planned
-+ recovery scripts to replace a faulty disk, to invalidate a disk
-+ desaster recovery from backup storage to new machine
-+ "cloud like" autorotating encrypted incremental snapshot backup to thirdparty storage with zfs and restic
-    this should be a little to no performance impact, encrypted, incremental, autorotating snapshot backup system, from and to redundant checksuming data storage on a single machine with the abbility to use common thirdparty storage for this backup. So far it is a very busy journey... https://xkcd.com/974/
+#### planned Features
++ recovery scripts to replace a faulty disk and to invalidate a running disk
++ desaster recovery from backup storage to new machine using restic
 + home-nas setup with 1 x internal:type:ssd + 2 x external:type:spindle harddisks
-    + todo: research issues at least with 0.7* and shutdown platters on external hds
-    
+
 #### Example Configurations
 
 + a root server with custom network (eg. static ip)
@@ -49,7 +49,9 @@ It serves two use case:
 + a vm with a http proxy on its host:
     + add `http_proxy="http://proxyip:port"`to `machine-config.env`
 + install ubuntu eoan instead of bionic:
-    + add `distribution=eoan` to `machine-config.env`
+    + add `distrib_codename=eoan` to `machine-config.env`
++ install nixos instead of ubuntu:
+    + add `distrib_id=Nixos` and `distrib_codename=19.09` to `machine-config.env`
 
 ##### Storage Examples
 
@@ -169,7 +171,8 @@ firstuser=$(id -u -n)
 # [--data-fs=    *""|zfs|ext4|xfs|other]
 # [--data-crypt= *true|false]
 # [--data-lvm=   *""|<vgname>]
-# distribution="eoan" # default "bionic"
+# distrib_id="Nixos" # default "Ubuntu"
+# distrib_codename="19.09-small" # default "bionic"
 # recovery_autologin="true" # default "false"
 # frankenstein="true" # default "false"
 # devop_target="/home/$(id -u -n)"
@@ -200,6 +203,12 @@ echo $(printf 'storage_ids="'; for i in \
 ```
 
 ### optional: make physical bootstrap-0 liveimage
+
+create-liveimage creates an iso hybrid image usable as CD or usb-stick,
+bootable via efi or bios.
+
+this can be useful eg. if the target is headless,
+or and emulator supplied with a live image preconfigured with ssh and other keys.
 
 ```
 ./machine-bootstrap/bootstrap.sh create-liveimage
@@ -240,7 +249,7 @@ git push -u origin master
 
 + connect to target machine running in recovery, initrd or final system
 ```
-./machine-bootstrap/connect.sh recovery|initrd|system
+./machine-bootstrap/connect.sh recovery|initrd|system|auto
 ```
 
 + connect to initrd, open luks disks
@@ -273,14 +282,18 @@ reboot
     Any other usages of swap beside suspend to disk where encryption may not
     be desired, can be created as swap file using create_file_swap()
 
-+ ZFS or LVM but not both (ROOT, DATA)
-    currently only either of zfs or lvm can be used on one partition.
++ ZFS or LVM but not both on one partition
+    on partittions ROOT and DATA, currently only either zfs or lvm can be used.
     if both are specified at the same time, the script will fail.
 
 ### GPT Layout
-GPT Partitionnaming (max 36 x UTF16)
 
-Nr |Name|Description|
++ information leakage
+    be aware that the way the gpt labels are setup, they leak information of encrypted data, eg. raid_luks_lvm.vg0_ext4_ROOT leaks the information that behind the luks encrypted data is a lvm partition with a volume group named vg0 and the root file system is ext4.
+
++ Partition Layout
+
+Nr |Name(max 36 x UTF16)|Description|
 ---|---|---
 7  | `BIOS,1,2`  | GRUB-BIOS boot binary partition, used to host grub code on gpt for bios boot
 6  | `EFI,1,2`   | EFI vfat partition, dual efi & bios grub installation and recovery- fs,kernel,initrd
