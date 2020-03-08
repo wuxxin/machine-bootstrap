@@ -56,7 +56,7 @@ salt_install() {
         if [[ "$os_codename" =~ ^(xenial|bionic|focal|stretch|buster)$ ]]; then
             prefixdir="py3"
             if test "$os_codename" = "focal"; then
-                os_codename="bionic"
+                os_codename="bionic"; os_release="18.04"
                 echo "Warning: Overwrite focal saltstack version with repo.saltstack.com of bionic"
             fi
             echo "installing saltstack ($salt_major_version) for python 3 from ppa"
