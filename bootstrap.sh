@@ -239,7 +239,8 @@ if test "$command" = "execute"; then
 fi
 
 # make defaults
-if test -z "$distribution"; then distribution="bionic"; fi
+if test -z "$distrib_id"; then distrib_id="Ubuntu"; fi
+if test -z "$distrib_codename"; then distrib_codename="bionic"; fi
 if test -z "$devop_target"; then devop_target="/home/$firstuser"; fi
 if test -z "$devop_user"; then devop_user="$firstuser"; fi
 if test "$recovery_autologin" != "true"; then recovery_autologin="false"; fi
@@ -388,7 +389,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
     echo "call bootstrap-1, format storage, debootstrap system or restore from backup"
     echo -n "$diskphrase" \
         | ssh $sshopts ${sshlogin} \
-            "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1-install.sh $hostname $firstuser \"$storage_ids\" --yes $select_root_lvm_vol_size $select_frankenstein --distribution $distribution  $@" 2>&1 | tee "$log_path/bootstrap-install.log"
+            "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1-install.sh $hostname $firstuser \"$storage_ids\" --yes $select_root_lvm_vol_size $select_frankenstein --distrib_id=$distrib_id --distrib_codename=$distrib_codename  $@" 2>&1 | tee "$log_path/bootstrap-install.log"
 
     echo "copy initrd and system ssh hostkeys from target"
     printf "%s %s\n" "$(ssh_uri ${sshlogin} known)" \
