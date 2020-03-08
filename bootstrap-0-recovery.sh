@@ -164,7 +164,7 @@ EOF
 
 if which cloud-init > /dev/null; then
     echo -n "waiting for cloud-init finish..."
-    cloud-init status --wait
+    cloud-init status --wait || true
 fi
 
 # go to an existing directory
