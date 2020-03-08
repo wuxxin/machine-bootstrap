@@ -192,7 +192,7 @@ if test "$option_reuse" = "true"; then
     for disk in $fulldisklist; do
         echo "Wiping all disk data of ${disk}"
         for i in $disk-part*; do
-            mdadm --zero-superblock --force "${i}"
+            mdadm --zero-superblock --force "${i}" || true
         done
         sgdisk --zap-all "${disk}"
         sync
