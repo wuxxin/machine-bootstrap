@@ -285,13 +285,13 @@ mkdir -p /tmp/liveimage
 /tmp/recovery/build-recovery.sh download /tmp/liveimage
 /tmp/recovery/build-recovery.sh extract /tmp/liveimage /mnt/efi
 
-echo "build installer.squashfs to /mnt/efi/casper"
-kernel_version=$(/tmp/recovery/build-recovery.sh show kernel_version /mnt/efi/casper)
-/tmp/recovery/build-recovery.sh create installer-addon \
-    /mnt/efi/casper/filesystem.squashfs \
-    /mnt/efi/casper/installer.squashfs \
-    /tmp/liveimage \
-    $kernel_version
+#echo "build installer.squashfs to /mnt/efi/casper"
+#kernel_version=$(/tmp/recovery/build-recovery.sh show kernel_version /mnt/efi/casper)
+#/tmp/recovery/build-recovery.sh create installer-addon \
+#    /mnt/efi/casper/filesystem.squashfs \
+#    /mnt/efi/casper/installer.squashfs \
+#    /tmp/liveimage \
+#    $kernel_version
 
 echo "create recovery.squashfs to /mnt/efi/casper"
 cp "$self_path/bootstrap-library.sh" /tmp/recovery
