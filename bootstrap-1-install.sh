@@ -130,7 +130,7 @@ if $option_frankenstein; then
         cat > $custom_sources_list << EOF
 deb [ trusted=yes ] file:$custom_archive ./
 EOF
-        DEBIAN_FRONTEND=noninteractive apt-get update --yes
+        # needs additional apt-get update, done below
     fi
 fi
 
@@ -138,6 +138,7 @@ echo "install needed packages"
 packages="$(get_default_packages)"
 packages="$packages $(get_zfs_packages)"
 packages="$packages lvm2"
+DEBIAN_FRONTEND=noninteractive apt-get update --yes
 DEBIAN_FRONTEND=noninteractive apt-get install --yes $packages
 
 echo "generate new zfs hostid (/etc/hostid) in active system"
