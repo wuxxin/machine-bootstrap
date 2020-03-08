@@ -122,7 +122,7 @@ if $option_frankenstein; then
     else
         echo "build-custom-zfs"
         chmod +x /tmp/zfs/build-custom-zfs.sh
-        /tmp/zfs/build-custom-zfs.sh /tmp/zfs/basedir --source eoan --dest bionic
+        /tmp/zfs/build-custom-zfs.sh /tmp/zfs/basedir --source focal --dest bionic
         if test -e $custom_archive; then rm -rf $custom_archive; fi
         mkdir -p $custom_archive
         mv -t $custom_archive /tmp/zfs/basedir/build/buildresult/*
