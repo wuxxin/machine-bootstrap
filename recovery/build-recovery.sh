@@ -375,6 +375,7 @@ if test "$http_proxy" != ""; then
   cat > "$dest_mount/etc/apt/apt.conf.d/02proxy" << EOF
 Acquire::http { Proxy "$http_proxy"; };
 EOF
+fi
 
 POSTMOUNTEOF
 
