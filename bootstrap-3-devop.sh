@@ -56,13 +56,20 @@ salt_install() {
         if [[ "$os_codename" =~ ^(xenial|bionic|focal|stretch|buster)$ ]]; then
             prefixdir="py3"
             if test "$os_codename" = "focal"; then
-                os_codename="bionic"; os_release="18.04"
-                echo "Warning: Overwrite focal saltstack version with repo.saltstack.com of bionic"
+                if ! grep -q focal-proposed /etc/apt/sources.list; then
+                    echo "Warning: Using and enabling focal-proposed (main/res/uni/multi) for salstack"
+                    cat >> /etc/apt/sources.list << EOF
+deb http://archive.ubuntu.com/ubuntu/ focal-proposed main restricted universe multiverse
+EOF
+                fi
+                echo "installing salstack from focal-proposed"
+            else
+                echo "installing saltstack ($salt_major_version) for python 3 from ppa"
+                wget -O - "https://repo.saltstack.com/${prefixdir}/${os_distributor}/${os_release}/${os_architecture}/${salt_major_version}/SALTSTACK-GPG-KEY.pub" | apt-key add -
+                echo "deb [arch=${os_architecture}] http://repo.saltstack.com/${prefixdir}/${os_distributor}/${os_release}/${os_architecture}/${salt_major_version} ${os_codename} main" > /etc/apt/sources.list.d/saltstack.list
             fi
-            echo "installing saltstack ($salt_major_version) for python 3 from ppa"
-            wget -O - "https://repo.saltstack.com/${prefixdir}/${os_distributor}/${os_release}/${os_architecture}/${salt_major_version}/SALTSTACK-GPG-KEY.pub" | apt-key add -
-            echo "deb [arch=${os_architecture}] http://repo.saltstack.com/${prefixdir}/${os_distributor}/${os_release}/${os_architecture}/${salt_major_version} ${os_codename} main" > /etc/apt/sources.list.d/saltstack.list
             DEBIAN_FRONTEND=noninteractive apt-get update -y
+
         else
             echo "installing distro buildin saltstack version"
         fi
