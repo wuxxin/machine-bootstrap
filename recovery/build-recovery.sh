@@ -195,7 +195,10 @@ extract_casper_from_iso() {
     as_root cp -a -t "$targetdir/casper" \
         "$iso_mount/casper/$kernel_name" \
         "$iso_mount/casper/$initrd_name" \
-        $iso_mount/casper/filesystem*
+        $iso_mount/casper/filesystem* \
+        $iso_mount/casper/installer* \
+        $iso_mount/casper/extras
+
     as_root cp -a -t "$targetdir/" "$iso_mount/.disk"
     as_root umount "$iso_mount"
     as_root losetup -d "$loopdev"
@@ -502,8 +505,8 @@ create_liveimage() {
     kernel_version=$(file "$build_path/casper/$kernel_name" -b | sed -r "s/^.+version ([^ ]+) .+/\1/g")
 
     # add installer.squashfs (tools that are needed for recovery, eg. ssh)
-    create_installer_squashfs "$build_path/casper/filesystem.squashfs" \
-        "$build_path/casper/installer.squashfs" "$installer_path" "$kernel_version"
+    # create_installer_squashfs "$build_path/casper/filesystem.squashfs" \
+    #    "$build_path/casper/installer.squashfs" "$installer_path" "$kernel_version"
 
     # add recovery settings squashfs if set as calling parameter
     if test "$recoverysquash" != ""; then
