@@ -5,16 +5,18 @@ set -e
 self_path=$(dirname "$(readlink -e "$0")")
 
 # Install Image
-distroname=bionic
-distroversion=18.04.3
-kernel_name="hwe-vmlinuz"
-initrd_name="hwe-initrd"
-#distroname=eoan
-#distroversion=19.10
-#kernel_name="vmlinuz"
-#initrd_name="initrd"
-baseurl="http://releases.ubuntu.com/releases/${distroname}"
-imagename="ubuntu-${distroversion}-live-server-amd64.iso"
+#distroname=bionic
+#distroversion=18.04.3
+#kernel_name="hwe-vmlinuz"
+#initrd_name="hwe-initrd"
+#baseurl="http://releases.ubuntu.com/releases/${distroname}"
+#imagename="ubuntu-${distroversion}-live-server-amd64.iso"
+distroname=focal
+distroversion=20.04
+kernel_name="vmlinuz"
+initrd_name="initrd"
+baseurl="http://cdimage.ubuntu.com/ubuntu-server/daily-live/20200306"
+imagename="${distroname}-live-server-amd64.iso"
 
 # gpg keys allowed to sign images
 cdimage_keyids="0x46181433FBB75451 0xD94AA3F0EFE21092"
