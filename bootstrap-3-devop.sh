@@ -16,23 +16,19 @@ EOF
 
 
 minion_config() {
-    local base_path run_path
+    local base_path config_path
     base_path=$1
-    run_path=$2
+    config_path=$2
     echo "generating local minion config file"
-    mkdir -p "$run_path"
-    cat << EOF > "$run_path/minion"
-root_dir: $run_path
-pidfile: salt-call.pid
-pki_dir: pki
-cachedir: cache
-sock_dir: run
-log_file: salt-call.log
+    mkdir -p "$config_path"
+    cat << EOF > "$config_path/minion"
+id: $(hostname)
 log_level_logfile: info
 file_client: local
 
 fileserver_backend:
 - roots
+
 pillar_roots:
   base:
   - $base_path/config
@@ -45,38 +41,33 @@ file_roots:
 grains:
   project_basepath: $base_path
 
-id: $(hostname)
-
 EOF
 
 }
 
-
 salt_install() {
     salt_major_version="2019.2"
-    salt_python_version="3"
     os_release=$(lsb_release -r -s)
     os_codename=$(lsb_release -c -s)
     os_distributor=$(lsb_release  -i -s | tr '[:upper:]' '[:lower:]')
     os_architecture=$(dpkg --print-architecture)
 
-    if [[ "$os_codename" =~ ^(trusty|xenial|bionic|stretch)$ ]]; then
-        if test "$salt_python_version" = "3" -a "$os_codename" != "trusty"; then
-            echo "installing saltstack $salt_major_version for python 3"
+    if test "$os_architecture" = "amd64"; then
+        if [[ "$os_codename" =~ ^(xenial|bionic|stretch|buster)$ ]]; then
             prefixdir="py3"
+            echo "installing saltstack ($salt_major_version) for python 3 from ppa"
+            wget -O - "https://repo.saltstack.com/${prefixdir}/${os_distributor}/${os_release}/${os_architecture}/${salt_major_version}/SALTSTACK-GPG-KEY.pub" | apt-key add -
+            echo "deb [arch=${os_architecture}] http://repo.saltstack.com/${prefixdir}/${os_distributor}/${os_release}/${os_architecture}/${salt_major_version} ${os_codename} main" > /etc/apt/sources.list.d/saltstack.list
+            DEBIAN_FRONTEND=noninteractive apt-get update -y
         else
-            echo "installing saltstack $salt_major_version for python 2"
-            prefixdir="apt"
+            echo "installing distro buildin saltstack version"
         fi
-        wget -O - "https://repo.saltstack.com/${prefixdir}/${os_distributor}/${os_release}/${os_architecture}/${salt_major_version}/SALTSTACK-GPG-KEY.pub" | apt-key add -
-        echo "deb http://repo.saltstack.com/${prefixdir}/${os_distributor}/${os_release}/${os_architecture}/${salt_major_version} ${os_codename} main" > /etc/apt/sources.list.d/saltstack.list
-        DEBIAN_FRONTEND=noninteractive apt-get update -y
     else
-        echo "installing saltstack distro buildin version"
+        echo "installing distro buildin saltstack version"
     fi
 
     DEBIAN_FRONTEND=noninteractive apt-get install -y salt-minion
-    # keep minion from running
+    echo "keep minion from running automatically"
     for i in disable stop mask; do systemctl $i salt-minion; done
 }
 
