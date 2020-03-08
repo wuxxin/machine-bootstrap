@@ -53,8 +53,12 @@ salt_install() {
     os_architecture=$(dpkg --print-architecture)
 
     if test "$os_architecture" = "amd64"; then
-        if [[ "$os_codename" =~ ^(xenial|bionic|stretch|buster)$ ]]; then
+        if [[ "$os_codename" =~ ^(xenial|bionic|focal|stretch|buster)$ ]]; then
             prefixdir="py3"
+            if test "$os_codename" = "focal"; then
+                os_codename="bionic"
+                echo "Warning: Overwrite focal saltstack version with repo.saltstack.com of bionic"
+            fi
             echo "installing saltstack ($salt_major_version) for python 3 from ppa"
             wget -O - "https://repo.saltstack.com/${prefixdir}/${os_distributor}/${os_release}/${os_architecture}/${salt_major_version}/SALTSTACK-GPG-KEY.pub" | apt-key add -
             echo "deb [arch=${os_architecture}] http://repo.saltstack.com/${prefixdir}/${os_distributor}/${os_release}/${os_architecture}/${salt_major_version} ${os_codename} main" > /etc/apt/sources.list.d/saltstack.list
