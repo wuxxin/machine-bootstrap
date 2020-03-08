@@ -13,6 +13,7 @@
 + keep EFI synced
 
 ### todo
++ make distrib_id=Nixos distrib_codename=19.09 working
 + make snapd on recovery working again (currently timeouts) 
     + probably to core snap related, there is a function in cdimage-rootfs functions
     + make rebuild installer on live system, and test if its still there
@@ -42,12 +43,18 @@ Consult /var/lib/dkms/zfs/0.7.5/build/make.log for more information.
   linux-tools-common linux-tools-virtual-hwe-18.04 linux-virtual-hwe-18.04
 ```
 + all: optional use of tmux for long running ssh connections of bootstrap.sh
-+ all: add script to replace a changed faulty disk: recovery-replace-mirror.sh
-+ all: add script to deactivate (invalidate) one of two disks: storage-invalidate-mirror.sh
-+ install: make restore from backup: script bootstrap-1-restore and bootstrap-2-chroot-restore
++ recovery scripts to replace a faulty disk, to invalidate a disk
+    + all: add script to replace a changed faulty disk: recovery-replace-mirror.sh
+    + all: add script to deactivate (invalidate) one of two disks: storage-invalidate-mirror.sh
++ desaster recovery from backup storage to new machine
+    + install: make restore from backup: script bootstrap-1-restore and bootstrap-2-chroot-restore
 + devop: install and configure ZFS Scrubbing
 + devop: make backup working
-
++ "cloud like" autorotating encrypted incremental snapshot backup to thirdparty storage with zfs and restic
+    this should be a little to no performance impact, encrypted, incremental, autorotating snapshot backup system, from and to redundant checksuming data storage on a single machine with the abbility to use common thirdparty storage for this backup. So far it is a very busy journey... https://xkcd.com/974/
++ home-nas setup with 1 x internal:type:ssd + 2 x external:type:spindle harddisks
+    + todo: research issues at least with 0.7* and shutdown platters on external hds
+    
 ### write reasons for overlayfs on zfs for presentation in zfs-linux mailinglist
 + after integration of overlayfs in the kernel,
     adoption of overlayfs based solutions is rapidly growing.

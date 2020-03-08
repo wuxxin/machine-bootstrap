@@ -10,14 +10,15 @@ usage() {
 Usage: cat diskkey | $0 hostname firstuser disklist --yes [optional parameter]
 
 optional parameter:
-[--root-lvm-vol-size <volsizemb>] [--frankenstein] [--distribution <name>] [--restore-from-backup]
 
 --root-lvm-vol-size <volsizemb>
     if lvm is used, define the capacity of the lvm root volume, defaults to 20480 (20gb)
 --frankenstein
     backport and patch zfs-linux with no-d-revalidate.patch
---distribution <name>
-    select a different distribution (default=$distribution)
+--distrib_id <name>
+    select a different distribution (default=$distrib_id)
+--distrib_codename <name>
+    select a different distribution version (default=$distrib_codename)
 --restore-from-backup
     partition and format system, restore from backup, adapt to new storage
 
@@ -43,7 +44,10 @@ custom_sources_list=/etc/apt/sources.list.d/local-bootstrap-custom.list
 # defaults
 option_frankenstein=false
 option_restore_backup=false
-distribution="bionic"
+# distrib_id can be one of "Ubuntu", "Debian", "Nixos"
+distrib_id="Ubuntu"
+# distrib_codename is nixos channel (eg. 19.09) in case of distrib_id=Nixos
+distrib_codename="bionic"
 root_lvm_vol_size="20480"
 
 # parse args
@@ -68,8 +72,19 @@ if test "$diskpassword" = ""; then
 fi
 if test "$1" = "--root-lvm-vol-size"; then root_lvm_vol_size="$2"; shift 2; fi
 if test "$1" = "--frankenstein"; then option_frankenstein=true; shift; fi
-if test "$1" = "--distribution"; then distribution=$2; shift 2; fi
+if test "$1" = "--distrib_id"; then distrib_id=$2; shift 2; fi
+if test "$1" = "--distrib_codename"; then distrib_codename=$2; shift 2; fi
 if test "$1" = "--restore-from-backup"; then option_restore_backup=true; shift; fi
+
+# check for valid distrib_id and set default distrib_codename if not Ubuntu
+if test "$distrib_id" != "Ubuntu" -a "$distrib_id" != "Debian" -a "$distrib_id" != "Nixos"; then
+    echo "Error: Unknown distrib_id($distrib_id)"
+    exit 1
+fi
+if test "$distrib_id" != "Ubuntu" -a "distrib_codename" = "bionic"; then
+    if test "$distrib_id" = "Debian"; then distrib_codename="buster"; fi
+    if test "$distrib_id" = "Nixos"; then distrib_codename="19.09"; fi
+fi
 
 # if http_proxy is set, reexport for sub-processes
 if test "$http_proxy" != ""; then export http_proxy; fi
@@ -83,7 +98,8 @@ Configuration:
 hostname: $hostname, firstuser: $firstuser
 fulldisklist: $(for i in $fulldisklist; do echo -n " $i"; done)
 http_proxy: $http_proxy
-distribution: $distribution
+distrib_id: $distrib_id
+distrib_codename: $distrib_codename
 option_frankenstein: $option_frankenstein
 option_restore_backup: $option_restore_backup
 root_lvm_vol_size: $root_lvm_vol_size
@@ -138,14 +154,59 @@ mount_boot /mnt
 mount_efi /mnt
 mount_data /mnt
 
+if test "$option_restore_backup" != "true"; then
+    # install base system
+    if test "$distrib_id" = "Ubuntu" -o "$distrib_id" = "Debian"; then
+        echo "install minimal base $distribution system"
+        debootstrap --verbose "$distrib_codename" /mnt
+
+    elif test "$distrib_id" = "Nixos"; then
+        # install nix
+        curl https://nixos.org/nix/install | sh
+        . /root/.nix-profile/etc/profile.d/nix.sh
+
+        # change channel
+        nix-channel --add https://nixos.org/channels/nixos-$distrib_codename nixpkgs
+        nix-channel --update
+
+        # install nix bootstrap utilities
+        nix-env -iE "_: with import <nixpkgs/nixos> { configuration = {}; }; with config.system.build; [ nixos-generate-config nixos-install nixos-enter manual.manpages ]"
+        nixos-generate-config --root /mnt
+
+        # add grub casper recovery entry to nix
+        EFI_NR=$(cat "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | first_of)")/partition")
+        efi_grub="hd0,gpt${EFI_NR}"
+        efi_fs_uuid=$(dev_fs_uuid "$(by_partlabel EFI | first_of)")
+        casper_livemedia=""
+        cat >> /mnt/configuration.nix << EOF
+boot.loader.grub.extraEntries = ''
+$(build-recovery.sh show grub.nix.entry "$efi_grub" "$casper_livemedia" "$efi_fs_uuid")
+'';
+EOF
+        # install Nixos
+        groupadd -g 30000 nixbld
+        useradd -u 30000 -g nixbld -G nixbld nixbld
+        PATH="$PATH" NIX_PATH="$NIX_PATH" `which nixos-install` --root /mnt
+
+        unmount_data /mnt
+        unmount_efi /mnt
+        unmount_boot /mnt
+        unmount_root /mnt
+        deactivate_lvm
+        deactivate_crypt
+        deactivate_raid
+        exit 0
+    else
+        echo "Error: Unknown distrib_id($distrib_id)"
+        exit 1
+    fi
+fi
+
 if $option_restore_backup; then
     echo "call bootstrap-1-restore"
     chmod +x /tmp/bootstrap-1-restore.sh
     /tmp/bootstrap-1-restore.sh "$hostname" "$firstuser" --yes && err=$? || err=$?
     if test "$err" != "0"; then echo "Backup - Restore Error $err"; exit $err; fi
-else
-    echo "install minimal base $distribution system"
-    debootstrap --verbose "$distribution" /mnt
 fi
 create_root_finished
 

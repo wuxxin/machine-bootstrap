@@ -627,7 +627,7 @@ mount_root() { # basedir force:true|false
         zpool import $import_opts -N -R "$basedir" rpool
         echo "mount root at $basedir"
         zfs mount rpool/ROOT/ubuntu
-        zfs mount -a || echo "Warning: could not mount all zfs volumes!"
+        zfs mount -a || echo "Error: could not mount all zfs volumes!"
     elif is_lvm "$devlist"; then
         echo "mount $(substr_vgname "$devlist")/lvm-root at $basedir"
         mount "/dev/$(substr_vgname "$devlist")/lvm-root" "$basedir"

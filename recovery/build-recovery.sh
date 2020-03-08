@@ -40,6 +40,7 @@ $0 create liveimage       <downloaddir> <targetiso> [<recovery.squashfs>]
 $0 create installer-addon <src-squashfs> <dest-squashfs> <workdir> [<kernel_version>]
 $0 show grub.cfg          <grub_root> <casper_livemedia> <uuid_volume>
 $0 show grub.d/recovery   <grub_root> <casper_livemedia> <uuid_volume>
+$0 show grub.nix.entry    <grub_root> <casper_livemedia> <uuid_volume>
 $0 show kernel_version    <targetdir containing kernel image>
     returns the kernel version found in targetdir
 $0 show imagename
@@ -241,13 +242,27 @@ menuentry "Ubuntu $distroversion Casper Recovery" --id "recovery" {
     linux  /casper/$kernel_name boot=casper toram textonly $casper_livemedia noeject noprompt ds=nocloud cloud-init=enabled
     initrd /casper/$initrd_name
 }
-
 fallback=recovery
 
 EOF
-
 }
 
+show_grub_nix_entry() {
+    local grub_root casper_livemedia uuid_volume
+    grub_root="$1"
+    casper_livemedia="$2"
+    uuid_volume="$3"
+    cat - << EOF
+menuentry "Ubuntu $distroversion Casper Recovery" --id "recovery" {
+    set root="$grub_root"
+    search --no-floppy --fs-uuid --set=root --hint="$grub_root" "$uuid_volume"
+    linux  /casper/$kernel_name boot=casper toram textonly $casper_livemedia noeject noprompt ds=nocloud cloud-init=enabled
+    initrd /casper/$initrd_name
+}
+fallback=recovery
+
+EOF
+}
 
 setup_mountpoint() {
     local mountpoint="$1"
@@ -409,17 +424,11 @@ if test -e $overlay_dir/usr/sbin/policy-rc.d; then
     rm $overlay_dir/usr/sbin/policy-rc.d
 fi
 
-#rm -rf $overlay_dir/run
+rm -rf $overlay_dir/run
 rm -rf $overlay_dir/boot
 if test -e "$overlay_dir/var/lib/dpkg/triggers"; then
     rm -rf "$overlay_dir/var/lib/dpkg/triggers"
 fi
-
-# remove casper script trying to mount any swap on startup
-rm -f $overlay_dir/usr/share/initramfs-tools/scripts/casper-bottom/*swap
-
-# keep lxd from snapd seeds
-sed -i -e'N;/name: lxd/,+2d' $overlay_dir/var/lib/snapd/seed/seed.yaml
 
 # wait until network is online
 ln -s /bin/true $overlay_dir/lib/systemd/systemd-networkd-wait-online
@@ -433,6 +442,12 @@ printf '[Journal]\nRateLimitIntervalSec=0\n' \
 mkdir -p $overlay_dir/lib/systemd/system/snapd.service.d
 printf '[Service]\nEnvironment=SNAP_REEXEC=0\n' \
     > $overlay_dir/lib/systemd/system/snapd.service.d/no-reexec.conf
+
+# keep lxd from snapd seeds
+sed -i -e'N;/name: lxd/,+2d' $overlay_dir/var/lib/snapd/seed/seed.yaml
+
+# remove casper script trying to mount any swap on startup
+rm -f $overlay_dir/usr/share/initramfs-tools/scripts/casper-bottom/*swap
 
 # remove other stray files
 for i in \
@@ -517,7 +532,7 @@ EOF
         "$build_path/casper/$initrd_name" $efi_syslinux $efi_ldlinux; do
         esp_size=$(( esp_size+ ($(stat -c %b*%B "$i")/1024) ))
     done
-    as_root truncate -s $((esp_size+100*1024))k "$esp_img"
+    as_root truncate -s $((esp_size+10*1024))k "$esp_img"
     as_root chown $(id -u) "$esp_img"
     mkfs.msdos -v -F 16 -f 1 -M 0xF0 -r 112 -R 1 -S 512 -s 8 "$esp_img"
     as_root mount "$esp_img" "$esp_mount" -o uid=$(id -u)
@@ -609,7 +624,7 @@ elif test "$cmd" = "show"; then
         fi
         kernel_version=$(file "$targetdir/$kernel_name" -b | sed -r "s/^.+version ([^ ]+) .+/\1/g")
         echo "$kernel_version"
-    elif test "$1" = "grub.cfg" -o "$1" = "grub.d/recovery"; then
+    elif test "$1" = "grub.cfg" -o "$1" = "grub.d/recovery" -o "$1" = "grub.nix.entry"; then
         if test "$4" = ""; then usage; fi
         show_grub="$1"
         grub_root="$2"
@@ -618,8 +633,10 @@ elif test "$cmd" = "show"; then
         shift 4
         if test "$show_grub" = "grub.cfg"; then
             show_grub_cfg "$grub_root" "$casper_livemedia" "$uuid_volume"
-        else
+        elif test "$show_grub" = "grub.d/recovery"; then
             show_grub_d_recovery "$grub_root" "$casper_livemedia" "$uuid_volume"
+        elif test "$show_grub" = "grub.nix.entry"; then
+            show_grub_nix_entry "$grub_root" "$casper_livemedia" "$uuid_volume"
         fi
     fi
 fi
