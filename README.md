@@ -1,6 +1,6 @@
 # Machine bootstrap
 
-Unattended ssh based installer of Ubuntu 18.04-20.04, Debian 10, or NixOS,
+Unattended ssh based installer for Ubuntu 18.04-20.04, Debian 10, or NixOS,
     with buildin recovery image, root storage on luks encrypted zfs
     or other specialized storage layouts,
     to be executed from a linux liveimage/recoveryimage system via ssh.

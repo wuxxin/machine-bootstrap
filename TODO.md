@@ -14,34 +14,10 @@
 
 ### todo
 + make distrib_id=Nixos distrib_codename=19.09 working
-+ make snapd on recovery working again (currently timeouts) 
-    + probably to core snap related, there is a function in cdimage-rootfs functions
-    + make rebuild installer on live system, and test if its still there
 + system: recovery failsafe and target system failsafe
     + on recovery: if grub that does not succeed first time (while installing) timeout changes from 3s to interactive
     + on target: does timeout different (25 seconds) but does not pre select recovery
-+ bootstrap.sh create liveimage
-    rm: remove write-protected regular file '/volatile/wuxxin/work_box_run/liveimage/installer/update-initramfs'? y
-    rm: remove write-protected regular empty file '/volatile/wuxxin/work_box_run/liveimage/installer/resolv.conf.tmp'? y
-    rm: remove write-protected regular file '/volatile/wuxxin/work_box_run/liveimage/installer/systemd-detect-virt'? y
 + make zfs work again
-    + FIXME: dkms install spl zfs (maybe only 0.7.5 ?)
-```
-configure: error: Failed to find spl_config.h in any of the following:
-	/usr/src/spl-0.7.5/5.0.0-23-generic
-	/usr/src/spl-0.7.5
-Error! Bad return status for module build on kernel: 5.0.0-23-generic (x86_64)
-Consult /var/lib/dkms/zfs/0.7.5/build/make.log for more information.
-
-    + this is the list of target install of kernel packages, do we install to little in recovery ?
-  linux-headers-5.0.0-37 linux-headers-5.0.0-37-generic
-  linux-headers-generic-hwe-18.04 linux-headers-virtual-hwe-18.04
-  linux-hwe-tools-5.0.0-37 linux-image-5.0.0-37-generic
-  linux-image-extra-virtual-hwe-18.04 linux-image-generic-hwe-18.04
-  linux-image-virtual-hwe-18.04 linux-modules-5.0.0-37-generic
-  linux-modules-extra-5.0.0-37-generic linux-tools-5.0.0-37-generic
-  linux-tools-common linux-tools-virtual-hwe-18.04 linux-virtual-hwe-18.04
-```
 + all: optional use of tmux for long running ssh connections of bootstrap.sh
 + recovery scripts to replace a faulty disk, to invalidate a disk
     + all: add script to replace a changed faulty disk: recovery-replace-mirror.sh
