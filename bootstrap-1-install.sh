@@ -109,7 +109,7 @@ EOF
 cd /tmp
 if which cloud-init > /dev/null; then
     echo -n "waiting for cloud-init finish..."
-    cloud-init status --wait
+    cloud-init status --wait || true
 fi
 
 echo "set target hostname in recovery system"
