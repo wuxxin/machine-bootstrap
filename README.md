@@ -12,20 +12,20 @@ It serves two major use cases:
 
 ## Features
 
-+ efi and legacy bios boot compatible hybrid grub setup with grubenv support
-+ one or two disks (will be automatically setup as mirror if two disks)
++ **efi and legacy bios** boot compatible hybrid grub setup with grubenv support
++ **one or two disks** (will be automatically setup as mirror if two disks)
 + root on luks encrypted zfs / zfs mirror pool (encrypted storage at rest)
     + and other common and less common, easy to configure storage setups
 + ubuntu: modern initial ramdisk based on dracut with ssh for remote unlock luks on startup
-+ recovery system installation (based on ubuntu casper) on EFI partition
++ **recovery system installation** (based on ubuntu casper) on EFI partition
     + unattended cloud-init boot via custom squashfs with ssh ready to login
     + buildin scripts to mount/unmount root and update recovery boot parameter
 + logging of recovery and target system installation on the calling machine in directory ./log
 
 #### additional optional Features
 + luks encrypted hibernate compatible swap for eg. a desktop installation
-+ ubuntu: overlay fs support on zfs by building patched zfs-linux (frankenstein=true)
-+ ubuntu: saltstack provision run at devop stage with states from salt-shared (eg. desktop)
++ ubuntu: **overlay fs support on zfs** by building patched zfs-linux (frankenstein=true)
++ ubuntu: **saltstack provision run** at devop stage with states from salt-shared (eg. desktop)
 + encrypt all sensitive data in setup repository with git-crypt
     + git & git-crypt repository setup to store machine configuration inside a git repository
 + build a preconfigured bootstrap-0 livesystem image usable for headless physical installation
@@ -156,6 +156,12 @@ firstuser=$(id -u -n)
 
 # optional
 # http_proxy="http://192.168.122.1:8123" # default ""
+# distrib_id="Nixos" # default "Ubuntu"
+# distrib_codename="19.09-small" # default "bionic"
+# recovery_autologin="true" # default "false"
+# frankenstein="true" # default "false"
+# devop_target="/home/$(id -u -n)"
+# devop_user="$(id -u -n)"
 # storage_opts=""
 # [--reuse]
 # [--log=        true|*false|<logsizemb,   default if true: 1024 mb>]
@@ -171,12 +177,6 @@ firstuser=$(id -u -n)
 # [--data-fs=    *""|zfs|ext4|xfs|other]
 # [--data-crypt= *true|false]
 # [--data-lvm=   *""|<vgname>]
-# distrib_id="Nixos" # default "Ubuntu"
-# distrib_codename="19.09-small" # default "bionic"
-# recovery_autologin="true" # default "false"
-# frankenstein="true" # default "false"
-# devop_target="/home/$(id -u -n)"
-# devop_user="$(id -u -n)"
 EOF
 
 # copy current user ssh public key as authorized_keys

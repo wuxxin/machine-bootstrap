@@ -9,7 +9,7 @@ usage() {
     cat <<EOF
 Usage: cat diskkey | $0 hostname firstuser disklist --yes [optional parameter]
 
-optional parameter:
+optional parameter (must be ordered as listed):
 
 --root-lvm-vol-size <volsizemb>
     if lvm is used, define the capacity of the lvm root volume, defaults to 20480 (20gb)
