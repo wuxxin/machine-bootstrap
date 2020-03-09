@@ -119,6 +119,22 @@ EOF
         echo "write recovery_hostkeys to user-data.cfg"
         printf "%s\n\n" "$hostkeys_data" >> "$cfgdir/user-data.cfg"
     fi
+    echo "disable subiquity"
+    mkdir -p "$basedir/etc/systemd/system"
+    cat > "$basedir/etc/systemd/system/disable-subiquity.service" <<"EOF"
+[Unit]
+Description=Disable subiquity execution
+Before=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/touch /run/subiquity/complete
+RemainAfterExit=on
+
+[Install]
+WantedBy=multi-user.target
+RequiredBy=snap.subiquity.subiquity-service.service
+EOF
     if test "$autologin" = "true"; then
         echo "modify tty4 for autologin"
         mkdir -p "$basedir/etc/systemd/system/getty@tty4.service.d"
