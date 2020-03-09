@@ -13,6 +13,7 @@
 + keep EFI synced
 
 ### todo
++ fixme: Logical volume vg0/lvm-root contains a filesystem in use.
 + make distrib_id=Nixos distrib_codename=19.09 working
 + system: recovery failsafe and target system failsafe
     + on recovery: if grub that does not succeed first time (while installing) timeout changes from 3s to interactive

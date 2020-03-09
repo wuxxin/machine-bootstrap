@@ -415,16 +415,16 @@ activate_raid() {
     all_mdadm=$(mdadm --examine --brief --scan --config=partitions)
     for p in BOOT SWAP ROOT DATA; do
         if is_raid "$(by_partlabel $p)"; then
-            if test ! -e /dev/md/mdadm-${p,,}; then
+            if test ! -e /dev/md/$(hostname):mdadm-${p,,}; then
                 this_md=$(echo "$all_mdadm" \
-                    | grep -E "name=[^:]+:mdadm-${p,,}$" \
+                    | grep -E "ARRAY.+name=[^:]+:mdadm-${p,,}" \
                     | sed -r "s/ARRAY ([^ ]+) .+/\1/g")
-                if test "$this_md" != ""; then
+                if test "$this_md" != "" -a "$this_md" != "/dev/md/mdadm-${p,,}"; then
                     echo "deactivate mdadm raid on $this_md because name is different"
                     mdadm --manage --stop $this_md
                 fi
                 echo "activate mdadm raid on $p"
-                mdadm --assemble /dev/md/mdadm-${p,,} $(by_partlabel $p)
+                mdadm --assemble /dev/md/$(hostname):mdadm-${p,,} $(by_partlabel $p)
             else
                 echo "warning: mdadm raid on ${p,,} already activated"
             fi
@@ -499,7 +499,7 @@ activate_lvm() {
     fi
     for p in ROOT DATA; do
         if is_lvm "$(by_partlabel $p)"; then
-            lvm vgchange --activate y "$(substr_vgname "$devlist")"
+            lvm vgchange --activate y "$(substr_vgname "$(by_partlabel $p)")"
         fi
     done
 }
@@ -600,7 +600,7 @@ EOF
                 if test "$devcount" = "1"; then
                     thisdev="/dev/disk/by-partuuid/$(dev_part_uuid "$devlist")"
                 else
-                    thisdev="/dev/disk/by-uuid/$(dev_fs_uuid /dev/md/mdadm-${p})"
+                    thisdev="/dev/disk/by-uuid/$(dev_fs_uuid /dev/md/$(hostname):mdadm-${p})"
                 fi
                 cat >> /etc/crypttab << EOF
 luks-${p} $thisdev none luks,discard
@@ -719,7 +719,7 @@ unmount_efi() { # basedir
     local basedir=$1
     echo "unmount efi*"
     for i in efi efi2; do
-        if mountpoint -q "$basedir/$i"; then umount -l "$basedir/$i"; fi
+        if mountpoint -q "$basedir/$i"; then umount "$basedir/$i"; fi
     done
 }
 
@@ -729,7 +729,7 @@ unmount_boot() { # basedir
         zfs unmount bpool
         zpool export bpool
     else
-        if mountpoint -q "$basedir/boot"; then umount -l "$basedir/boot"; fi
+        if mountpoint -q "$basedir/boot"; then umount "$basedir/boot"; fi
     fi
 }
 
@@ -739,7 +739,7 @@ unmount_data() { # basedir
         zfs unmount dpool
         zpool export dpool
     else
-        if mountpoint -q "$basedir/data"; then umount -l "$basedir/data"; fi
+        if mountpoint -q "$basedir/data"; then umount "$basedir/data"; fi
     fi
 }
 
@@ -749,7 +749,7 @@ unmount_root() { # basedir
         zfs unmount rpool
         zpool export rpool
     else
-        if mountpoint -q "$basedir"; then umount -l "$basedir"; fi
+        if mountpoint -q "$basedir"; then umount "$basedir"; fi
     fi
 }
 
