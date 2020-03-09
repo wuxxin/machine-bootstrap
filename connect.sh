@@ -27,7 +27,7 @@ initrdluks uses the initrd host key for connection,
 
 --show-ssh: only displays the parameters for ssh
 --show-scp: only displays the parameters for scp
-    may be used for scp $($self_path/connect.sh --show-args system):/root/test.txt .
+    may be used for scp \$(connect.sh --show-args system):/root/test.txt .
 EOF
     exit 1
 }
