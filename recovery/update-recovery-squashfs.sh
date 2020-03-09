@@ -128,6 +128,7 @@ Before=network-online.target
 
 [Service]
 Type=oneshot
+ExecStart=/usr/bin/mdir -p /run/subiquity
 ExecStart=/usr/bin/touch /run/subiquity/complete
 RemainAfterExit=on
 
