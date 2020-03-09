@@ -173,19 +173,24 @@ if test "$option_restore_backup" != "true"; then
         nix-channel --update
         # install nix bootstrap utilities
         nix-env -iE "_: with import <nixpkgs/nixos> { configuration = {}; }; with config.system.build; [ nixos-generate-config nixos-install nixos-enter manual.manpages ]"
-        if test "$(by_partlabel EFI | wc -w)" = "2"; then
-            cat >> /mnt/configuration.nix << EOF
-boot.loader.grub.device = "/dev/$(basename "$(readlink -f "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | first_of)")/..")")"
-EOF
-        else
-            cat >> /mnt/configuration.nix << EOF
-boot.loader.grub.devices = ["/dev/$(basename "$(readlink -f "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | first_of)")/..")")","/dev/$(basename "$(readlink -f "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | x_of 2)")/..")")"]
-EOF
-        fi
+
         # generate nix config
         nixos-generate-config --root /mnt
 
-        # add grub casper recovery entry to nix
+        # make grub config
+        efi1="/dev/$(basename "$(readlink -f "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | first_of)")/..")")"
+        if test "$(by_partlabel EFI | wc -w)" = "2"; then
+            efi2="/dev/$(basename "$(readlink -f "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | x_of 2)")/..")")"
+            cat >> /mnt/configuration.nix << EOF
+boot.loader.grub.devices = ["$efi1" "$efi2"]
+boot.loader.grub.mirroredBoots = [ { devices = ["$efi1"] ; path = "/efi1"; } { devices = ["$efi2"] ; path = "/efi2"; }]
+EOF
+        else
+            cat >> /mnt/configuration.nix << EOF
+boot.loader.grub.device = "$efi1"
+EOF
+        fi
+        # casper recovery entry to grub
         EFI_NR=$(cat "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | first_of)")/partition")
         efi_grub="hd0,gpt${EFI_NR}"
         efi_fs_uuid=$(dev_fs_uuid "$(by_partlabel EFI | first_of)")
