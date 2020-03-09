@@ -162,6 +162,10 @@ if test "$option_restore_backup" != "true"; then
         debootstrap --verbose "$distrib_codename" /mnt
 
     elif test "$distrib_id" = "Nixos"; then
+        # add nix build group and user
+        groupadd -g 30000 nixbld
+        useradd -u 30000 -g nixbld -G nixbld nixbld
+
         # install nix
         curl https://nixos.org/nix/install | sh
         . /root/.nix-profile/etc/profile.d/nix.sh
@@ -172,6 +176,8 @@ if test "$option_restore_backup" != "true"; then
 
         # install nix bootstrap utilities
         nix-env -iE "_: with import <nixpkgs/nixos> { configuration = {}; }; with config.system.build; [ nixos-generate-config nixos-install nixos-enter manual.manpages ]"
+
+        # generate nix config
         nixos-generate-config --root /mnt
 
         # add grub casper recovery entry to nix
@@ -185,8 +191,6 @@ $(build-recovery.sh show grub.nix.entry "$efi_grub" "$casper_livemedia" "$efi_fs
 '';
 EOF
         # install Nixos
-        groupadd -g 30000 nixbld
-        useradd -u 30000 -g nixbld -G nixbld nixbld
         PATH="$PATH" NIX_PATH="$NIX_PATH" `which nixos-install` --root /mnt
 
         unmount_data /mnt
