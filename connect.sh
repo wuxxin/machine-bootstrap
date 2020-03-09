@@ -12,17 +12,19 @@ diskpassphrase_file=$config_path/disk.passphrase.gpg
 
 usage() {
     cat <<EOF
-Usage: $0 [--show-args] temporary|recovery|recoverymount|initrd|initrdluks|system [\$@]
-ssh connect with different ssh_hostkeys used.
+Usage: $0 [--show-ssh|--show-scp] temporary|recovery|recoverymount|initrd|initrdluks|system [\$@]
 
-ssh keys and config are taken from directory $config_path
+use ssh keys and config taken from $config_path to connect to system via ssh
 
-temporary, recovery, initrd, system: connect to system with the expected the ssh hostkey
++ temporary, recovery, initrd, system:
+    connect to system with the expected the ssh hostkey
 
-recoverymount uses the recovery host key for connection,
++ recoverymount:
+    uses the recovery host key for connection,
     and transfers the luks diskphrase keys to recovery-mount.sh
 
-initrdluks uses the initrd host key for connection,
++ initrdluks:
+    uses the initrd host key for connection,
     and transfers the luks diskphrase keys to /lib/systemd/systemd-reply-password
 
 --show-ssh: only displays the parameters for ssh
