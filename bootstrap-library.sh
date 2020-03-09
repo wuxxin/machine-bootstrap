@@ -293,7 +293,7 @@ create_data() { # diskpassword
     devlist=$(by_partlabel DATA)
     devcount=$(echo "$devlist" | wc -w)
     if test "$devcount" = "1" -o "$devcount" = "2"; then
-        FIXME: create_data and make luks but no raid and no fs format, if fs =other
+        echo "FIXME: create_data and make luks but no raid and no fs format, if fs =other"
     fi
 }
 
