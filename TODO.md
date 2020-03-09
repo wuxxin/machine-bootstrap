@@ -1,22 +1,20 @@
 # machine-bootstrap work list
 
-### tested combinations
+## tested combinations
 + 4gb ram, 2 x 10g disks, distribution=bionic, frankenstein=false, recovery_autologin=true, storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --swap=1024 --reuse"
 + vm on a xenial host
     + kvm qxl does not work (kernel faults) on suspend and hibernate, use virtio vga instead
     + virtio vga does not work in X11, use qxl instead
 
-## todo
-
-### testing
-+ commit and test: recovery on usr/sbin in recovery squash, and at /etc/recovery on target should also include bootstrap-library
+## testing
 + keep EFI synced
-+ fixme: disable subiquity
 + system: recovery failsafe and target system failsafe
     + on recovery: if grub that does not succeed first time (while installing) timeout changes from 3s to interactive
 
-### todo
+## todo
++ fixme: disable subiquity
 + fixme: Logical volume vg0/lvm-root contains a filesystem in use.
+
 + make distrib_id=Nixos distrib_codename=19.09 working
 + make zfs work again
 + all: optional use of tmux for long running ssh connections of bootstrap.sh
@@ -32,7 +30,7 @@
 + home-nas setup with 1 x internal:type:ssd + 2 x external:type:spindle harddisks
     + todo: research issues at least with 0.7* and shutdown platters on external hds
     
-### write reasons for overlayfs on zfs for presentation in zfs-linux mailinglist
+## write reasons for overlayfs on zfs for presentation in zfs-linux mailinglist
 + after integration of overlayfs in the kernel,
     adoption of overlayfs based solutions is rapidly growing.
     in 2019 many software projects assume to be able

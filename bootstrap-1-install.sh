@@ -158,7 +158,7 @@ mount_data /mnt
 if test "$option_restore_backup" != "true"; then
     # install base system
     if test "$distrib_id" = "Ubuntu" -o "$distrib_id" = "Debian"; then
-        echo "install minimal base $distribution system"
+        echo "install minimal base $distrib_codename system"
         debootstrap --verbose "$distrib_codename" /mnt
 
     elif test "$distrib_id" = "Nixos"; then
@@ -235,8 +235,8 @@ if $option_frankenstein; then
             rm -rf "/mnt$custom_archive"
         fi
     fi
-    echo "insert distribution into /etc/pbuilderrc"
-    echo "DISTRIBUTION=$distribution" >> /mnt/etc/pbuilderrc
+    echo "insert distrib_codename($distrib_codename) into /etc/pbuilderrc"
+    echo "DISTRIBUTION=$distrib_codename" >> /mnt/etc/pbuilderrc
     mkdir -p "/mnt$custom_archive"
     cp -t "/mnt$custom_archive" $custom_archive/*
     cat > "/mnt$custom_sources_list" << EOF
