@@ -78,8 +78,10 @@ log_size="1024"
 # default l2arc RAM size = 1gb corresponds to ~= 58gb l2arc disk cache_size
 l2arcramsizemb="1024"
 cache_size="$(( l2arcramsizemb * 1024 * 1024 / 70 * 4096 /1024 /1024))"
+# default efi size to = 1600mb corresponds to 2 times casper livemedia (~800mb)
+efi_size=1600
 boot_fs=zfs
-boot_size=600
+boot_size=400
 root_fs=zfs
 root_lvm=""
 root_crypt="true"
@@ -226,9 +228,8 @@ for disk in $fulldisklist; do
         -t "$BIOS_NR:EF02" \
         -c "$BIOS_NR:BIOS${disknr}"
     # efi and recovery support: minimum size for valid EFI is 260MiB
-    # but we want casper livemedia on it which is ~700mb*2 (for update)
     sgdisk  "${disk}" \
-        -n "$EFI_NR:0:+1400M" \
+        -n "$EFI_NR:0:+${efi_size}M" \
         -t "$EFI_NR:EF00" \
         -c "$EFI_NR:EFI${disknr}"
     if test "$option_log" = "true"; then
