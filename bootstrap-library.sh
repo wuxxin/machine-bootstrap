@@ -417,7 +417,7 @@ activate_raid() {
         if is_raid "$(by_partlabel $p)"; then
             if test ! -e /dev/md/mdadm-${p,,}; then
                 this_md=$(echo "$all_mdadm" \
-                    | grep -E ".+name=[^:]+:mdadm-${p,,}$" \
+                    | grep -E "name=[^:]+:mdadm-${p,,}$" \
                     | sed -r "s/ARRAY ([^ ]+) .+/\1/g")
                 if test "$this_md" != ""; then
                     echo "deactivate mdadm raid on $this_md because name is different"
