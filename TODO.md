@@ -11,13 +11,13 @@
 ### testing
 + commit and test: recovery on usr/sbin in recovery squash, and at /etc/recovery on target should also include bootstrap-library
 + keep EFI synced
++ fixme: disable subiquity
++ system: recovery failsafe and target system failsafe
+    + on recovery: if grub that does not succeed first time (while installing) timeout changes from 3s to interactive
 
 ### todo
 + fixme: Logical volume vg0/lvm-root contains a filesystem in use.
 + make distrib_id=Nixos distrib_codename=19.09 working
-+ system: recovery failsafe and target system failsafe
-    + on recovery: if grub that does not succeed first time (while installing) timeout changes from 3s to interactive
-    + on target: does timeout different (25 seconds) but does not pre select recovery
 + make zfs work again
 + all: optional use of tmux for long running ssh connections of bootstrap.sh
 + recovery scripts to replace a faulty disk, to invalidate a disk
