@@ -124,7 +124,8 @@ if test "$hosttype" = "initrdluks" -o "$hosttype" = "recoverymount"; then
         echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
             'recovery-mount.sh --yes --only-raid-crypt --luks-from-stdin'
         ssh $sshopts $(ssh_uri ${sshlogin}) \
-            "recovery-mount.sh --yes $@"
+            "recovery-mount.sh --yes --without-raid-crypt $@"
+        ssh $sshopts $(ssh_uri ${sshlogin})
     else
         sshopts="-o UserKnownHostsFile=$config_path/initrd.known_hosts"
         waitfor_ssh "$sshlogin"
