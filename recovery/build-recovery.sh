@@ -247,7 +247,7 @@ menuentry "Ubuntu $distroversion Casper Recovery" --id "recovery" {
     linux  /casper/$kernel_name boot=casper toram textonly $casper_livemedia noeject noprompt ds=nocloud cloud-init=enabled
     initrd /casper/$initrd_name
 }
-fallback=recovery
+set fallback=recovery
 
 EOF
 }
@@ -264,7 +264,7 @@ menuentry "Ubuntu $distroversion Casper Recovery" --id "recovery" {
     linux  /casper/$kernel_name boot=casper toram textonly $casper_livemedia noeject noprompt ds=nocloud cloud-init=enabled
     initrd /casper/$initrd_name
 }
-fallback=recovery
+set fallback=recovery
 
 EOF
 }
