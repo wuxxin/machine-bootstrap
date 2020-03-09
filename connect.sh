@@ -25,15 +25,15 @@ recoverymount uses the recovery host key for connection,
 initrdluks uses the initrd host key for connection,
     and transfers the luks diskphrase keys to /lib/systemd/systemd-reply-password
 
---show-args: only displays the parameters for connecting,
-may be used for scp $($self_path/connect.sh --show-args system):/root/test.txt .
-
+--show-ssh: only displays the parameters for ssh
+--show-scp: only displays the parameters for scp
+    may be used for scp $($self_path/connect.sh --show-args system):/root/test.txt .
 EOF
     exit 1
 }
 
 
-ssh_uri() { # sshlogin ("",scp,host,port,user,known)
+ssh_uri() { # sshlogin ("",ssh,scp,host,port,user,known)
     local sshlogin user userprefix port host known
     sshlogin=$1; user=""; userprefix=""; port="22"; host="${sshlogin#ssh://}"
     if test "$host" != "${host#*@}"; then
@@ -83,7 +83,8 @@ waitfor_ssh() {
 # parse args
 export LC_MESSAGES="POSIX"
 showargs=false
-if test "$1" = "--show-args"; then showargs=true; shift; fi
+if test "$1" = "--show-ssh"; then showargs=ssh; shift; fi
+if test "$1" = "--show-scp"; then showargs=scp; shift; fi
 if [[ ! "$1" =~ ^(temporary|recovery|recoverymount|initrd|initrdluks|system)$ ]]; then usage; fi
 hosttype="$1"
 shift 1
@@ -99,10 +100,10 @@ if test "$sshlogin" = ""; then
     exit 1
 fi
 
-if test "$showargs" = "true"; then
+if test "$showargs" != "false"; then
     if test "$hosttype" = "initrdluks"; then hosttype="initrd"; fi
     if test "$hosttype" = "recoverymount"; then hosttype="recovery"; fi
-    echo "-o UserKnownHostsFile=$config_path/${hosttype}.known_hosts $(ssh_uri ${sshlogin})"
+    echo "-o UserKnownHostsFile=$config_path/${hosttype}.known_hosts $(ssh_uri ${sshlogin} $showargs)"
     exit 0
 fi
 if test "$hosttype" = "initrdluks" -o "$hosttype" = "recoverymount"; then
