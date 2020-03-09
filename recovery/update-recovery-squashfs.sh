@@ -132,9 +132,10 @@ ExecStart=/usr/bin/touch /run/subiquity/complete
 RemainAfterExit=on
 
 [Install]
-WantedBy=multi-user.target
 RequiredBy=snap.subiquity.subiquity-service.service
 EOF
+    mkdir -p "$basedir/etc/systemd/system/snap.subiquity.subiquity-service.service.requires"
+    ln -s /etc/systemd/system/disable-subiquity.service "$basedir/etc/systemd/system/snap.subiquity.subiquity-service.service.requires/disable-subiquity.service"
     if test "$autologin" = "true"; then
         echo "modify tty4 for autologin"
         mkdir -p "$basedir/etc/systemd/system/getty@tty4.service.d"
