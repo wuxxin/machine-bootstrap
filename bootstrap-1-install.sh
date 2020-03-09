@@ -165,18 +165,23 @@ if test "$option_restore_backup" != "true"; then
         # add nix build group and user
         groupadd -g 30000 nixbld
         useradd -u 30000 -g nixbld -G nixbld nixbld
-
         # install nix
         curl https://nixos.org/nix/install | sh
         . /root/.nix-profile/etc/profile.d/nix.sh
-
         # change channel
         nix-channel --add https://nixos.org/channels/nixos-$distrib_codename nixpkgs
         nix-channel --update
-
         # install nix bootstrap utilities
         nix-env -iE "_: with import <nixpkgs/nixos> { configuration = {}; }; with config.system.build; [ nixos-generate-config nixos-install nixos-enter manual.manpages ]"
-
+        if test "$(by_partlabel EFI | wc -w)" = "2"; then
+            cat >> /mnt/configuration.nix << EOF
+boot.loader.grub.device = "/dev/$(basename "$(readlink -f "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | first_of)")/..")")"
+EOF
+        else
+            cat >> /mnt/configuration.nix << EOF
+boot.loader.grub.devices = ["/dev/$(basename "$(readlink -f "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | first_of)")/..")")","/dev/$(basename "$(readlink -f "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | x_of 2)")/..")")"]
+EOF
+        fi
         # generate nix config
         nixos-generate-config --root /mnt
 
