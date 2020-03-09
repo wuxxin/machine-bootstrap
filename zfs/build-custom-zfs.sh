@@ -3,15 +3,16 @@ set -eo pipefail
 set -x
 
 self_path=$(dirname "$(readlink -e "$0")")
-
+source=eoan
+dest="$(lsb_release -c -s)"
 
 usage() {
     cat <<EOF
 Usage: $0 basedir [--source distro] [--dest distro]
 
 basedir = directory to be used as basedir for compiling
---source distro = defines the launch-pad branch to use, will default to "eoan"
---dest   distro = build zfs for distribution codename eg. "bionic", default=running system
+--source distro = defines the launch-pad branch to use, will default to "$source"
+--dest   distro = build zfs for distribution codename eg. "bionic", default=running system ($dest)
 
 successful run will put resulting packages in $basedir/build/buildresult
 
@@ -19,8 +20,6 @@ EOF
     exit 1
 }
 
-source=eoan
-dest="$(lsb_release -c -s)"
 
 # parse args
 if test "$1" = "" -o "$1" = "--help" -o "$1" = "-h"; then usage; fi
@@ -49,6 +48,9 @@ if ! grep -q "disco" /usr/share/distro-info/ubuntu.csv; then
 fi
 if ! grep -q "eoan" /usr/share/distro-info/ubuntu.csv; then
     echo "19.10,Eoan Ermine,eoan,2019-04-18,2019-10-17,2020-07-17" >>  /usr/share/distro-info/ubuntu.csv
+fi
+if ! grep -q "focal" /usr/share/distro-info/ubuntu.csv; then
+    echo "20.04 LTS,Focal Fossa,focal,2019-10-17,2020-04-23,2025-04-23,2025-04-23,2030-04-23" >>  /usr/share/distro-info/ubuntu.csv
 fi
 BASEPATH="/var/cache/pbuilder/base-$dest.cow"
 if test ! -e "$BASEPATH"; then
