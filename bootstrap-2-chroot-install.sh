@@ -283,6 +283,9 @@ if test -e "/dev/mapper/luks-swap"; then
     echo "hibernation support: add resume config to grub defaults"
     sed -r -i.bak 's/^(GRUB_CMDLINE_LINUX_DEFAULT=).*/\1"resume=UUID='$(dev_fs_uuid /dev/mapper/luks-swap)'"/g' /etc/default/grub
 fi
+if ! grep -q GRUB_RECORDFAIL_TIMEOUT /etc/default/grub; then
+    echo "GRUB_RECORDFAIL_TIMEOUT=3" >> /etc/default/grub
+fi
 dpkg-divert --local --rename \
     --divert /usr/sbin/update-grub.dpkg-divert  --add /usr/sbin/update-grub
 cat > /usr/sbin/update-grub << EOF
