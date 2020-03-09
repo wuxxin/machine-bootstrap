@@ -1,44 +1,46 @@
 # Machine bootstrap
 
-Unattended ssh based installer for Ubuntu 18.04-20.04, Debian 10, or NixOS,
-    with buildin recovery image, root storage on luks encrypted zfs
-    or other specialized storage layouts,
-    to be executed from a linux liveimage/recoveryimage system via ssh.
+Unattended ssh based operating system installer
 
-It serves two major use cases:
+for Ubuntu 18.04-20.04, Debian 10 and NixOS,
+with buildin recovery image, root storage on luks encrypted zfs
+or other specialized storage layouts
+
+**Usage:** to be executed on an linux liveimage/recoveryimage system connected via ssh.
+
+It serves three use cases:
 + as an experimental Desktop/Laptop for getting experience with this setup
 + as a typical Rootserver (2xHD, headless)
-    + this is still in the writing and not ready yet, see `TODO.md` for details
++ as a home-nas/home-io headless server with one ssd and two attached spindle disks
+
+Current Status: **Experimental** 
+    
+Some setups may work, most break under certain conditions.
 
 ## Features
 
 + **efi and legacy bios** boot compatible hybrid grub setup with grubenv support
 + **one or two disks** (will be automatically setup as mirror if two disks)
-+ root on luks encrypted zfs / zfs mirror pool (encrypted storage at rest)
-    + and other common and less common, easy to configure storage setups
-+ ubuntu: modern initial ramdisk based on dracut with ssh for remote unlock luks on startup
++ **root on luks encrypted zfs** / zfs mirror pool (encrypted storage at rest)
+    + and **other common and less common**, easy to configure **storage setups**
++ ubuntu: modern initial ramdisk based on **dracut with ssh for remote unlock luks** on startup
 + **recovery system installation** (based on ubuntu casper) on EFI partition
     + unattended cloud-init boot via custom squashfs with ssh ready to login
     + buildin scripts to mount/unmount root and update recovery boot parameter
-+ logging of recovery and target system installation on the calling machine in directory ./log
++ **logging** of recovery and target system installation on the calling machine in directory ./log
 
 #### additional optional Features
-+ luks encrypted hibernate compatible swap for eg. a desktop installation
++ luks encrypted **hibernate compatible swap** for eg. a desktop installation
 + ubuntu: **overlay fs support on zfs** by building patched zfs-linux (frankenstein=true)
 + ubuntu: **saltstack provision run** at devop stage with states from salt-shared (eg. desktop)
-+ encrypt all sensitive data in setup repository with git-crypt
++ **encrypt all sensitive data** in setup repository with git-crypt
     + git & git-crypt repository setup to store machine configuration inside a git repository
-+ build a preconfigured bootstrap-0 livesystem image usable for headless physical installation
++ build a preconfigured bootstrap-0 **livesystem image** usable for headless physical installation
     + resulting image is compatible as CD or USB-Stick with BIOS and EFI support
     + optional netplan for static or other non dhcp based ip configurations
     + execute `./machine-bootstrap/bootstrap.sh create-liveimage` to build image
     + copy `run/liveimage/bootstrap-0-liveimage.iso` to usbstick
-    + use ssh with preconfigured key or physical terminal/console 4 of livesystem for interaction
-
-#### planned Features
-+ recovery scripts to replace a faulty disk and to invalidate a running disk
-+ desaster recovery from backup storage to new machine using restic
-+ home-nas setup with 1 x internal:type:ssd + 2 x external:type:spindle harddisks
+    + use ssh with preconfigured key or physical terminal/console of livesystem for interaction
 
 #### Example Configurations
 
@@ -48,8 +50,8 @@ It serves two major use cases:
     + add `storage_opts="--swap=yes"` to `machine-config.env`
 + a vm with a http proxy on its host:
     + add `http_proxy="http://proxyip:port"`to `machine-config.env`
-+ install ubuntu eoan instead of bionic:
-    + add `distrib_codename=eoan` to `machine-config.env`
++ install ubuntu focal instead of bionic:
+    + add `distrib_codename=focal` to `machine-config.env`
 + install nixos instead of ubuntu:
     + add `distrib_id=Nixos` and `distrib_codename=19.09` to `machine-config.env`
 
@@ -247,19 +249,19 @@ git push -u origin master
 
 ### connect to machine
 
-+ connect to target machine running in recovery, initrd or final system
++ connect to target machine running in the temporary liveimage, in the recovery system, in the initrd of the productiton system, or the production system
 ```
-./machine-bootstrap/connect.sh recovery|initrd|system|auto
+./machine-bootstrap/connect.sh temporary|recovery|initrd|system
 ```
 
-+ connect to initrd, open luks disks
++ connect to initrd, open luks disks, exit, machine will continue to boot
 ```
 ./machine-bootstrap/connect.sh initrdluks
 ```
 
-+ connect to recovery, open luks disks
++ connect to recovery, open luks disks, mount storage, prepare chroot, shell
 ```
-./machine-bootstrap/connect.sh recoveryluks
+./machine-bootstrap/connect.sh recoverymount
 ```
 
 ### switch next boot to boot into recovery (from running target system)
@@ -285,6 +287,8 @@ reboot
 + ZFS or LVM but not both on one partition
     on partittions ROOT and DATA, currently only either zfs or lvm can be used.
     if both are specified at the same time, the script will fail.
+
++ if ZFS is specified and two disks are available, partition will be used as zfs mirror instead or raid mirror
 
 ### GPT Layout
 

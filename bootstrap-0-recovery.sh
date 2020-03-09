@@ -214,7 +214,7 @@ fi
 if test "$boot_fs" = "zfs"; then BOOT_TYPE="$ZFS_TYPE"; fi
 if test "$root_fs" = "zfs"; then ROOT_TYPE="$ZFS_TYPE"; fi
 if test "$data_fs" = "zfs"; then DATA_TYPE="$ZFS_TYPE"; fi
-if test "$root_size" = "all"; then root_size="0"; else root_size="+$root_size"; fi
+if test "$root_size" = "all"; then root_size="0"; else root_size="+${root_size}M"; fi
 disknr=1
 if test "$diskcount" = "1"; then
     disknr=""
