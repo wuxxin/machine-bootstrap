@@ -72,8 +72,8 @@ if test "$diskpassword" = ""; then
 fi
 if test "$1" = "--root-lvm-vol-size"; then root_lvm_vol_size="$2"; shift 2; fi
 if test "$1" = "--frankenstein"; then option_frankenstein=true; shift; fi
-if test "$1" = "--distrib_id"; then distrib_id=$2; shift 2; fi
-if test "$1" = "--distrib_codename"; then distrib_codename=$2; shift 2; fi
+if test "$1" = "--distrib-id"; then distrib_id=$2; shift 2; fi
+if test "$1" = "--distrib-codename"; then distrib_codename=$2; shift 2; fi
 if test "$1" = "--restore-from-backup"; then option_restore_backup=true; shift; fi
 
 # check for valid distrib_id and set default distrib_codename if not Ubuntu
