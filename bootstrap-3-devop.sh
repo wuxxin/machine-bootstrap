@@ -84,20 +84,18 @@ EOF
 
 
 # main
-run_path=$base_path/run
+config_path=/etc/salt
 cd /tmp
 if test "$1" != "--yes"; then usage; fi
 shift
 if which cloud-init > /dev/null; then
     # be sure that cloud-init has finished
-    cloud-init status --wait
+    cloud-init status --wait || echo "Warning: Cloud init exited with error"
 fi
 if ! which salt-call > /dev/null; then
     salt_install
 fi
-if test ! -e "$run_path/minion"; then
-    minion_config "$base_path" "$run_path"
-fi
-echo "salt-call $@"
-echo "(look at $run_path/salt-call.log for more verbosity)"
-salt-call --local --config-dir="$run_path" "$@"
+echo "salt-call --local --config-dir=$config_path $@"
+echo "(look at /var/log/salt/minion for more verbosity)"
+minion_config "$base_path" "$config_path"
+salt-call --local --config-dir=$config_path "$@"
