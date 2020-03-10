@@ -455,7 +455,10 @@ if test "$do_phase" = "all" -o "$do_phase" = "devop"; then
         | ssh $sshopts $(ssh_uri ${sshlogin}) \
             "mkdir -p $devop_target/$base_name; tar x -C $devop_target/$base_name"
 
-    echo "call bootstrap-3, install saltstack and run state.highstate"
+
+    devop_args="$@"
+    if test "$devop_args" = ""; then devop_args="state.highstate"; fi
+    echo "call bootstrap-3, install saltstack and run: $devop_args"
     ssh $sshopts "$(ssh_uri ${sshlogin})" \
-        "http_proxy=\"$http_proxy\"; export http_proxy; chown -R $devop_user:$devop_user $devop_target; chmod +x $devop_target/$base_name/$(basename $self_path)/bootstrap-3-devop.sh; $devop_target/$base_name/$(basename $self_path)/bootstrap-3-devop.sh --yes state.highstate" 2>&1 | tee "$log_path/bootstrap-devop.log"
+        "http_proxy=\"$http_proxy\"; export http_proxy; chown -R $devop_user:$devop_user $devop_target; chmod +x $devop_target/$base_name/$(basename $self_path)/bootstrap-3-devop.sh; $devop_target/$base_name/$(basename $self_path)/bootstrap-3-devop.sh --yes $devop_args" 2>&1 | tee "$log_path/bootstrap-devop.log"
 fi
