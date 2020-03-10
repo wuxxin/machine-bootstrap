@@ -246,11 +246,11 @@ create_boot() {
         else
             if test "$devcount" != 1; then
                 echo "create mdadm-boot"
-                echo "y" | mdadm --create /dev/md/mdadm-boot -v \
+                echo "y" | mdadm --create /dev/md/$(hostname):mdadm-boot -v \
                     --symlinks=yes --assume-clean \
                     --level=mirror "--raid-disks=${devcount}" \
                     $devlist
-                actlist="/dev/md/mdadm-boot"
+                actlist="/dev/md/$(hostname):mdadm-boot"
             else
                 actlist="$devlist"
             fi
@@ -268,11 +268,11 @@ create_swap() { # diskpassword
     if test "$devcount" = "1" -o "$devcount" = "2"; then
         if test "$devcount" != "1"; then
             echo "create mdadm swap partition"
-            echo "y" | mdadm --create /dev/md/mdadm-swap -v \
+            echo "y" | mdadm --create /dev/md/$(hostname):mdadm-swap -v \
                 --symlinks=yes --assume-clean \
                 --level=mirror "--raid-disks=${devcount}" \
                 $devlist
-            targetdev="/dev/md/mdadm-swap"
+            targetdev="/dev/md/$(hostname):mdadm-swap"
         else
             targetdev="$devlist"
         fi
@@ -309,11 +309,11 @@ create_and_mount_root() { # basedir diskpassword root_lvm_vol_size
     actlist=$devlist
     if (test "$devcount" != "1" && ! is_zfs "$devlist"); then
         echo "create mdadm-root"
-        echo "y" | mdadm --create /dev/md/mdadm-root -v \
+        echo "y" | mdadm --create /dev/md/$(hostname):mdadm-root -v \
             --symlinks=yes --assume-clean \
             --level=mirror "--raid-disks=${devcount}" \
             $actlist
-        actlist=/dev/md/mdadm-root
+        actlist=/dev/md/$(hostname):mdadm-root
     fi
     if is_crypt "$devlist"; then
         devindex=1
@@ -419,7 +419,7 @@ activate_raid() {
                 this_md=$(echo "$all_mdadm" \
                     | grep -E "ARRAY.+name=[^:]+:mdadm-${p,,}" \
                     | sed -r "s/ARRAY ([^ ]+) .+/\1/g")
-                if test "$this_md" != "" -a "$this_md" != "/dev/md/mdadm-${p,,}"; then
+                if test "$this_md" != "" -a "$this_md" != "/dev/md/$(hostname):mdadm-${p,,}"; then
                     echo "deactivate mdadm raid on $this_md because name is different"
                     mdadm --manage --stop $this_md
                 fi
@@ -436,9 +436,9 @@ deactivate_raid() {
     local p
     for p in BOOT SWAP ROOT DATA; do
         if is_raid "$(by_partlabel $p)"; then
-            if test -e /dev/md/mdadm-${p,,}; then
+            if test -e /dev/md/$(hostname):mdadm-${p,,}; then
                 echo "deactivate mdadm raid on $p"
-                mdadm --manage --stop /dev/md/mdadm-${p,,}
+                mdadm --manage --stop /dev/md/$(hostname):mdadm-${p,,}
             fi
         fi
     done
@@ -529,7 +529,7 @@ bpool/BOOT/ubuntu   /boot   zfs     defaults 0 0
 EOF
         else
             devtarget="$devlist"
-            if is_raid "$devlist"; then devtarget="/dev/md/mdadm-boot"; fi
+            if is_raid "$devlist"; then devtarget="/dev/md/$(hostname):mdadm-boot"; fi
             cat >> /etc/fstab << EOF
 UUID=$(dev_fs_uuid "$devtarget") /boot $(substr_fstype "$devlist") defaults,nofail 0 1
 EOF
@@ -553,7 +553,7 @@ EOF
     devcount=$(echo "$devlist" | wc -w)
     if test "$devcount" = "1" -o "$devcount" = "2"; then
         devtarget="$devlist"
-        if is_raid "$devlist"; then devtarget="/dev/md/mdadm-swap"; fi
+        if is_raid "$devlist"; then devtarget="/dev/md/$(hostname):mdadm-swap"; fi
         if is_crypt "$devlist"; then devtarget="/dev/mapper/luks-swap"; fi
         cat >> /etc/fstab << EOF
 $devtarget swap swap defaults
@@ -569,7 +569,7 @@ rpool/ROOT/ubuntu   /boot   zfs     defaults 0 0
 EOF
         else
             devtarget="$devlist"
-            if is_raid "$devlist"; then devtarget="/dev/md/mdadm-root"; fi
+            if is_raid "$devlist"; then devtarget="/dev/md/$(hostname):mdadm-root"; fi
             if is_crypt "$devlist"; then devtarget="/dev/mapper/luks-root"; fi
             if is_lvm "$devlist"; then
                 devtarget="/dev/$(substr_vgname "$devlist")/lvm-root"
