@@ -10,15 +10,17 @@
     + virtio vga does not work in X11, use qxl instead
 
 ## done
++ fixme: root on encrypted lvm but no boot partition (use efi)
 
 ## testing
 + ubuntu: keep EFI synced
-+ ubuntu: system: recovery failsafe and target system failsafe
-+ fixme: disable subiquity
-+ fixme: Logical volume vg0/lvm-root contains a filesystem in use.
-+ fixme: root on encrypted lvm but no boot partition (use efi)
 
 ## todo
++ ubuntu: system: recovery failsafe and target system failsafe
++ fixme: Logical volume vg0/lvm-root contains a filesystem in use.
++ fixme: disable subiquity
++ fixme: cloud-init errors (with something around install user)
++ also make target system honor http_proxy on devop install
 
 + make data partition work or delete code that breaks
 + make distrib_id=Nixos distrib_codename=19.09 working
