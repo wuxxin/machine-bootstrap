@@ -90,6 +90,10 @@ else
         ln -s /efi/grub /boot/grub
     fi
 fi
+if test "$(findmnt -n -o FSTYPE /boot)" = "vfat"; then
+    echo "Warning: disable do_symlinks in kernel-img.conf, because boot is on vfat"
+    echo "do_symlinks = no" > /etc/kernel-img.conf
+fi
 
 echo "workaround /var staying busy at shutdown due to journald"
 echo "https://github.com/systemd/systemd/issues/867"
