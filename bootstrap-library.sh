@@ -438,7 +438,7 @@ deactivate_raid() {
         if is_raid "$(by_partlabel $p)"; then
             if test -e /dev/md/$(hostname):mdadm-${p,,}; then
                 echo "deactivate mdadm raid on $p"
-                mdadm --manage --stop /dev/md/$(hostname):mdadm-${p,,}
+                mdadm --manage --stop /dev/md/$(hostname):mdadm-${p,,} || echo "failed!"
             fi
         fi
     done
@@ -486,7 +486,7 @@ deactivate_crypt() {
         if is_crypt "$(by_partlabel $p)"; then
             if test -e /dev/mapper/luks-${p,,}; then
                 echo "deactivate luks on luks-${p,,}"
-                cryptdisks_stop "luks-${p,,}"
+                cryptdisks_stop "luks-${p,,}" || echo "failed!"
             fi
         fi
     done
@@ -509,10 +509,10 @@ deactivate_lvm() {
     for lv in $(lvm lvs -o vg_name,lv_name,lv_device_open --no-headings \
         | grep -E ".+open[[:space:]]*$" \
         | sed -r "s/[[:space:]]+([^[:space:]]+)[[:space:]]+([^[:space:]]+)[[:space:]]+.+/\1\/\2/g"); do
-        lvchange -a n $lv
+        lvchange -a n $lv || echo "deactivate of lv $lv failed!"
     done
     for vg in $(lvm vgs -o vg_name --no-headings); do
-        vgchange -a n $vg
+        vgchange -a n $vg || echo "deactivate of vg $vg failed!"
     done
 }
 
