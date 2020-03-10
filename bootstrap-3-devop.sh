@@ -1,6 +1,6 @@
 #!/bin/bash
 set -eo pipefail
-#set -x
+# set -x
 
 self_path=$(dirname "$(readlink -e "$0")")
 base_path=$(readlink -e "$self_path/..")
@@ -57,12 +57,12 @@ salt_install() {
             prefixdir="py3"
             if test "$os_codename" = "focal"; then
                 if ! grep -q focal-proposed /etc/apt/sources.list; then
-                    echo "Warning: Using and enabling focal-proposed (main/res/uni/multi) for salstack"
+                    echo "Warning: Using and enabling focal-proposed for saltstack"
                     cat >> /etc/apt/sources.list << EOF
 deb http://archive.ubuntu.com/ubuntu/ focal-proposed main restricted universe multiverse
 EOF
                 fi
-                echo "installing salstack from focal-proposed"
+                echo "installing saltstack from focal-proposed"
             else
                 echo "installing saltstack ($salt_major_version) for python 3 from ppa"
                 wget -O - "https://repo.saltstack.com/${prefixdir}/${os_distributor}/${os_release}/${os_architecture}/${salt_major_version}/SALTSTACK-GPG-KEY.pub" | apt-key add -
