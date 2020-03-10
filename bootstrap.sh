@@ -8,13 +8,11 @@ self_path=$(dirname "$(readlink -e "$0")")
 usage() {
     cat << EOF
 
-$0 execute [all|plain|recovery|install|devop] <hostname> [optional install parameter]
+$0 execute recovery|install|devop <hostname> [optional install parameter]
 
     execute the requested stages of install on hostname, all output from target
         host is displayed on screen and captured to "log" dir
 
-    + all:      executes steps recovery,install,devop
-    + plain:    executes steps recovery,install
     + recovery: execute partitioning and recovery install (expects debianish live system)
     + install:  execute format and install system (expects running recovery image)
     + devop:    execute step devop (expects installed and running base machine,
@@ -23,6 +21,9 @@ $0 execute [all|plain|recovery|install|devop] <hostname> [optional install param
     <hostname>  must be the same value as in the config file config/hostname
     --restore-from-backup
                 partition & format system, then restore from backup
+
+    + all:      executes steps recovery,install,devop
+    + plain:    executes steps recovery,install
 
 $0 test
     + test the setup for mandatory files and settings, exits 0 if successful
@@ -39,6 +40,8 @@ Configuration:
     + Base Configuration File: "machine-config.env"
     + File: "disk.passphrase.gpg"
     + File: "authorized_keys"
++ additional mandatory config file if distrib_id=Nixos:
+    + File: "configuration.nix"
 + optional config files:
     + "netplan.yml" default created on step recovery install
     + "recovery_hostkeys" created automatically on step recovery install
@@ -157,6 +160,7 @@ fi
 config_file=$config_path/machine-config.env
 diskpassphrase_file=$config_path/disk.passphrase.gpg
 authorized_keys_file=$config_path/authorized_keys
+nixos_configuration_file=$config_path/configuration.nix
 netplan_file=$config_path/netplan.yml
 recovery_hostkeys_file=$config_path/recovery_hostkeys
 log_path=$(readlink -m "$config_path/../log")
@@ -201,7 +205,7 @@ fi
 
 # parse config file
 if test ! -e "$config_file"; then
-    echo "ERROR: configfile $config_file does not exist"
+    echo "Error: mandatory configfile $config_file does not exist"
     exit 1
 fi
 . "$config_file"
@@ -250,6 +254,14 @@ if test "$frankenstein" = "true"; then
 else
     frankenstein=false
     select_frankenstein=""
+fi
+
+# verify nix configuration file is present if distrib_id=Nixos
+if test "$distrib_id" = "Nixos"; then
+    if test ! -e "$nixos_configuration_file"; then
+        echo "Error: distrib_id=Nixos but mandatory config file $nixos_configuration_file is missing"
+        exit 1
+    fi
 fi
 
 # all verified, exit if test was requested
@@ -385,8 +397,12 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
         echo "recovery_autologin is true, touching /tmp/recovery/feature.autologin"
         ssh $sshopts ${sshlogin} "touch /tmp/recovery/feature.autologin"
     fi
-
-    echo "call bootstrap-1, format storage, debootstrap system or restore from backup"
+    if test "$distrib_id" = "Nixos"; then
+        echo "copy nix configuration files to remote"
+        scp $sshopts "$config_path/*.nix" \
+            "$(ssh_uri ${sshlogin} scp)/tmp/"
+    fi
+    echo "call bootstrap-1, format storage, install system or restore from backup"
     echo -n "$diskphrase" \
         | ssh $sshopts ${sshlogin} \
             "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1-install.sh $hostname $firstuser \"$storage_ids\" --yes $select_root_lvm_vol_size $select_frankenstein --distrib-id $distrib_id --distrib-codename $distrib_codename  $@" 2>&1 | tee "$log_path/bootstrap-install.log"
