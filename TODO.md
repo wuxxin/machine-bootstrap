@@ -12,10 +12,16 @@
     + on recovery: if grub that does not succeed first time (while installing) timeout changes from 3s to interactive
 
 ## todo
+
++ make data partition work or delete code that breaks
++ make distrib_id=Nixos distrib_codename=19.09 working
+    + make ./machine-bootstrap-configuration.nix in bootstrap-library
+        + make all machine-bootstrap knowledge available there
+    + make minimal configuration.nix on project create
+
 + fixme: disable subiquity
 + fixme: Logical volume vg0/lvm-root contains a filesystem in use.
 
-+ make distrib_id=Nixos distrib_codename=19.09 working
 + make zfs work again
 + all: optional use of tmux for long running ssh connections of bootstrap.sh
 + recovery scripts to replace a faulty disk, to invalidate a disk

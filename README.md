@@ -2,9 +2,9 @@
 
 Unattended ssh based operating system installer
 
-for Ubuntu 18.04-20.04, Debian 10 and NixOS,
-with buildin recovery image, root storage on luks encrypted zfs
-or other specialized storage layouts
+for Ubuntu 18.04-20.04, (WIP: Nixos, Debian 10),
+with buildin recovery image, root storage on luks encrypted zfs,
+initrd with ssh luks support, other specialized storage layouts.
 
 **Usage:** to be executed on an linux liveimage/recoveryimage system connected via ssh.
 
@@ -20,7 +20,7 @@ Some setups may work, most break under certain conditions.
 ## Features
 
 + **efi and legacy bios** boot compatible hybrid grub setup with grubenv support
-+ **one or two disks** (will be automatically setup as mirror if two disks)
++ **one or two disks** (will be automatically setup as mdadm &/ zfs mirror if two disks)
 + **root on luks encrypted zfs** / zfs mirror pool (encrypted storage at rest)
     + and **other common and less common**, easy to configure **storage setups**
 + ubuntu: modern initial ramdisk based on **dracut with ssh for remote unlock luks** on startup
@@ -29,18 +29,18 @@ Some setups may work, most break under certain conditions.
     + buildin scripts to mount/unmount root and update recovery boot parameter
 + **logging** of recovery and target system installation on the calling machine in directory ./log
 
-#### additional optional Features
+### optional Features
 + luks encrypted **hibernate compatible swap** for eg. a desktop installation
 + ubuntu: **overlay fs support on zfs** by building patched zfs-linux (frankenstein=true)
 + ubuntu: **saltstack provision run** at devop stage with states from salt-shared (eg. desktop)
-+ **encrypt all sensitive data** in setup repository with git-crypt
-    + git & git-crypt repository setup to store machine configuration inside a git repository
-+ build a preconfigured bootstrap-0 **livesystem image** usable for headless physical installation
++ **build a preconfigured livesystem image** usable for headless physical installation
     + resulting image is compatible as CD or USB-Stick with BIOS and EFI support
     + optional netplan for static or other non dhcp based ip configurations
     + execute `./machine-bootstrap/bootstrap.sh create-liveimage` to build image
     + copy `run/liveimage/bootstrap-0-liveimage.iso` to usbstick
     + use ssh with preconfigured key or physical terminal/console of livesystem for interaction
++ **encrypt sensitive data** in setup repository with git-crypt
+    + git & git-crypt repository setup to store machine configuration inside a git repository
 
 #### Example Configurations
 
@@ -99,7 +99,7 @@ git commit -v -m "initial config"
 git remote add origin ssh://git@some.where.net/path/box.git
 ```
 
-### optional: add files for a salstack run
+### optional: add files for a saltstack run (only ubuntu and debian)
 ```
 mkdir -p salt/custom
 cd salt
@@ -169,7 +169,7 @@ firstuser=$(id -u -n)
 # [--log=        true|*false|<logsizemb,   default if true: 1024 mb>]
 # [--cache=      true|*false|<cachesizemb, default if true: 59392 mb>]
 # [--swap=       true|*false|<swapsizemb,  default if true: 1.25xRAM mb>]
-# [--boot=       *true|false|<bootsizemb,  default if true: 600 mb>]
+# [--boot=       true|*false|<bootsizemb,  default if true: 400 mb>]
 # [--boot-fs=    *zfs|ext4|xfs]
 # [--root-fs=    *zfs|ext4|xfs]
 # [--root-lvm=   *""|<vgname>]
@@ -200,8 +200,39 @@ echo $(printf 'storage_ids="'; for i in \
     gpg --encrypt -r username@email.address) \
     > config/disk.passphrase.gpg
 
-# optional: create a custom netplan.yml
+```
 
+### optional: create a custom netplan.yml file
+
+```
+cat > config/netplan.yml << EOF
+network:
+    version: 2
+    ethernets:
+        all-en:
+            match:
+                name: "en*"
+            dhcp4: true
+        all-eth:
+            match:
+                name: "eth*"
+            dhcp4: true
+```
+
+### optional: create a minimal Nixos configuration.nix
+
+```
+cat > config/configuration.nix << EOF
+# Help is available in the configuration.nix(5) man page
+{ config, pkgs, ... }:
+{
+  imports =
+    [ # Include the results of the hardware scan and machine-bootstrap scripts
+      ./hardware-configuration.nix
+      ./machine-bootstrap-configuration.nix
+    ];
+}
+EOF
 ```
 
 ### optional: make physical bootstrap-0 liveimage
@@ -238,7 +269,7 @@ git add .
 git commit -v -m "bootstrap run"
 ```
 
-### optional: push committed changes to upstream
+### optional: push committed changes upstream
 
 ```
 git push -u origin master
@@ -299,11 +330,11 @@ reboot
 
 Nr |Name(max 36 x UTF16)|Description|
 ---|---|---
-7  | `BIOS,1,2`  | GRUB-BIOS boot binary partition, used to host grub code on gpt for bios boot
-6  | `EFI,1,2`   | EFI vfat partition, dual efi & bios grub installation and recovery- fs,kernel,initrd
-5  | `LOG,1,2`   | **optional** ZFS Log or other usages
-4  | `CACHE,1,2` | **optional** ZFS Cache or other usages
-3  | `[raid_]luks_SWAP,1,2`  | **optional** encrypted hibernation compatible swap
-2  | `[raid_](zfs:ext4:xfs)_BOOT,1,2`  | **optional** boot partition, unencrypted, kernel,initrd
-1  | `[raid_][luks_][lvm.vg0_](zfs:ext4:xfs)_ROOT,1,2` | root partition
-8  | `[raid_][luks_][lvm.vgdata_](zfs:ext4:xfs:other)_DATA,1,2` | **optional** data partition
+6  | `BIOS,1,2`  | GRUB-BIOS boot binary partition, used to host grub code on gpt for bios boot
+5  | `EFI,1,2`   | EFI vfat partition, dual efi & bios grub installation and recovery- fs,kernel,initrd
+4  | `LOG,1,2`   | **optional** ZFS Log or other usages
+3  | `CACHE,1,2` | **optional** ZFS Cache or other usages
+2  | `[raid_]luks_SWAP,1,2`  | **optional** encrypted hibernation compatible swap
+1  | `[raid_](zfs:ext4:xfs)_BOOT,1,2`  | **optional** boot partition, unencrypted, kernel,initrd
+0  | `[raid_][luks_][lvm.vg0_](zfs:ext4:xfs)_ROOT,1,2` | root partition
+7  | `[raid_][luks_][lvm.vgdata_](zfs:ext4:xfs:other)_DATA,1,2` | **optional** data partition
