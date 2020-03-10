@@ -9,7 +9,8 @@
 ## testing
 + keep EFI synced
 + system: recovery failsafe and target system failsafe
-    + on recovery: if grub that does not succeed first time (while installing) timeout changes from 3s to interactive
++ fixme: disable subiquity
++ fixme: Logical volume vg0/lvm-root contains a filesystem in use.
 
 ## todo
 
@@ -18,19 +19,16 @@
     + make ./machine-bootstrap-configuration.nix in bootstrap-library
         + make all machine-bootstrap knowledge available there
     + make minimal configuration.nix on project create
-
-+ fixme: disable subiquity
-+ fixme: Logical volume vg0/lvm-root contains a filesystem in use.
-
 + make zfs work again
+
 + all: optional use of tmux for long running ssh connections of bootstrap.sh
 + recovery scripts to replace a faulty disk, to invalidate a disk
     + all: add script to replace a changed faulty disk: recovery-replace-mirror.sh
     + all: add script to deactivate (invalidate) one of two disks: storage-invalidate-mirror.sh
 + desaster recovery from backup storage to new machine
     + install: make restore from backup: script bootstrap-1-restore and bootstrap-2-chroot-restore
-+ devop: install and configure ZFS Scrubbing
-+ devop: make backup working
++ devop: ubuntu: install and configure ZFS Scrubbing
++ devop: ubuntu: make backup working
 + "cloud like" autorotating encrypted incremental snapshot backup to thirdparty storage with zfs and restic
     this should be a little to no performance impact, encrypted, incremental, autorotating snapshot backup system, from and to redundant checksuming data storage on a single machine with the abbility to use common thirdparty storage for this backup. So far it is a very busy journey... https://xkcd.com/974/
 + home-nas setup with 1 x internal:type:ssd + 2 x external:type:spindle harddisks

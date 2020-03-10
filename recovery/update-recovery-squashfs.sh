@@ -120,14 +120,15 @@ EOF
         printf "%s\n\n" "$hostkeys_data" >> "$cfgdir/user-data.cfg"
     fi
     echo "disable subiquity"
-    mkdir -p "$basedir/etc/systemd/system/snap.subiquity.subiquity-service.service.d"
-    cat >    "$basedir/etc/systemd/system/snap.subiquity.subiquity-service.service.d/override.conf" <<"EOF"
+    mkdir -p "$basedir/etc/systemd/system/systemd/system/snapd.core-fixup.service.d"
+    cat >    "$basedir/etc/systemd/system/systemd/system/snapd.core-fixup.service.d/override.conf" <<"EOF"
 [Service]
-Type=oneshot
-ExecStart=
+ExecStart=/usr/bin/bash -c "\
+    snapver=$(find /var/lib/snapd/seed/snaps/ -name "core_*.snap" -print  -quit | \
+        sed -r "s/.+core_([^.]+)\.snap/\1/g"); \
+    printf 'snaps:\n  -\n    name: core\n    channel: stable\n    file: core_%s.snap\n' $snapver > /var/lib/snapd/seed/seed.yaml"
 ExecStart=/usr/bin/mkdir -p /run/subiquity
 ExecStart=/usr/bin/touch /run/subiquity/complete
-RemainAfterExit=on
 EOF
     if test "$autologin" = "true"; then
         echo "modify tty4 for autologin"
