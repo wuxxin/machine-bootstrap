@@ -286,14 +286,15 @@ fi
 if ! grep -q GRUB_RECORDFAIL_TIMEOUT /etc/default/grub; then
     echo "GRUB_RECORDFAIL_TIMEOUT=3" >> /etc/default/grub
 fi
-dpkg-divert --local --rename \
-    --divert /usr/sbin/update-grub.dpkg-divert  --add /usr/sbin/update-grub
-cat > /usr/sbin/update-grub << EOF
-#!/bin/sh
-set -e
-exec grub-mkconfig -o /efi/grub/grub.cfg "$@"
-EOF
-chmod +x /usr/sbin/update-grub
+
+# dpkg-divert --local --rename \
+#     --divert /usr/sbin/update-grub.dpkg-divert  --add /usr/sbin/update-grub
+#cat > /usr/sbin/update-grub << EOF
+##!/bin/sh
+#set -e
+#exec grub-mkconfig -o /efi/grub/grub.cfg "$@"
+#EOF
+#chmod +x /usr/sbin/update-grub
 
 echo "install grub"
 update-grub

@@ -234,6 +234,7 @@ create_efi() {
     done
 }
 
+
 create_boot() {
     local devlist devcount
     devlist=$(by_partlabel BOOT)

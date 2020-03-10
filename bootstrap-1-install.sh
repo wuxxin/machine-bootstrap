@@ -154,7 +154,10 @@ create_homedir home $firstuser
 mount_boot /mnt
 mount_efi /mnt
 mount_data /mnt
-
+if test "$(by_partlabel BOOT)" = ""; then
+    echo "symlink /boot to /efi and /efi/efi to /efi because we have no boot partition"
+    ln -s /efi /mnt/boot
+fi
 if test "$option_restore_backup" != "true"; then
     # install base system
     if test "$distrib_id" = "Ubuntu" -o "$distrib_id" = "Debian"; then
@@ -182,7 +185,7 @@ if test "$option_restore_backup" != "true"; then
         if test "$(by_partlabel EFI | wc -w)" = "2"; then
             efi2="/dev/$(basename "$(readlink -f "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | x_of 2)")/..")")"
             cat >> /mnt/configuration.nix << EOF
-boot.loader.grub.mirroredBoots = [ { devices = ["$efi1"] ; path = "/efi1"; } { devices = ["$efi2"] ; path = "/efi2"; }]
+boot.loader.grub.mirroredBoots = [ { devices = ["$efi1"] ; path = "/efi"; } { devices = ["$efi2"] ; path = "/efi2"; }]
 EOF
         else
             cat >> /mnt/configuration.nix << EOF
