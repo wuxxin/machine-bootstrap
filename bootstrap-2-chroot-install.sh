@@ -75,12 +75,20 @@ fi
 create_fstab
 create_crypttab
 
-echo "symlink /boot/grub pointing to /efi/grub"
-if test -L /boot/grub; then
-    echo "already existing"
+echo "make grub accessable on /boot/grub"
+if test -L /boot; then
+    echo "noop, /boot is a symlink, grub will be found on target"
 else
-    if test -e /boot/grub; then rm -rf /boot/grub; fi
-    ln -s /efi/grub /boot/grub
+    if test -L /boot/grub; then
+        echo "symlink for /boot/grub already existing"
+    else
+        if test -e /boot/grub; then
+            echo "removing grub traces from /boot"
+            rm -rf /boot/grub
+        fi
+        echo "symlink /boot/grub to /efi/grub"
+        ln -s /efi/grub /boot/grub
+    fi
 fi
 
 echo "workaround /var staying busy at shutdown due to journald"
