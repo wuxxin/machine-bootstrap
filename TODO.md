@@ -1,16 +1,22 @@
 # machine-bootstrap work list
 
 ## tested combinations
-+ 4gb ram, 2 x 10g disks, distribution=bionic, frankenstein=false, recovery_autologin=true, storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --swap=1024 --reuse"
++ 4gb ram, 2 x 10g disks
+    + distrib_codename=bionic, frankenstein=false, recovery_autologin=true, storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --swap=1024 --reuse"
+    + http_proxy set, distrib_codename=focal, frankenstein=false, recovery_autologin=true, storage_opts="--boot=false --root-size=6000 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --log=128 --cache=384 --swap=512"
+
 + vm on a xenial host
     + kvm qxl does not work (kernel faults) on suspend and hibernate, use virtio vga instead
     + virtio vga does not work in X11, use qxl instead
 
+## done
+
 ## testing
-+ keep EFI synced
-+ system: recovery failsafe and target system failsafe
++ ubuntu: keep EFI synced
++ ubuntu: system: recovery failsafe and target system failsafe
 + fixme: disable subiquity
 + fixme: Logical volume vg0/lvm-root contains a filesystem in use.
++ fixme: root on encrypted lvm but no boot partition (use efi)
 
 ## todo
 
