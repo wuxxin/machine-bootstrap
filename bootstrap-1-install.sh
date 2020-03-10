@@ -177,12 +177,11 @@ if test "$option_restore_backup" != "true"; then
         # generate nix config
         nixos-generate-config --root /mnt
 
-        # make grub config
+        # make machine-bootstrap.nix config
         efi1="/dev/$(basename "$(readlink -f "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | first_of)")/..")")"
         if test "$(by_partlabel EFI | wc -w)" = "2"; then
             efi2="/dev/$(basename "$(readlink -f "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | x_of 2)")/..")")"
             cat >> /mnt/configuration.nix << EOF
-boot.loader.grub.devices = ["$efi1" "$efi2"]
 boot.loader.grub.mirroredBoots = [ { devices = ["$efi1"] ; path = "/efi1"; } { devices = ["$efi2"] ; path = "/efi2"; }]
 EOF
         else
