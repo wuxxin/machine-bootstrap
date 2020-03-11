@@ -16,9 +16,12 @@
 + ubuntu: keep EFI synced
 
 ## todo
-+ ubuntu: system: recovery failsafe and target system failsafe
-+ fixme: Logical volume vg0/lvm-root contains a filesystem in use.
-+ fixme: disable subiquity
++ fixme: Unable to manage file: Error: [Errno -3] Temporary failure in name resolution reading https://get.helm.sh/helm-v3.1.1-linux-amd64.tar.gz.sha256
+    + happens in devop state after first run (but not without state app included)
+
++ fixme: ubuntu: after hardreset, recovery is not selected as fallback
++ fixme: Logical volume vg0/lvm-root contains a filesystem in use; Block deactivation of lvm/mdadm
++ fixme: try to disable subiquity some how 
 + fixme: cloud-init errors (with something around install user)
 + also make target system honor http_proxy on devop install
 
