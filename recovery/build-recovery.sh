@@ -155,6 +155,7 @@ download_casper_image() {
     if ! (printf "%s" "$gpgv_result" | \
         grep -q -E "^gpgv: Good signature from.+<$cdimage_keyname>\"$"); then
         echo "ERROR: signature verification failed"
+        printf "gpgv output was:\n%s" "$gpgv_result"
         exit 1
     fi
 
