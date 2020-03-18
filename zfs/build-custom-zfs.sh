@@ -3,14 +3,14 @@ set -eo pipefail
 set -x
 
 self_path=$(dirname "$(readlink -e "$0")")
-source=eoan
+source=focal
 dest="$(lsb_release -c -s)"
 
 usage() {
     cat <<EOF
-Usage: $0 basedir [--source distro] [--dest distro]
+Usage: $0 <basedir> [--source distro] [--dest distro]
 
-basedir = directory to be used as basedir for compiling
+basedir         = directory to be used as basedir for compiling
 --source distro = defines the launch-pad branch to use, will default to "$source"
 --dest   distro = build zfs for distribution codename eg. "bionic", default=running system ($dest)
 
@@ -25,14 +25,9 @@ EOF
 if test "$1" = "" -o "$1" = "--help" -o "$1" = "-h"; then usage; fi
 basedir=$1
 shift
-if test "$1" = "--source"; then
-    source=$2
-    shift 2
-fi
-if test "$1" = "--dest"; then
-    dest=$2
-    shift 2
-fi
+if test "$1" = "--source"; then source=$2; shift 2; fi
+if test "$1" = "--dest"; then dest=$2; shift 2; fi
+BASEPATH="/var/cache/pbuilder/base-$dest.cow"
 
 # setup builder
 need_install=false
@@ -52,7 +47,6 @@ fi
 if ! grep -q "focal" /usr/share/distro-info/ubuntu.csv; then
     echo "20.04 LTS,Focal Fossa,focal,2019-10-17,2020-04-23,2025-04-23,2025-04-23,2030-04-23" >>  /usr/share/distro-info/ubuntu.csv
 fi
-BASEPATH="/var/cache/pbuilder/base-$dest.cow"
 if test ! -e "$BASEPATH"; then
     cowbuilder --create --distribution "$dest" --basepath "$BASEPATH"
 else
