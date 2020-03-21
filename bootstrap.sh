@@ -1,6 +1,6 @@
 #!/bin/bash
 set -eo pipefail
-#set -x
+set -x
 
 self_path=$(dirname "$(readlink -e "$0")")
 
@@ -74,6 +74,7 @@ ssh_uri() { # sshlogin ("",scp,host,port,user,known)
     elif test "$2" = "user"; then   echo "$user"
     elif test "$2" = "scp"; then    echo "scp://${userprefix}${host}:${port}/"
     elif test "$2" = "known"; then  echo "$known"
+    elif test "$2" = "rsync"; then  echo "${userprefix}${host}"
     else echo "ssh://${userprefix}${host}:${port}"
     fi
 }
@@ -448,13 +449,12 @@ if test "$do_phase" = "all" -o "$do_phase" = "devop"; then
         waitfor_ssh "$sshlogin"
     fi
 
-    echo "copy setup repository to target"
+    echo "rsync setup repository to target"
     sshopts="-o UserKnownHostsFile=$config_path/system.known_hosts"
-    ssh $sshopts "$(ssh_uri ${sshlogin})" "mkdir -p $devop_target"
-    tar -c --exclude "./run" --exclude "./log" -C "$base_path" . \
-        | ssh $sshopts $(ssh_uri ${sshlogin}) \
-            "mkdir -p $devop_target/$base_name; tar x -C $devop_target/$base_name"
-
+    ssh $sshopts "$(ssh_uri ${sshlogin})" "mkdir -p $devop_target/$base_name"
+    rsync -az -e "ssh $sshopts -p $(ssh_uri ${sshlogin} port)" \
+        --delete --exclude "./run" --exclude "./log" \
+        "$base_path" "$(ssh_uri ${sshlogin} rsync):$devop_target/$base_name"
 
     devop_args="$@"
     if test "$devop_args" = ""; then devop_args="state.highstate"; fi
