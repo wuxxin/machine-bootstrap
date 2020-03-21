@@ -454,7 +454,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "devop"; then
     ssh $sshopts "$(ssh_uri ${sshlogin})" "mkdir -p $devop_target/$base_name"
     rsync -az -e "ssh $sshopts -p $(ssh_uri ${sshlogin} port)" \
         --delete --exclude "./run" --exclude "./log" \
-        "$base_path" "$(ssh_uri ${sshlogin} rsync):$devop_target/$base_name/"
+        "$base_path" "$(ssh_uri ${sshlogin} rsync):$devop_target"
 
     devop_args="$@"
     if test "$devop_args" = ""; then devop_args="state.highstate"; fi
