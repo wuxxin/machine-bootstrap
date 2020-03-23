@@ -12,20 +12,24 @@ diskpassphrase_file=$config_path/disk.passphrase.gpg
 
 usage() {
     cat <<EOF
-Usage: $0 [--show-ssh|--show-scp] temporary|recovery|recoverymount|initrd|initrdluks|system [\$@]
+Usage: $0 [--show-ssh|--show-scp]
+    temporary|recovery|recoveryluks|recoverymount|initrd|initrdluks|system [\$@]
 
 use ssh keys and config taken from $config_path to connect to system via ssh
 
 + temporary, recovery, initrd, system:
     connect to system with the expected the ssh hostkey
 
-+ recoverymount:
-    uses the recovery host key for connection,
-    and transfers the luks diskphrase keys to recovery-mount.sh
-
 + initrdluks:
     uses the initrd host key for connection,
     and transfers the luks diskphrase keys to /lib/systemd/systemd-reply-password
+
++ recoveryluks:
+    uses the recovery host key for connection,
+    and transfers the luks diskphrase keys to recovery-mount.sh
+
++ recoverymount:
+    equal to recoveryluks but also mount all partitions and prepare a chroot at /mnt
 
 --show-ssh: only displays the parameters for ssh
 --show-scp: only displays the parameters for scp
@@ -87,7 +91,7 @@ export LC_MESSAGES="POSIX"
 showargs=false
 if test "$1" = "--show-ssh"; then showargs=ssh; shift; fi
 if test "$1" = "--show-scp"; then showargs=scp; shift; fi
-if [[ ! "$1" =~ ^(temporary|recovery|recoverymount|initrd|initrdluks|system)$ ]]; then usage; fi
+if [[ ! "$1" =~ ^(temporary|recovery|recoveryluks|recoverymount|initrd|initrdluks|system)$ ]]; then usage; fi
 hosttype="$1"
 shift 1
 
@@ -103,12 +107,16 @@ if test "$sshlogin" = ""; then
 fi
 
 if test "$showargs" != "false"; then
-    if test "$hosttype" = "initrdluks"; then hosttype="initrd"; fi
-    if test "$hosttype" = "recoverymount"; then hosttype="recovery"; fi
+    if test "$hosttype" = "initrdluks"; then
+        hosttype="initrd"
+    fi
+    if test "$hosttype" = "recoverymount" -o "$hosttype" = "recoveryluks"; then
+        hosttype="recovery"
+    fi
     echo "-o UserKnownHostsFile=$config_path/${hosttype}.known_hosts $(ssh_uri ${sshlogin} $showargs)"
     exit 0
 fi
-if test "$hosttype" = "initrdluks" -o "$hosttype" = "recoverymount"; then
+if test "$hosttype" = "initrdluks" -o "$hosttype" = "recoveryluks" -o "$hosttype" = "recoverymount"; then
     if test ! -e "$diskpassphrase_file"; then
         echo "ERROR: diskphrase file $diskpassphrase_file not found"
         usage
@@ -118,13 +126,15 @@ if test "$hosttype" = "initrdluks" -o "$hosttype" = "recoverymount"; then
         echo "Error: diskphrase is empty, abort"
         exit 1
     fi
-    if test "$hosttype" = "recoverymount"; then
+    if test "$hosttype" = "recoverymount" -o "$hosttype" = "recoveryluks"; then
         sshopts="-o UserKnownHostsFile=$config_path/recovery.known_hosts"
         waitfor_ssh "$sshlogin"
         echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
             'recovery-mount.sh --yes --only-raid-crypt --luks-from-stdin'
-        ssh $sshopts $(ssh_uri ${sshlogin}) \
-            "recovery-mount.sh --yes --without-raid-crypt $@"
+        if test "$hosttype" = "recoverymount"; then
+            ssh $sshopts $(ssh_uri ${sshlogin}) \
+                "recovery-mount.sh --yes --without-raid-crypt $@"
+        fi
         ssh $sshopts $(ssh_uri ${sshlogin})
     else
         sshopts="-o UserKnownHostsFile=$config_path/initrd.known_hosts"
