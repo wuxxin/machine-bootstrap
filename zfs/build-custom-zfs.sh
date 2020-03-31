@@ -5,6 +5,7 @@ set -x
 self_path=$(dirname "$(readlink -e "$0")")
 source=focal
 dest="$(lsb_release -c -s)"
+nobuild=false
 
 usage() {
     cat <<EOF
@@ -27,6 +28,7 @@ basedir=$1
 shift
 if test "$1" = "--source"; then source=$2; shift 2; fi
 if test "$1" = "--dest"; then dest=$2; shift 2; fi
+if test "$1" = "--nobuild"; then nobuild=true; shift; fi
 BASEPATH="/var/cache/pbuilder/base-$dest.cow"
 
 # setup builder
@@ -47,10 +49,12 @@ fi
 if ! grep -q "focal" /usr/share/distro-info/ubuntu.csv; then
     echo "20.04 LTS,Focal Fossa,focal,2019-10-17,2020-04-23,2025-04-23,2025-04-23,2030-04-23" >>  /usr/share/distro-info/ubuntu.csv
 fi
-if test ! -e "$BASEPATH"; then
-    cowbuilder --create --distribution "$dest" --basepath "$BASEPATH"
-else
-    cowbuilder --update --basepath "$BASEPATH"
+if test "$nobuild" != "true"; then
+    if test ! -e "$BASEPATH"; then
+        cowbuilder --create --distribution "$dest" --basepath "$BASEPATH"
+    else
+        cowbuilder --update --basepath "$BASEPATH"
+    fi
 fi
 
 # create build directories
@@ -59,21 +63,24 @@ cd "$basedir"
 
 # backport spl-linux (was merged into zfs-linux after disco)
 if test "$source" = "disco"; then
-    pull-lp-source spl-linux "$source"
+    $(which python2) $(which pull-lp-source) spl-linux "$source"
     BASEPATH="$BASEPATH" backportpackage -B cowbuilder -d "$dest" --dont-sign -b -w build spl-linux*.dsc
 fi
 
 # patch and backport zfs-linux
-pull-lp-source zfs-linux "$source"
+$(which python2) $(which pull-lp-source) zfs-linux "$source"
 cd $(find . -type d -name "zfs-linux-*" -print -quit)
-quilt import "$self_path/no-dops-snapdirs.patch"
+quilt import $(find $self_path -name "*.patch" | sort -n)
 quilt push
 current_version=$(head -1 debian/changelog | sed -r "s/[^(]+\(([^)]+)\).+/\1/g")
-new_version=${current_version:0:-1}$(( ${current_version: -1} +1 ))nodrevalidate
-debchange -v "$new_version" --distribution "$dest" "enable overlayfs on zfs: no-d-revalidate.patch"
+new_version=${current_version:0:-1}$(( ${current_version: -1} +1 ))vpsfreecz
+debchange -v "$new_version" --distribution "$dest" "enable overlayfs on zfs, enable namespace functionality, all pulled from vpsfreecz/zfs"
 dpkg-source -b .
 cd ..
-BASEPATH="$BASEPATH" backportpackage -B cowbuilder -d "$dest" --dont-sign -b -w build zfs-linux*nodrevalidate*.dsc
+if test "$nobuild" = "true"; then
+    exit 0
+fi
+BASEPATH="$BASEPATH" backportpackage -B cowbuilder -d "$dest" --dont-sign -b -w build zfs-linux*vpsfreecz*.dsc
 
 # generate local apt archive files
 cd build/buildresult
