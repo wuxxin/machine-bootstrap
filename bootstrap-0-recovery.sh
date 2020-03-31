@@ -23,10 +23,7 @@ install a recovery system and overwrite all existing data of all disks matching 
   --reuse
     # will clean first sectors of data from disks before re-partitioning
 
-  --swap=       true|*false|<swapsizemb, if true: default= 1.25 x RAM mb>
-    # enable swap usable for hibernation (suspend to disk)
-
-  --boot=       *true|false|<bootsizemb, if true: default=$boot_size mb>
+  --boot=       true|*false|<bootsizemb, if true: default=$boot_size mb>
   --boot-fs=    *zfs|ext4|xfs
     # set boot partition filesystem
 
@@ -51,8 +48,11 @@ install a recovery system and overwrite all existing data of all disks matching 
   --data-lvm=   *""|<vgname>
     # create a lvm volume group, do not create a logical volume
 
-  --log=       true|*false|<logsizemb, if true: logsizemb=1024mb>
-  --cache=     true|*false|<cachesizemb, if true: cachesizemb=59392mb>
+  --efi-size=   <efisizemb, default $efi_size mb>
+  --swap=       true|*false|<swapsizemb, if true: default= 1.25 x RAM mb>
+    # enable swap usable for hibernation (suspend to disk)
+  --log=        true|*false|<logsizemb, if true: logsizemb=$log_size mb>
+  --cache=      true|*false|<cachesizemb, if true: cachesizemb=$cache_size mb>
     # zfs cache system will use (<cachesizemb>/58)mb of RAM to hold L2ARC references
     # eg. 58GB on disk L2ARC uses 1GB of ARC space in memory
 
@@ -106,7 +106,7 @@ for i in $fulldisklist; do
     if test ! -e "$i"; then echo "ERROR: disk $i does not exist"; exit 1; fi
 done
 
-OPTS=$(getopt -o "" -l reuse,recovery-autologin,log:,swap:,cache:,boot:,boot-fs:,root-fs:,root-lvm:,root-lvm-vol-size:,root-crypt:,root-size:,data-fs:,data-lvm:,data-crypt: -- "$@")
+OPTS=$(getopt -o "" -l reuse,recovery-autologin,log:,swap:,cache:,efi-size:,boot:,boot-fs:,root-fs:,root-lvm:,root-lvm-vol-size:,root-crypt:,root-size:,data-fs:,data-lvm:,data-crypt: -- "$@")
 [[ $? -eq 0 ]] || usage
 eval set -- "${OPTS}"
 
@@ -130,6 +130,7 @@ while true; do
         ;;
     --reuse)              option_reuse="true" ;;
     --recovery-autologin) recovery_autologin="true" ;;
+    --efi-size)     efi_size="$2";  shift ;;
     --boot-fs)      boot_fs="$2";   shift ;;
     --root-fs)      root_fs="$2";   shift ;;
     --root-lvm)     root_lvm="$2";  shift ;;
@@ -157,7 +158,7 @@ cat << EOF
 Configuration:
 hostname: $hostname, http_proxy: $http_proxy
 fulldisklist=$(for i in $fulldisklist; do echo -n " $i"; done)
-reuse=$option_reuse, autologin=$recovery_autologin
+reuse=$option_reuse, autologin=$recovery_autologin, efi-size=$efi_size
 swap=$option_swap ($swap_size), log=$option_log ($log_size), cache=$option_cache ($cache_size)
 boot=$option_boot ($boot_size), boot_fs: $boot_fs
 root_fs: $root_fs, root_crypt: $root_crypt, root_lvm: $root_lvm, root_size: $root_size
@@ -285,7 +286,6 @@ echo "build recovery to /mnt/efi"
 mkdir -p /tmp/liveimage
 /tmp/recovery/build-recovery.sh download /tmp/liveimage
 /tmp/recovery/build-recovery.sh extract /tmp/liveimage /mnt/efi
-
 #echo "build installer.squashfs to /mnt/efi/casper"
 #kernel_version=$(/tmp/recovery/build-recovery.sh show kernel_version /mnt/efi/casper)
 #/tmp/recovery/build-recovery.sh create installer-addon \

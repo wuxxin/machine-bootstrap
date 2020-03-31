@@ -97,6 +97,7 @@ git commit -v -m "initial config"
 ### optional: add an upstream
 ```
 git remote add origin ssh://git@some.where.net/path/box.git
+git push -u origin master
 ```
 
 ### optional: add files for a saltstack run (only ubuntu and debian)
@@ -169,6 +170,7 @@ firstuser=$(id -u -n)
 # [--log=        true|*false|<logsizemb,   default if true: 1024 mb>]
 # [--cache=      true|*false|<cachesizemb, default if true: 59392 mb>]
 # [--swap=       true|*false|<swapsizemb,  default if true: 1.25xRAM mb>]
+# [--efi-size=   <efisizemb, default: 1600 mb>]
 # [--boot=       true|*false|<bootsizemb,  default if true: 400 mb>]
 # [--boot-fs=    *zfs|ext4|xfs]
 # [--root-fs=    *zfs|ext4|xfs]
@@ -217,6 +219,7 @@ network:
             match:
                 name: "eth*"
             dhcp4: true
+EOF
 ```
 
 ### optional: create a minimal Nixos configuration.nix
