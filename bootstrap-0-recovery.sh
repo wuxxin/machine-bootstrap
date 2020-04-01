@@ -142,7 +142,7 @@ while true; do
     --data-fs)      data_fs="$2";   shift ;;
     --data-lvm)     data_lvm="$2";  shift ;;
     --data-crypt)   data_crypt="$2";shift ;;
-    --from-download) from_download="true"; shift ;;
+    --from-download) from_download="true"; ;;
     --)             shift; break ;;
     *)              echo "error in params: $@"; usage ;;
     esac
