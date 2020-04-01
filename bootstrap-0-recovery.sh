@@ -107,7 +107,7 @@ for i in $fulldisklist; do
     if test ! -e "$i"; then echo "ERROR: disk $i does not exist"; exit 1; fi
 done
 
-OPTS=$(getopt -o "" -l reuse,recovery-autologin,log:,swap:,cache:,efi-size:,boot:,boot-fs:,root-fs:,root-lvm:,root-lvm-vol-size:,root-crypt:,root-size:,data-fs:,data-lvm:,data-crypt:,from-download: -- "$@")
+OPTS=$(getopt -o "" -l reuse,recovery-autologin,from-download,log:,swap:,cache:,efi-size:,boot:,boot-fs:,root-fs:,root-lvm:,root-lvm-vol-size:,root-crypt:,root-size:,data-fs:,data-lvm:,data-crypt: -- "$@")
 [[ $? -eq 0 ]] || usage
 eval set -- "${OPTS}"
 
