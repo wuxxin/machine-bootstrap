@@ -15,7 +15,7 @@ distroname=focal
 distroversion=20.04
 kernel_name="vmlinuz"
 initrd_name="initrd"
-baseurl="http://cdimage.ubuntu.com/ubuntu-server/daily-live/20200318"
+baseurl="http://cdimage.ubuntu.com/ubuntu-server/daily-live/20200331"
 imagename="${distroname}-live-server-amd64.iso"
 
 # gpg keys allowed to sign images

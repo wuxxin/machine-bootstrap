@@ -89,6 +89,7 @@ root_size="all"
 data_fs=""
 data_crypt="true"
 data_lvm=""
+from_download="false"
 
 
 # parse param
@@ -141,6 +142,7 @@ while true; do
     --data-fs)      data_fs="$2";   shift ;;
     --data-lvm)     data_lvm="$2";  shift ;;
     --data-crypt)   data_crypt="$2";shift ;;
+    --from-download) from_download="true"; shift ;;
     --)             shift; break ;;
     *)              echo "error in params: $@"; usage ;;
     esac
@@ -182,105 +184,107 @@ else
     echo "Warning: no debian system, packages ($packages) must be installed manually or program will fail"
 fi
 
-if test "$option_reuse" = "true"; then
-    echo "--reuse: delete disk data before partitioning"
-    for i in /dev/mapper/luks-*; do
-        echo "stop old luks $i"
-        cryptsetup remove "$i" || true
-    done
-    for i in 127 126 125; do
-        echo "stop old mdadm $i"
-        mdadm --stop /dev/md$i || true
-    done
-    for disk in $fulldisklist; do
-        echo "Wiping all disk data of ${disk}"
-        for i in $disk-part*; do
-            mdadm --zero-superblock --force "${i}" || true
+if test "$from_download" != "true"; then
+    if test "$option_reuse" = "true"; then
+        echo "--reuse: delete disk data before partitioning"
+        for i in /dev/mapper/luks-*; do
+            echo "stop old luks $i"
+            cryptsetup remove "$i" || true
         done
-        sgdisk --zap-all "${disk}"
+        for i in 127 126 125; do
+            echo "stop old mdadm $i"
+            mdadm --stop /dev/md$i || true
+        done
+        for disk in $fulldisklist; do
+            echo "Wiping all disk data of ${disk}"
+            for i in $disk-part*; do
+                mdadm --zero-superblock --force "${i}" || true
+            done
+            sgdisk --zap-all "${disk}"
+            sync
+            partprobe "${disk}"
+            sleep 1
+        done
+    fi
+
+    echo "partition disks"
+    DATA_NR="8"; BIOS_NR="7"; EFI_NR="6"; LOG_NR="5"
+    CACHE_NR="4"; SWAP_NR="3"; BOOT_NR="2"; ROOT_NR="1"
+    MIRROR_TYPE="FD00"; ZFS_TYPE="BF01"; LINUX_TYPE="8300"
+    BOOT_TYPE="$LINUX_TYPE"; ROOT_TYPE="$LINUX_TYPE"; DATA_TYPE="$LINUX_TYPE"
+    if test "$diskcount" != "1"; then
+        BOOT_TYPE="$MIRROR_TYPE"; ROOT_TYPE="$MIRROR_TYPE"; DATA_TYPE="$MIRROR_TYPE"
+    fi
+    if test "$boot_fs" = "zfs"; then BOOT_TYPE="$ZFS_TYPE"; fi
+    if test "$root_fs" = "zfs"; then ROOT_TYPE="$ZFS_TYPE"; fi
+    if test "$data_fs" = "zfs"; then DATA_TYPE="$ZFS_TYPE"; fi
+    if test "$root_size" = "all"; then root_size="0"; else root_size="+${root_size}M"; fi
+    disknr=1
+    if test "$diskcount" = "1"; then
+        disknr=""
+    fi
+
+    for disk in $fulldisklist; do
+        echo "partition disk $disk"
+        # legacy boot support: additional data for grub bios boot
+        sgdisk  "${disk}" \
+            -n "$BIOS_NR:1M:+1M" \
+            -t "$BIOS_NR:EF02" \
+            -c "$BIOS_NR:BIOS${disknr}"
+        # efi and recovery support: minimum size for valid EFI is 260MiB
+        sgdisk  "${disk}" \
+            -n "$EFI_NR:0:+${efi_size}M" \
+            -t "$EFI_NR:EF00" \
+            -c "$EFI_NR:EFI${disknr}"
+        if test "$option_log" = "true"; then
+            # optional (ZFS)-Log Partition, use case: 1 ssd, 2hdd, log on ssd
+            sgdisk  "${disk}" \
+            -n "$LOG_NR:0:+${log_size}M" \
+            -t "$LOG_NR:$LINUX_TYPE" \
+            -c "$LOG_NR:LOG${disknr}"
+        fi
+        if test "$option_cache" = "true"; then
+            # optional (ZFS)-Cache Partition, use case: 1 ssd, 2hdd, cache on ssd
+            sgdisk  "${disk}" \
+            -n "$CACHE_NR:0:+${cache_size}M" \
+            -t "$CACHE_NR:$LINUX_TYPE" \
+            -c "$CACHE_NR:CACHE${disknr}"
+        fi
+        if test "$option_swap" = "true"; then
+            # optional swap partition, for (encrypted) suspend to disk (laptop)
+            sgdisk  "${disk}" \
+            -n "$SWAP_NR:0:+${swap_size}M" \
+            -t "$SWAP_NR:$LINUX_TYPE" \
+            -c "$SWAP_NR:$(mk_partlabel "$diskcount" "$swap_crypt" false "" SWAP${disknr})"
+        fi
+        if test "$option_boot" = "true"; then
+            # boot volume, always unencrypted
+            sgdisk  "${disk}" \
+            -n "$BOOT_NR:0:+${boot_size}M" \
+            -t "$BOOT_NR:$BOOT_TYPE" \
+            -c "$BOOT_NR:$(mk_partlabel "$diskcount" false false "$boot_fs" BOOT${disknr})"
+        fi
+        # root volume
+        sgdisk  "${disk}" \
+            -n "$ROOT_NR:0:$root_size" \
+            -t "$ROOT_NR:$ROOT_TYPE" \
+            -c "$ROOT_NR:$(mk_partlabel "$diskcount" "$root_crypt" "$root_lvm" "$root_fs" ROOT${disknr})"
+        if test "$data_fs" != ""; then
+            # optional data partition
+            sgdisk  "${disk}" \
+            -n "$DATA_NR:0:0" \
+            -t "$DATA_NR:$DATA_TYPE" \
+            -c "$DATA_NR:$(mk_partlabel "$diskcount" "$data_crypt" "" "$data_fs" DATA${disknr})"
+        fi
         sync
         partprobe "${disk}"
         sleep 1
+        disknr=$((disknr+1))
     done
-fi
 
-echo "partition disks"
-DATA_NR="8"; BIOS_NR="7"; EFI_NR="6"; LOG_NR="5"
-CACHE_NR="4"; SWAP_NR="3"; BOOT_NR="2"; ROOT_NR="1"
-MIRROR_TYPE="FD00"; ZFS_TYPE="BF01"; LINUX_TYPE="8300"
-BOOT_TYPE="$LINUX_TYPE"; ROOT_TYPE="$LINUX_TYPE"; DATA_TYPE="$LINUX_TYPE"
-if test "$diskcount" != "1"; then
-    BOOT_TYPE="$MIRROR_TYPE"; ROOT_TYPE="$MIRROR_TYPE"; DATA_TYPE="$MIRROR_TYPE"
+    create_efi
+    mount_efi /mnt
 fi
-if test "$boot_fs" = "zfs"; then BOOT_TYPE="$ZFS_TYPE"; fi
-if test "$root_fs" = "zfs"; then ROOT_TYPE="$ZFS_TYPE"; fi
-if test "$data_fs" = "zfs"; then DATA_TYPE="$ZFS_TYPE"; fi
-if test "$root_size" = "all"; then root_size="0"; else root_size="+${root_size}M"; fi
-disknr=1
-if test "$diskcount" = "1"; then
-    disknr=""
-fi
-
-for disk in $fulldisklist; do
-    echo "partition disk $disk"
-    # legacy boot support: additional data for grub bios boot
-    sgdisk  "${disk}" \
-        -n "$BIOS_NR:1M:+1M" \
-        -t "$BIOS_NR:EF02" \
-        -c "$BIOS_NR:BIOS${disknr}"
-    # efi and recovery support: minimum size for valid EFI is 260MiB
-    sgdisk  "${disk}" \
-        -n "$EFI_NR:0:+${efi_size}M" \
-        -t "$EFI_NR:EF00" \
-        -c "$EFI_NR:EFI${disknr}"
-    if test "$option_log" = "true"; then
-        # optional (ZFS)-Log Partition, use case: 1 ssd, 2hdd, log on ssd
-        sgdisk  "${disk}" \
-        -n "$LOG_NR:0:+${log_size}M" \
-        -t "$LOG_NR:$LINUX_TYPE" \
-        -c "$LOG_NR:LOG${disknr}"
-    fi
-    if test "$option_cache" = "true"; then
-        # optional (ZFS)-Cache Partition, use case: 1 ssd, 2hdd, cache on ssd
-        sgdisk  "${disk}" \
-        -n "$CACHE_NR:0:+${cache_size}M" \
-        -t "$CACHE_NR:$LINUX_TYPE" \
-        -c "$CACHE_NR:CACHE${disknr}"
-    fi
-    if test "$option_swap" = "true"; then
-        # optional swap partition, for (encrypted) suspend to disk (laptop)
-        sgdisk  "${disk}" \
-        -n "$SWAP_NR:0:+${swap_size}M" \
-        -t "$SWAP_NR:$LINUX_TYPE" \
-        -c "$SWAP_NR:$(mk_partlabel "$diskcount" "$swap_crypt" false "" SWAP${disknr})"
-    fi
-    if test "$option_boot" = "true"; then
-        # boot volume, always unencrypted
-        sgdisk  "${disk}" \
-        -n "$BOOT_NR:0:+${boot_size}M" \
-        -t "$BOOT_NR:$BOOT_TYPE" \
-        -c "$BOOT_NR:$(mk_partlabel "$diskcount" false false "$boot_fs" BOOT${disknr})"
-    fi
-    # root volume
-    sgdisk  "${disk}" \
-        -n "$ROOT_NR:0:$root_size" \
-        -t "$ROOT_NR:$ROOT_TYPE" \
-        -c "$ROOT_NR:$(mk_partlabel "$diskcount" "$root_crypt" "$root_lvm" "$root_fs" ROOT${disknr})"
-    if test "$data_fs" != ""; then
-        # optional data partition
-        sgdisk  "${disk}" \
-        -n "$DATA_NR:0:0" \
-        -t "$DATA_NR:$DATA_TYPE" \
-        -c "$DATA_NR:$(mk_partlabel "$diskcount" "$data_crypt" "" "$data_fs" DATA${disknr})"
-    fi
-    sync
-    partprobe "${disk}"
-    sleep 1
-    disknr=$((disknr+1))
-done
-
-create_efi
-mount_efi /mnt
 
 echo "build recovery to /mnt/efi"
 mkdir -p /tmp/liveimage
