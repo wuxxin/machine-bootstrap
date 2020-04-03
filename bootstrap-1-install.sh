@@ -122,12 +122,12 @@ setup_hostname "$hostname"
 
 # compile custom zfs-linux if requested
 if $option_frankenstein; then
-    if test ! -e /tmp/zfs/build-custom-zfs.sh -o ! -e /tmp/zfs/no-dops-snapdirs.patch; then
+    if test ! -e /tmp/zfs/build-custom-zfs.sh; then
         echo "error: could not find needed files for frankenstein zfs-linux build, continue without custom build"
     else
         echo "build-custom-zfs"
         chmod +x /tmp/zfs/build-custom-zfs.sh
-        /tmp/zfs/build-custom-zfs.sh /tmp/zfs/basedir --source focal --dest bionic
+        /tmp/zfs/build-custom-zfs.sh /tmp/zfs/basedir --source focal --dest $distrib_codename
         if test -e $custom_archive; then rm -rf $custom_archive; fi
         mkdir -p $custom_archive
         mv -t $custom_archive /tmp/zfs/basedir/build/buildresult/*
@@ -154,11 +154,11 @@ zgenhostid
 # create_and_mount_root /mnt $diskpassword $root_lvm_vol_size
 #create_boot
 #create_data $diskpassword $data_lvm_vol_size
-create_swap $diskpassword
-create_homedir home $firstuser
-mount_boot /mnt
-mount_efi /mnt
-mount_data /mnt/mnt
+#create_swap $diskpassword
+#create_homedir home $firstuser
+#mount_boot /mnt
+#mount_efi /mnt
+#mount_data /mnt/mnt
 if test "$(by_partlabel BOOT)" = ""; then
     echo "symlink /boot to /efi because we have no boot partition"
     ln -s efi /mnt/boot
@@ -167,8 +167,8 @@ fi
 if test "$option_restore_backup" != "true"; then
     # install base system
     if test "$distrib_id" = "Ubuntu" -o "$distrib_id" = "Debian"; then
-        echo "install minimal base $distrib_codename system"
-        debootstrap --verbose "$distrib_codename" /mnt
+        #echo "install minimal base $distrib_codename system"
+        #debootstrap --verbose "$distrib_codename" /mnt
 
     elif test "$distrib_id" = "Nixos"; then
         # add nix build group and user

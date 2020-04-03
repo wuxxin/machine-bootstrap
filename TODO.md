@@ -13,15 +13,17 @@
 
 ## testing
 + ubuntu: keep EFI synced
++ fixme: cloud-init errors (with something around install user)
 
 ## next
-+ make data partition work
-+ make zfs work again
++ error: could not find needed files for frankenstein zfs-linux build, continue without custom build
++ insert distrib_codename(focal) into /etc/pbuilderrc
+cp: cannot stat '/usr/local/lib/bootstrap-custom-archive/*': No such file or directory
+
 + fixme: try to disable subiquity some how 
  
 ## todo
 + also make target system honor http_proxy on devop install
-+ fixme: cloud-init errors (with something around install user)
 + fixme: ubuntu: after hardreset, recovery is not selected as fallback
 + fixme: Logical volume vg0/lvm-root contains a filesystem in use; Block deactivation of lvm/mdadm
 + make distrib_id=Nixos distrib_codename=19.09 working
