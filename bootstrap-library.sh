@@ -5,9 +5,7 @@ get_default_packages() {
 }
 
 get_zfs_packages() {
-    # echo "spl-dkms zfs-dkms zfsutils-linux"
-    # fixme: make zfs work again
-    echo "zfsutils-linux"
+    echo "zfsutils-linux zfs-dkms"
 }
 
 configure_module_zfs() {
@@ -288,18 +286,60 @@ create_swap() { # diskpassword
     fi
 }
 
-create_data() { # diskpassword
-    local diskpassword targetdev devlist devcount
-    diskpassword="$1"
+create_data() { # diskpassword data_lvm_vol_size
+    local diskpassword data_lvm_vol_size devlist devcount devindex devtarget actlist templist vgname i
+    diskpassword="$1"; data_lvm_vol_size="$2"
     devlist=$(by_partlabel DATA)
     devcount=$(echo "$devlist" | wc -w)
     if test "$devcount" = "1" -o "$devcount" = "2"; then
-        echo "FIXME: create_data and make luks but no raid and no fs format, if fs =other"
+        actlist=$devlist
+        if (test "$devcount" != "1" && ! is_zfs "$devlist"); then
+            echo "create mdadm-data"
+            echo "y" | mdadm --create /dev/md/$(hostname):mdadm-data -v \
+                --symlinks=yes --assume-clean \
+                --level=mirror "--raid-disks=${devcount}" \
+                $actlist
+            actlist=/dev/md/$(hostname):mdadm-data
+        fi
+        if is_crypt "$devlist"; then
+            devindex=1
+            templist=$actlist
+            actlist=""
+            for i in $templist; do
+                devtarget=luks-data$(if (test "$devcount" != "1" && is_zfs "${i}"); then echo "${i}"; fi)
+                echo "$diskpassword" \
+                    | cryptsetup luksFormat -c aes-xts-plain64 -s 256 -h sha256 ${i}
+                echo "$diskpassword" \
+                    | cryptsetup open --type luks ${i} "$devtarget"
+                actlist="$actlist /dev/mapper/$devtarget"
+                devindex=$((devindex+1))
+            done
+        fi
+        if is_lvm "$devlist"; then
+            echo "setup lvm pv and vg"
+            vgname="$(substr_vgname "$devlist")"
+            lvm pvcreate -f -y $actlist
+            lvm vgcreate -y "$vgname" $actlist
+            echo "format lv lvm-data"
+            lvm lvcreate -y --size "${data_lvm_vol_size}" "$vgname" --name lvm-data
+            "mkfs.$(substr_fstype "$devlist")" -q -L data "/dev/$vgname/lvm-data"
+        elif is_zfs "$devlist"; then
+            echo "create data zpool"
+            create_data_zpool "$basedir" \
+                "$(if test "$devcount" != 1; then echo "mirror"; fi)" $actlist
+        else
+            if test "$(substr_fstype "$devlist")" = "other"; then
+                echo "not touching $actlist as fstype=other"
+            else
+                echo "format data"
+                "mkfs.$(substr_fstype "$devlist")" -q -L data "$actlist"
+            fi
+        fi
     fi
 }
 
 create_and_mount_root() { # basedir diskpassword root_lvm_vol_size
-    local basedir diskpassword devlist devcount devindex devtarget actlist templist vgname
+    local basedir diskpassword root_lvm_vol_size devlist devcount devindex devtarget actlist templist vgname
     basedir="$1"; diskpassword="$2"; root_lvm_vol_size="$3"
     devlist=$(by_partlabel ROOT)
     devcount=$(echo "$devlist" | wc -w)
@@ -580,6 +620,25 @@ UUID=$(dev_fs_uuid "$devtarget")    /   $(substr_fstype "$devlist")   defaults 0
 EOF
         fi
     fi
+    devlist=$(by_partlabel DATA)
+    devcount=$(echo "$devlist" | wc -w)
+    if test "$devcount" = "1" -o "$devcount" = "2"; then
+        if is_zfs "$devlist"; then
+            cat >> /etc/fstab << EOF
+dpool/data   /mnt/data   zfs     defaults 0 0
+EOF
+        else
+            devtarget="$devlist"
+            if is_raid "$devlist"; then devtarget="/dev/md/$(hostname):mdadm-data"; fi
+            if is_crypt "$devlist"; then devtarget="/dev/mapper/luks-data"; fi
+            if is_lvm "$devlist"; then
+                devtarget="/dev/$(substr_vgname "$devlist")/lvm-data"
+            fi
+            cat >> /etc/fstab << EOF
+UUID=$(dev_fs_uuid "$devtarget")    /mnt/data   $(substr_fstype "$devlist")   defaults 0 1
+EOF
+        fi
+    fi
 }
 
 
@@ -672,7 +731,8 @@ mount_data() { # basedir force:true|false
             mkdir -p "$basedir/data"
             zpool import $import_opts -N -R "$basedir/data" dpool
         elif is_lvm "$devlist"; then
-            echo "doing nothing, as lvm VG of DATA has no default volumes"
+            mkdir -p "$basedir/data"
+            mount /dev/disk/by-label/data "$basedir/data"
         fi
     fi
 }
@@ -804,15 +864,15 @@ create_data_zpool() { # basedir zpool-create-args* (eg. mirror sda1 sda2)
         -O acltype=posixacl \
         -O relatime=on \
         -O canmount=off \
-        -O mountpoint=/data \
+        -O mountpoint=/ \
         -R "$basedir" \
         dpool "$@"
 
     zfs create \
         -o setuid=off \
         -o exec=off \
-        -o canmount=off \
-        -o mountpoint=none \
+        -o canmount=noauto \
+        -o mountpoint=/data \
         -o com.sun:auto-snapshot=true \
         "dpool/data"
 }

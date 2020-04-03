@@ -21,7 +21,7 @@ fi
 cd /
 echo "swap off"; swapoff -a || true
 unmount_bind_mounts /mnt
-unmount_data /mnt
+unmount_data /mnt/mnt
 unmount_efi /mnt
 unmount_boot /mnt
 unmount_root /mnt

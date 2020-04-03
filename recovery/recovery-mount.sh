@@ -42,7 +42,7 @@ activate_lvm
 mount_root /mnt $force
 mount_boot /mnt $force
 mount_efi /mnt
-mount_data /mnt $force
+mount_data /mnt/mnt $force
 mount_bind_mounts /mnt
 
 cat << EOF

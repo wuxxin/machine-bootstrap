@@ -137,11 +137,14 @@ while true; do
     --root-lvm)     root_lvm="$2";  shift ;;
     --root-lvm-vol-size)            shift ;;
     # accept but ignore root-lvm-vol-size in bootstrap-0, because it's only needed in bootstrap-1
+    # fixme getopt: check for second parameter
     --root-crypt)   root_crypt="$2";shift ;;
     --root-size)    root_size="$2"; shift ;;
     --data-fs)      data_fs="$2";   shift ;;
     --data-lvm)     data_lvm="$2";  shift ;;
     --data-crypt)   data_crypt="$2";shift ;;
+    --data-lvm-vol-size)            shift ;;
+    # accepted but ignored in bootstrap-0, because needed in bootstrap-1
     --from-download) from_download="true"; ;;
     --)             shift; break ;;
     *)              echo "error in params: $@"; usage ;;

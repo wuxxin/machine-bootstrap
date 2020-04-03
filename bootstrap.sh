@@ -217,11 +217,16 @@ for i in sshlogin hostname firstuser storage_ids; do
         exit 1
     fi
 done
-# extract and save root_lvm_vol_size from storage_opts if present for bootstrap-1
+# extract and save (root|data)_lvm_vol_size from storage_opts if present for bootstrap-1
 select_root_lvm_vol_size=""
+select_data_lvm_vol_size=""
 if (echo "$storage_opts" | grep -q -- "--root-lvm-vol-size"); then
     lvm_vol_size=$(echo "$storage_opts" | sed -r "s/.*--root-lvm-vol-size=([^ ]+).*/\1/g")
     select_root_lvm_vol_size="--root-lvm-vol-size $lvm_vol_size"
+fi
+if (echo "$storage_opts" | grep -q -- "--data-lvm-vol-size"); then
+    lvm_vol_size=$(echo "$storage_opts" | sed -r "s/.*--data-lvm-vol-size=([^ ]+).*/\1/g")
+    select_data_lvm_vol_size="--data-lvm-vol-size $lvm_vol_size"
 fi
  # check for mandatory files
 for i in $diskpassphrase_file $authorized_keys_file; do
@@ -406,7 +411,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
     echo "call bootstrap-1, format storage, install system or restore from backup"
     echo -n "$diskphrase" \
         | ssh $sshopts ${sshlogin} \
-            "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1-install.sh $hostname $firstuser \"$storage_ids\" --yes $select_root_lvm_vol_size $select_frankenstein --distrib-id $distrib_id --distrib-codename $distrib_codename  $@" 2>&1 | tee "$log_path/bootstrap-install.log"
+            "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1-install.sh $hostname $firstuser \"$storage_ids\" --yes $select_root_lvm_vol_size $select_data_lvm_vol_size $select_frankenstein --distrib-id $distrib_id --distrib-codename $distrib_codename  $@" 2>&1 | tee "$log_path/bootstrap-install.log"
 
     echo "copy initrd and system ssh hostkeys from target"
     printf "%s %s\n" "$(ssh_uri ${sshlogin} known)" \

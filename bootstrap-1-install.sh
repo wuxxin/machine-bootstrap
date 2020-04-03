@@ -13,6 +13,8 @@ optional parameter (must be ordered as listed):
 
 --root-lvm-vol-size <volsizemb>
     if lvm is used, define the capacity of the lvm root volume, defaults to 20480 (20gb)
+--data-lvm-vol-size <volsizemb>
+    if lvm is used, define the capacity of the lvm data volume, defaults to 20480 (20gb)
 --frankenstein
     backport and patch zfs-linux with no-d-revalidate.patch
 --distrib_id <name>
@@ -49,6 +51,7 @@ distrib_id="Ubuntu"
 # distrib_codename is nixos channel (eg. 19.09) in case of distrib_id=Nixos
 distrib_codename="bionic"
 root_lvm_vol_size="20480"
+data_lvm_vol_size="$root_lvm_vol_size"
 
 # parse args
 if test "$4" != "--yes"; then usage; fi
@@ -71,6 +74,7 @@ if test "$diskpassword" = ""; then
     exit 1
 fi
 if test "$1" = "--root-lvm-vol-size"; then root_lvm_vol_size="$2"; shift 2; fi
+if test "$1" = "--data-lvm-vol-size"; then data_lvm_vol_size="$2"; shift 2; fi
 if test "$1" = "--frankenstein"; then option_frankenstein=true; shift; fi
 if test "$1" = "--distrib-id"; then distrib_id=$2; shift 2; fi
 if test "$1" = "--distrib-codename"; then distrib_codename=$2; shift 2; fi
@@ -103,6 +107,7 @@ distrib_codename: $distrib_codename
 option_frankenstein: $option_frankenstein
 option_restore_backup: $option_restore_backup
 root_lvm_vol_size: $root_lvm_vol_size
+data_lvm_vol_size: $data_lvm_vol_size
 EOF
 
 # ## main
@@ -148,12 +153,12 @@ zgenhostid
 # create & mount target filesystems
 create_and_mount_root /mnt $diskpassword $root_lvm_vol_size
 create_boot
-create_data $diskpassword
+create_data $diskpassword $data_lvm_vol_size
 create_swap $diskpassword
 create_homedir home $firstuser
 mount_boot /mnt
 mount_efi /mnt
-mount_data /mnt
+mount_data /mnt/mnt
 if test "$(by_partlabel BOOT)" = ""; then
     echo "symlink /boot to /efi because we have no boot partition"
     ln -s efi /mnt/boot
@@ -206,7 +211,7 @@ EOF
         # install Nixos
         PATH="$PATH" NIX_PATH="$NIX_PATH" `which nixos-install` --root /mnt
 
-        unmount_data /mnt
+        unmount_data /mnt/mnt
         unmount_efi /mnt
         unmount_boot /mnt
         unmount_root /mnt
@@ -306,7 +311,7 @@ done
 
 echo "swap off"; swapoff -a || true
 unmount_bind_mounts /mnt
-unmount_data /mnt
+unmount_data /mnt/mnt
 unmount_efi /mnt
 unmount_boot /mnt
 unmount_root /mnt
