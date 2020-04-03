@@ -105,10 +105,7 @@ $(printf "%s" "$authorized_keys_data" | sed -e 's/^/  - /')
 users:
   - name: root
     lock_passwd: true
-
-EOF
-cat > /dev/null << EOF
-  - name: ubuntu
+  - name: installer
     sudo: ALL=(ALL) NOPASSWD:ALL
     lock_passwd: true
     ssh_authorized_keys:
