@@ -250,7 +250,7 @@ fi
 
 # make defaults
 if test -z "$distrib_id"; then distrib_id="Ubuntu"; fi
-if test -z "$distrib_codename"; then distrib_codename="bionic"; fi
+if test -z "$distrib_codename"; then distrib_codename="focal"; fi
 if test -z "$devop_target"; then devop_target="/home/$firstuser"; fi
 if test -z "$devop_user"; then devop_user="$firstuser"; fi
 if test "$recovery_autologin" != "true"; then recovery_autologin="false"; fi

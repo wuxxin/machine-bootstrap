@@ -49,7 +49,7 @@ option_restore_backup=false
 # distrib_id can be one of "Ubuntu", "Debian", "Nixos"
 distrib_id="Ubuntu"
 # distrib_codename is nixos channel (eg. 19.09) in case of distrib_id=Nixos
-distrib_codename="bionic"
+distrib_codename="focal"
 root_lvm_vol_size="20480"
 data_lvm_vol_size="$root_lvm_vol_size"
 
@@ -85,7 +85,7 @@ if test "$distrib_id" != "Ubuntu" -a "$distrib_id" != "Debian" -a "$distrib_id" 
     echo "Error: Unknown distrib_id($distrib_id)"
     exit 1
 fi
-if test "$distrib_id" != "Ubuntu" -a "distrib_codename" = "bionic"; then
+if test "$distrib_id" != "Ubuntu" -a "distrib_codename" = "focal"; then
     if test "$distrib_id" = "Debian"; then distrib_codename="buster"; fi
     if test "$distrib_id" = "Nixos"; then distrib_codename="19.09"; fi
 fi

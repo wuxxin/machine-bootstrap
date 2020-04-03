@@ -2,7 +2,7 @@
 
 Unattended ssh based operating system installer
 
-for Ubuntu 18.04-20.04, (WIP: Nixos, Debian 10),
+for Ubuntu 20.04, (WIP: Nixos, Debian 10),
 with buildin recovery image, root storage on luks encrypted zfs,
 initrd with ssh luks support, other specialized storage layouts.
 
@@ -50,8 +50,8 @@ Some setups may work, most break under certain conditions.
     + add `storage_opts="--swap=yes"` to `machine-config.env`
 + a vm with a http proxy on its host:
     + add `http_proxy="http://proxyip:port"`to `machine-config.env`
-+ install ubuntu focal instead of bionic:
-    + add `distrib_codename=focal` to `machine-config.env`
++ install ubuntu eoan instead of focal:
+    + add `distrib_codename=eoan` to `machine-config.env`
 + install nixos instead of ubuntu:
     + add `distrib_id=Nixos` and `distrib_codename=19.09` to `machine-config.env`
 
@@ -162,7 +162,7 @@ firstuser=$(id -u -n)
 # optional
 # http_proxy="http://192.168.122.1:8123" # default ""
 # distrib_id="Nixos" # default "Ubuntu"
-# distrib_codename="19.09-small" # default "bionic"
+# distrib_codename="19.09-small" # default "focal"
 # recovery_autologin="true" # default "false"
 # frankenstein="true" # default "false"
 # devop_target="/home/$(id -u -n)"
