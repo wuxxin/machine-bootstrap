@@ -610,7 +610,7 @@ EOF
     if test "$devcount" = "1" -o "$devcount" = "2"; then
         if is_zfs "$devlist"; then
             cat >> /etc/fstab << EOF
-rpool/ROOT/ubuntu   /boot   zfs     defaults 0 0
+rpool/ROOT/ubuntu   /   zfs     defaults 0 0
 EOF
         else
             devtarget="$devlist"
@@ -988,4 +988,49 @@ create_root_zpool() { # basedir zpool-create-args* (eg. mirror sda1 sda2)
     zfs create  rpool/var/lib/snapd
     mkdir -p "$basedir/var/lib/libvirt"
     zfs create  rpool/var/lib/libvirt
+}
+
+
+install_nixos() { # basedir distrib_codename
+    local basedir distrib_codename
+    basedir=$1; distrib_codename=$2
+    # add nix build group and user
+    groupadd -g 30000 nixbld
+    useradd -u 30000 -g nixbld -G nixbld nixbld
+    # install nix
+    curl https://nixos.org/nix/install | sh
+    . /root/.nix-profile/etc/profile.d/nix.sh
+    # change channel
+    nix-channel --add https://nixos.org/channels/nixos-$distrib_codename nixpkgs
+    nix-channel --update
+    # install nix bootstrap utilities
+    nix-env -iE "_: with import <nixpkgs/nixos> { configuration = {}; }; with config.system.build; [ nixos-generate-config nixos-install nixos-enter manual.manpages ]"
+
+    # generate nix config
+    nixos-generate-config --root $basedir
+
+    # make machine-bootstrap.nix config
+    efi1="/dev/$(basename "$(readlink -f "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | first_of)")/..")")"
+    if test "$(by_partlabel EFI | wc -w)" = "2"; then
+        efi2="/dev/$(basename "$(readlink -f "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | x_of 2)")/..")")"
+        cat >> $basedir/configuration.nix << EOF
+boot.loader.grub.mirroredBoots = [ { devices = ["$efi1"] ; path = "/efi"; } { devices = ["$efi2"] ; path = "/efi2"; }]
+EOF
+    else
+        cat >> $basedir/configuration.nix << EOF
+boot.loader.grub.device = "$efi1"
+EOF
+    fi
+    # casper recovery entry to grub
+    EFI_NR=$(cat "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | first_of)")/partition")
+    efi_grub="hd0,gpt${EFI_NR}"
+    efi_fs_uuid=$(dev_fs_uuid "$(by_partlabel EFI | first_of)")
+    casper_livemedia=""
+    cat >> $basedir/configuration.nix << EOF
+boot.loader.grub.extraEntries = ''
+$(build-recovery.sh show grub.nix.entry "$efi_grub" "$casper_livemedia" "$efi_fs_uuid")
+'';
+EOF
+    # install Nixos
+    PATH="$PATH" NIX_PATH="$NIX_PATH" `which nixos-install` --root $basedir
 }

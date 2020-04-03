@@ -151,14 +151,14 @@ if test -e /etc/hostid; then rm /etc/hostid; fi
 zgenhostid
 
 # create & mount target filesystems
-# create_and_mount_root /mnt $diskpassword $root_lvm_vol_size
-#create_boot
-#create_data $diskpassword $data_lvm_vol_size
-#create_swap $diskpassword
-#create_homedir home $firstuser
-#mount_boot /mnt
-#mount_efi /mnt
-#mount_data /mnt/mnt
+create_and_mount_root /mnt $diskpassword $root_lvm_vol_size
+create_boot
+create_data $diskpassword $data_lvm_vol_size
+create_swap $diskpassword
+create_homedir home $firstuser
+mount_boot /mnt
+mount_efi /mnt
+mount_data /mnt/mnt
 if test "$(by_partlabel BOOT)" = ""; then
     echo "symlink /boot to /efi because we have no boot partition"
     if test -L /mnt/boot; then rm /mnt/boot; fi
@@ -169,49 +169,9 @@ if test "$option_restore_backup" != "true"; then
     # install base system
     if test "$distrib_id" = "Ubuntu" -o "$distrib_id" = "Debian"; then
         echo "install minimal base $distrib_codename system"
-        #debootstrap --verbose "$distrib_codename" /mnt
-
+        debootstrap --verbose "$distrib_codename" /mnt
     elif test "$distrib_id" = "Nixos"; then
-        # add nix build group and user
-        groupadd -g 30000 nixbld
-        useradd -u 30000 -g nixbld -G nixbld nixbld
-        # install nix
-        curl https://nixos.org/nix/install | sh
-        . /root/.nix-profile/etc/profile.d/nix.sh
-        # change channel
-        nix-channel --add https://nixos.org/channels/nixos-$distrib_codename nixpkgs
-        nix-channel --update
-        # install nix bootstrap utilities
-        nix-env -iE "_: with import <nixpkgs/nixos> { configuration = {}; }; with config.system.build; [ nixos-generate-config nixos-install nixos-enter manual.manpages ]"
-
-        # generate nix config
-        nixos-generate-config --root /mnt
-
-        # make machine-bootstrap.nix config
-        efi1="/dev/$(basename "$(readlink -f "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | first_of)")/..")")"
-        if test "$(by_partlabel EFI | wc -w)" = "2"; then
-            efi2="/dev/$(basename "$(readlink -f "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | x_of 2)")/..")")"
-            cat >> /mnt/configuration.nix << EOF
-boot.loader.grub.mirroredBoots = [ { devices = ["$efi1"] ; path = "/efi"; } { devices = ["$efi2"] ; path = "/efi2"; }]
-EOF
-        else
-            cat >> /mnt/configuration.nix << EOF
-boot.loader.grub.device = "$efi1"
-EOF
-        fi
-        # casper recovery entry to grub
-        EFI_NR=$(cat "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | first_of)")/partition")
-        efi_grub="hd0,gpt${EFI_NR}"
-        efi_fs_uuid=$(dev_fs_uuid "$(by_partlabel EFI | first_of)")
-        casper_livemedia=""
-        cat >> /mnt/configuration.nix << EOF
-boot.loader.grub.extraEntries = ''
-$(build-recovery.sh show grub.nix.entry "$efi_grub" "$casper_livemedia" "$efi_fs_uuid")
-'';
-EOF
-        # install Nixos
-        PATH="$PATH" NIX_PATH="$NIX_PATH" `which nixos-install` --root /mnt
-
+        install_nixos /mnt $distrib_codename
         unmount_data /mnt/mnt
         unmount_efi /mnt
         unmount_boot /mnt
