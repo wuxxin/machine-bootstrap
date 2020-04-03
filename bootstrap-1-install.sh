@@ -168,7 +168,7 @@ fi
 if test "$option_restore_backup" != "true"; then
     # install base system
     if test "$distrib_id" = "Ubuntu" -o "$distrib_id" = "Debian"; then
-        #echo "install minimal base $distrib_codename system"
+        echo "install minimal base $distrib_codename system"
         #debootstrap --verbose "$distrib_codename" /mnt
 
     elif test "$distrib_id" = "Nixos"; then
