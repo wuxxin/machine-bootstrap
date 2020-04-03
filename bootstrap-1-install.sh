@@ -161,6 +161,7 @@ zgenhostid
 #mount_data /mnt/mnt
 if test "$(by_partlabel BOOT)" = ""; then
     echo "symlink /boot to /efi because we have no boot partition"
+    if test -L /mnt/boot; then rm /mnt/boot; fi
     ln -s efi /mnt/boot
 fi
 
