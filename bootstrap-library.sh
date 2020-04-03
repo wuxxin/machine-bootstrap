@@ -980,7 +980,7 @@ create_root_zpool() { # basedir zpool-create-args* (eg. mirror sda1 sda2)
 
     mkdir -p "$basedir/var/lib/apt/lists"
     zfs create  -o exec=off \
-                -o mountpoint=/var/lib/apt/lists
+                -o mountpoint=/var/lib/apt/lists \
                 rpool/var/lib/apt-lists
     mkdir -p "$basedir/var/lib/snapd"
     zfs create  rpool/var/lib/snapd

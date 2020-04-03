@@ -151,7 +151,7 @@ if test -e /etc/hostid; then rm /etc/hostid; fi
 zgenhostid
 
 # create & mount target filesystems
-create_and_mount_root /mnt $diskpassword $root_lvm_vol_size
+# create_and_mount_root /mnt $diskpassword $root_lvm_vol_size
 create_boot
 create_data $diskpassword $data_lvm_vol_size
 create_swap $diskpassword
