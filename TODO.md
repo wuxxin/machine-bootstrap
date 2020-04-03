@@ -10,28 +10,24 @@
     + virtio vga does not work in X11, use qxl instead
 
 ## done
-+ fixme: root on encrypted lvm but no boot partition (use efi)
 
 ## testing
 + ubuntu: keep EFI synced
 
+## next
++ make data partition work
++ make zfs work again
++ fixme: try to disable subiquity some how 
+ 
 ## todo
-+ fixme: Unable to manage file: Error: [Errno -3] Temporary failure in name resolution reading https://get.helm.sh/helm-v3.1.1-linux-amd64.tar.gz.sha256
-    + happens in devop state after first run (but not without state app included)
-
++ also make target system honor http_proxy on devop install
++ fixme: cloud-init errors (with something around install user)
 + fixme: ubuntu: after hardreset, recovery is not selected as fallback
 + fixme: Logical volume vg0/lvm-root contains a filesystem in use; Block deactivation of lvm/mdadm
-+ fixme: try to disable subiquity some how 
-+ fixme: cloud-init errors (with something around install user)
-+ also make target system honor http_proxy on devop install
-
-+ make data partition work or delete code that breaks
 + make distrib_id=Nixos distrib_codename=19.09 working
     + make ./machine-bootstrap-configuration.nix in bootstrap-library
         + make all machine-bootstrap knowledge available there
     + make minimal configuration.nix on project create
-+ make zfs work again
-
 + all: optional use of tmux for long running ssh connections of bootstrap.sh
 + recovery scripts to replace a faulty disk, to invalidate a disk
     + all: add script to replace a changed faulty disk: recovery-replace-mirror.sh

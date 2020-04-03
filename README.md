@@ -9,12 +9,12 @@ initrd with ssh luks support, other specialized storage layouts.
 **Usage:** to be executed on an linux liveimage/recoveryimage system connected via ssh.
 
 It serves three use cases:
-+ as an experimental Desktop/Laptop for getting experience with this setup
++ as an experimental Desktop/Laptop for getting experience with the setup
 + as a typical Rootserver (2xHD, headless)
 + as a home-nas/home-io headless server with one ssd and two attached spindle disks
 
 Current Status: **Experimental** 
-    
+
 Some setups may work, most break under certain conditions.
 
 ## Features
@@ -24,14 +24,14 @@ Some setups may work, most break under certain conditions.
 + **root on luks encrypted zfs** / zfs mirror pool (encrypted storage at rest)
     + and **other common and less common**, easy to configure **storage setups**
 + ubuntu: modern initial ramdisk based on **dracut with ssh for remote unlock luks** on startup
-+ **recovery system installation** (based on ubuntu casper) on EFI partition
++ **recovery system installation** (based on ubuntu 20.04 casper) on EFI partition
     + unattended cloud-init boot via custom squashfs with ssh ready to login
     + buildin scripts to mount/unmount root and update recovery boot parameter
 + **logging** of recovery and target system installation on the calling machine in directory ./log
 
 ### optional Features
 + luks encrypted **hibernate compatible swap** for eg. a desktop installation
-+ ubuntu: **overlay fs support on zfs** by building patched zfs-linux (frankenstein=true)
++ ubuntu: **overlay fs and namespace uid/guid support on zfs** by building patched zfs-linux (frankenstein=true)
 + ubuntu: **saltstack provision run** at devop stage with states from salt-shared (eg. desktop)
 + **build a preconfigured livesystem image** usable for headless physical installation
     + resulting image is compatible as CD or USB-Stick with BIOS and EFI support
@@ -68,7 +68,9 @@ Some setups may work, most break under certain conditions.
 + server: one or two encrypted disks, boot and root on zfs, patched zfs for overlay support
     + storage_opts="--frankenstein=true"
 + server: one or two encrypted disks with lvm storage (100gb) with root (25gb) and zfs on data (rest)
-    + storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-size=102400 --root-lvm=vgroot --root-lvm-vol-size=25600" --data-fs=zfs"
+    + storage_opts="--root-fs=ext4 --root-size=102400 --root-lvm=vgroot --root-lvm-vol-size=25600" --data-fs=zfs"
++ server: one or two encrypted disks, root on zfs (100g), with data lvm storage vgdata
+    + storage_opts="--frankenstein=true --root-size=102400 --data-lvm=vgdata --data-lvm-vol-size=25600" --data-fs=ext4"
 
 ## Preparation
 
@@ -181,6 +183,7 @@ firstuser=$(id -u -n)
 # [--data-fs=    *""|zfs|ext4|xfs|other]
 # [--data-crypt= *true|false]
 # [--data-lvm=   *""|<vgname>]
+# [--data-lvm-vol-size= <volsizemb, default if lvm is true: 20480 mb>]
 EOF
 
 # copy current user ssh public key as authorized_keys
@@ -244,7 +247,7 @@ create-liveimage creates an iso hybrid image usable as CD or usb-stick,
 bootable via efi or bios.
 
 this can be useful eg. if the target is headless,
-or and emulator supplied with a live image preconfigured with ssh and other keys.
+or inside an emulator supplied with a live image preconfigured with ssh and other keys.
 
 ```
 ./machine-bootstrap/bootstrap.sh create-liveimage
@@ -306,7 +309,7 @@ reboot
 
 ## Notes
 
-### Limits and Contraints
+### Limits, Contraints, Automatics
 
 + one or two disks only, if machine has more disks they have to be setup later
 
@@ -322,19 +325,22 @@ reboot
     on partittions ROOT and DATA, currently only either zfs or lvm can be used.
     if both are specified at the same time, the script will fail.
 
-+ if ZFS is specified and two disks are available, partition will be used as zfs mirror instead or raid mirror
++ if ZFS is specified and two disks are available, partition will be used as zfs mirror instead of mdadm raid mirror, to let zfs manage the mirroring.
 
 ### GPT Layout
 
 + information leakage
-    be aware that the way the gpt labels are setup, they leak information of encrypted data, eg. raid_luks_lvm.vg0_ext4_ROOT leaks the information that behind the luks encrypted data is a lvm partition with a volume group named vg0 and the root file system is ext4.
+    be aware that, the way gpt labels are setup in this script, they leak metadata of encrypted data, eg. raid_luks_lvm.vg0_ext4_ROOT leaks the information that behind the luks encrypted data is a lvm partition with a volume group named vg0 and the root file system is ext4 (but not how to read this data). if this is an issue, simply rename volume labels after bootstrap completed, mounts will still work because they are pointing to the uuid.
 
 + Partition Layout
 
 Nr |Name(max 36 x UTF16)|Description|
 ---|---|---
 6  | `BIOS,1,2`  | GRUB-BIOS boot binary partition, used to host grub code on gpt for bios boot
-5  | `EFI,1,2`   | EFI vfat partition, dual efi & bios grub installation and recovery- fs,kernel,initrd (replaces boot partition)
+5  | `EFI,1,2`   | EFI vfat partition
+   |             |   + dual efi & bios grub installation
+   |             |   + recovery- kernel,initrd,fs
+   |             |   + system- kernel,initrd
 4  | `LOG,1,2`   | **optional** ZFS Log or other usages
 3  | `CACHE,1,2` | **optional** ZFS Cache or other usages
 2  | `[raid_]luks_SWAP,1,2`  | **optional** encrypted hibernation compatible swap
