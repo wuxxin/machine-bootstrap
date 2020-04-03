@@ -1,8 +1,7 @@
 # Machine bootstrap
 
 Unattended ssh based operating system installer
-
-for Ubuntu 20.04, (WIP: Nixos, Debian 10),
+for Ubuntu 20.04 LTS (Focal),
 with buildin recovery image, root storage on luks encrypted zfs,
 initrd with ssh luks support, other specialized storage layouts.
 
@@ -338,9 +337,9 @@ Nr |Name(max 36 x UTF16)|Description|
 ---|---|---
 6  | `BIOS,1,2`  | GRUB-BIOS boot binary partition, used to host grub code on gpt for bios boot
 5  | `EFI,1,2`   | EFI vfat partition
-   |             |   + dual efi & bios grub installation
-   |             |   + recovery- kernel,initrd,fs
-   |             |   + system- kernel,initrd
+.  | .           | dual efi & bios grub installation
+.  | .           | recovery- kernel,initrd,fs
+.  | .           | system- kernel,initrd
 4  | `LOG,1,2`   | **optional** ZFS Log or other usages
 3  | `CACHE,1,2` | **optional** ZFS Cache or other usages
 2  | `[raid_]luks_SWAP,1,2`  | **optional** encrypted hibernation compatible swap
