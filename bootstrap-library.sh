@@ -239,12 +239,12 @@ create_boot() {
     devcount=$(echo "$devlist" | wc -w)
     if test "$devcount" = "1" -o "$devcount" = "2"; then
         if is_zfs "$devlist"; then
-            echo "create zfs boot pool (bpool)"
+            echo "create zfs boot pool (bpool) $devlist"
             create_boot_pool \
                 "$(if test "$devcount" != 1; then echo "mirror"; fi)" $devlist
         else
             if test "$devcount" != 1; then
-                echo "create mdadm-boot"
+                echo "create mdadm-boot $devlist"
                 echo "y" | mdadm --create /dev/md/$(hostname):mdadm-boot -v \
                     --symlinks=yes --assume-clean \
                     --level=mirror "--raid-disks=${devcount}" \
@@ -266,7 +266,7 @@ create_swap() { # diskpassword
     devcount=$(echo "$devlist" | wc -w)
     if test "$devcount" = "1" -o "$devcount" = "2"; then
         if test "$devcount" != "1"; then
-            echo "create mdadm swap partition"
+            echo "create mdadm swap partition $devlist"
             echo "y" | mdadm --create /dev/md/$(hostname):mdadm-swap -v \
                 --symlinks=yes --assume-clean \
                 --level=mirror "--raid-disks=${devcount}" \
@@ -275,7 +275,7 @@ create_swap() { # diskpassword
         else
             targetdev="$devlist"
         fi
-        echo "create luks swap partition"
+        echo "create luks swap partition $targetdev"
         echo "$diskpassword" \
             | cryptsetup luksFormat -c aes-xts-plain64 -s 256 -h sha256 \
                 "$targetdev"
@@ -294,7 +294,7 @@ create_data() { # diskpassword data_lvm_vol_size
     if test "$devcount" = "1" -o "$devcount" = "2"; then
         actlist=$devlist
         if (test "$devcount" != "1" && ! is_zfs "$devlist"); then
-            echo "create mdadm-data"
+            echo "create mdadm-data $actlist"
             echo "y" | mdadm --create /dev/md/$(hostname):mdadm-data -v \
                 --symlinks=yes --assume-clean \
                 --level=mirror "--raid-disks=${devcount}" \
@@ -306,7 +306,8 @@ create_data() { # diskpassword data_lvm_vol_size
             templist=$actlist
             actlist=""
             for i in $templist; do
-                devtarget=luks-data$(if (test "$devcount" != "1" && is_zfs "${i}"); then echo "${i}"; fi)
+                devtarget=luks-data$(if (test "$devcount" != "1" && is_zfs "${i}"); then echo "${i##*DATA}"; fi)
+                echo "setup luks $devtarget $i"
                 echo "$diskpassword" \
                     | cryptsetup luksFormat -c aes-xts-plain64 -s 256 -h sha256 ${i}
                 echo "$diskpassword" \
@@ -316,22 +317,22 @@ create_data() { # diskpassword data_lvm_vol_size
             done
         fi
         if is_lvm "$devlist"; then
-            echo "setup lvm pv and vg"
             vgname="$(substr_vgname "$devlist")"
+            echo "setup lvm pv $actlist and vg $vgname"
             lvm pvcreate -f -y $actlist
             lvm vgcreate -y "$vgname" $actlist
             echo "format lv lvm-data"
             lvm lvcreate -y --size "${data_lvm_vol_size}" "$vgname" --name lvm-data
             "mkfs.$(substr_fstype "$devlist")" -q -L data "/dev/$vgname/lvm-data"
         elif is_zfs "$devlist"; then
-            echo "create data zpool"
+            echo "create data zpool $actlist"
             create_data_zpool "$basedir" \
                 "$(if test "$devcount" != 1; then echo "mirror"; fi)" $actlist
         else
             if test "$(substr_fstype "$devlist")" = "other"; then
                 echo "not touching $actlist as fstype=other"
             else
-                echo "format data"
+                echo "format data $actlist"
                 "mkfs.$(substr_fstype "$devlist")" -q -L data "$actlist"
             fi
         fi
@@ -349,7 +350,7 @@ create_and_mount_root() { # basedir diskpassword root_lvm_vol_size
     fi
     actlist=$devlist
     if (test "$devcount" != "1" && ! is_zfs "$devlist"); then
-        echo "create mdadm-root"
+        echo "create mdadm-root $actlist"
         echo "y" | mdadm --create /dev/md/$(hostname):mdadm-root -v \
             --symlinks=yes --assume-clean \
             --level=mirror "--raid-disks=${devcount}" \
@@ -361,7 +362,8 @@ create_and_mount_root() { # basedir diskpassword root_lvm_vol_size
         templist=$actlist
         actlist=""
         for i in $templist; do
-            devtarget=luks-root$(if (test "$devcount" != "1" && is_zfs "${i}"); then echo "${i}"; fi)
+            devtarget=luks-root$(if (test "$devcount" != "1" && is_zfs "${i}"); then echo "${i##*ROOT}"; fi)
+            echo "setup luks-root $devtarget $i"
             echo "$diskpassword" \
                 | cryptsetup luksFormat -c aes-xts-plain64 -s 256 -h sha256 ${i}
             echo "$diskpassword" \
@@ -371,8 +373,8 @@ create_and_mount_root() { # basedir diskpassword root_lvm_vol_size
         done
     fi
     if is_lvm "$devlist"; then
-        echo "setup lvm pv and vg"
         vgname="$(substr_vgname "$devlist")"
+        echo "setup lvm pv $actlist and vg $vgname"
         lvm pvcreate -f -y $actlist
         lvm vgcreate -y "$vgname" $actlist
         echo "create format and mount lv lvm-root"
@@ -380,11 +382,11 @@ create_and_mount_root() { # basedir diskpassword root_lvm_vol_size
         "mkfs.$(substr_fstype "$devlist")" -q -L root "/dev/$vgname/lvm-root"
         mount "/dev/$vgname/lvm-root" "$basedir"
     elif is_zfs "$devlist"; then
-        echo "create root zpool"
+        echo "create root zpool $actlist"
         create_root_zpool "$basedir" \
             "$(if test "$devcount" != 1; then echo "mirror"; fi)" $actlist
     else
-        echo "format and mount root"
+        echo "format and mount root $actlist"
         "mkfs.$(substr_fstype "$devlist")" -q -L root "$actlist"
         mount "$actlist" "$basedir"
     fi
