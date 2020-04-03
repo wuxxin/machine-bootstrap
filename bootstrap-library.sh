@@ -730,7 +730,7 @@ mount_data() { # basedir force:true|false
             echo "import dpool"
             mkdir -p "$basedir/data"
             zpool import $import_opts -N -R "$basedir/data" dpool
-        elif is_lvm "$devlist"; then
+        else
             mkdir -p "$basedir/data"
             mount /dev/disk/by-label/data "$basedir/data"
         fi
