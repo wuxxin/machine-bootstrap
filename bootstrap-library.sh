@@ -315,6 +315,7 @@ create_data() { # diskpassword data_lvm_vol_size
                 actlist="$actlist /dev/mapper/$devtarget"
                 devindex=$((devindex+1))
             done
+            sleep 1
         fi
         if is_lvm "$devlist"; then
             vgname="$(substr_vgname "$devlist")"
@@ -371,6 +372,7 @@ create_and_mount_root() { # basedir diskpassword root_lvm_vol_size
             actlist="$actlist /dev/mapper/$devtarget"
             devindex=$((devindex+1))
         done
+        sleep 1
     fi
     if is_lvm "$devlist"; then
         vgname="$(substr_vgname "$devlist")"

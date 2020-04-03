@@ -46,7 +46,7 @@ install a recovery system and overwrite all existing data of all disks matching 
   --data-crypt= *true|false
     # enable or disable encryption for data
   --data-lvm=   *""|<vgname>
-    # create a lvm volume group, do not create a logical volume
+    # create a lvm volume group, and create data volume as logical volume
 
   --efi-size=   <efisizemb, default $efi_size mb>
   --swap=       true|*false|<swapsizemb, if true: default= 1.25 x RAM mb>
@@ -277,7 +277,7 @@ if test "$from_download" != "true"; then
             sgdisk  "${disk}" \
             -n "$DATA_NR:0:0" \
             -t "$DATA_NR:$DATA_TYPE" \
-            -c "$DATA_NR:$(mk_partlabel "$diskcount" "$data_crypt" "" "$data_fs" DATA${disknr})"
+            -c "$DATA_NR:$(mk_partlabel "$diskcount" "$data_crypt" "$data_lvm" "$data_fs" DATA${disknr})"
         fi
         sync
         partprobe "${disk}"
