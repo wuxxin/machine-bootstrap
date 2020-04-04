@@ -14,20 +14,13 @@
 ## testing
 + ubuntu: keep EFI synced
 + fixme: cloud-init errors (with something around install user)
++ fixme: update-grub (mk-grubconfig) does not include boot as symlink to /efi
 
 ## next
-+ fixme: update-grub (mk-grubconfig) does not include boot as symlink to /efi
-    + should make efi be /boot on non boot and /efi on installations with boot
-        + instead boot , efi should be a symlink, this should resolve /boot issues
- 
-    + resolution: boot partition should follow /boot because of legacy apps getting confused
-        + boot should be 
-        + no boot: /boot = efi1 /efi = symlink /boot
-        + boot: /boot = boot, efi=efi, etc no symlinks
-        
-## todo
 + fixme: try to disable subiquity some how 
 + fixme: rebase custom-zfs-patches and fix custom-build-zfs
+
+## todo
 + fixme: ubuntu: after hardreset, recovery is not selected as fallback
 + fixme: Logical volume vg0/lvm-root contains a filesystem in use; Block deactivation of lvm/mdadm
 + also make target system honor http_proxy on devop install
