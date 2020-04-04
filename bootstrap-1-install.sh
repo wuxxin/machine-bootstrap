@@ -160,10 +160,11 @@ mount_boot /mnt
 mount_efi /mnt
 mount_data /mnt/mnt
 if test "$(by_partlabel BOOT)" = ""; then
-    echo "symlink /boot to /efi because we have no boot partition"
-    if test -L /mnt/boot; then rm /mnt/boot; fi
-    ln -s efi /mnt/boot
+    echo "symlink /efi to /boot because we have no boot partition"
+    if test -L /mnt/efi; then rm /mnt/efi; fi
+    ln -s boot /mnt/efi
 fi
+
 
 if test "$option_restore_backup" != "true"; then
     # install base system

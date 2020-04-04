@@ -562,12 +562,14 @@ deactivate_lvm() {
 }
 
 create_fstab() {
-    local devlist devcount devtarget
+    local devlist devcount devtarget devpath hasboot
     if test -e /etc/fstab; then rm /etc/fstab; fi
 
     devlist=$(by_partlabel BOOT)
     devcount=$(echo "$devlist" | wc -w)
+    hasboot="false"
     if test "$devcount" = "1" -o "$devcount" = "2"; then
+        hasboot="true"
         if is_zfs "$devlist"; then
             cat >> /etc/fstab << EOF
 bpool/BOOT/ubuntu   /boot   zfs     defaults 0 0
@@ -583,13 +585,14 @@ EOF
 
     devlist=$(by_partlabel EFI)
     devcount=$(echo "$devlist" | wc -w)
+    if test "$hasboot" = "true"; then devpath=/efi; else devpath=/boot; fi
     if test "$devcount" = "1"; then
         cat >> /etc/fstab << EOF
-PARTUUID=$(dev_part_uuid "$devlist") /efi vfat defaults,nofail 0 1
+PARTUUID=$(dev_part_uuid "$devlist") $devpath vfat defaults,nofail 0 1
 EOF
     else
         cat >> /etc/fstab << EOF
-PARTUUID=$(dev_part_uuid "$(echo "$devlist" | x_of 1)") /efi   vfat defaults,nofail 0 1
+PARTUUID=$(dev_part_uuid "$(echo "$devlist" | x_of 1)") $devpath vfat defaults,nofail 0 1
 PARTUUID=$(dev_part_uuid "$(echo "$devlist" | x_of 2)") /efi2  vfat defaults,nofail 0 1
 EOF
     fi
@@ -742,18 +745,23 @@ mount_data() { # basedir force:true|false
 }
 
 mount_efi() { # basedir
-    local basedir devlist devcount
+    local basedir devlist devcount devpath bootcount hasboot
     basedir=$1;
+    hasboot="false"
+    bootcount="$(by_partlabel BOOT | wc -w)"
+    if test "$bootcount" = 1 -o "$bootcount" = 2; then hasboot="true"; fi
     devlist=$(by_partlabel EFI)
     devcount=$(echo "$devlist" | wc -w)
-    mkdir -p "$basedir/efi"
+    if test "$hasboot" = "true"; then devpath=efi; else devpath=boot; fi
+
+    mkdir -p "$basedir/$devpath"
     if test "$devcount" = "1"; then
-        echo "mount efi at $basedir/efi"
-        mount "/dev/disk/by-partlabel/EFI" "$basedir/efi"
+        echo "mount efi at $basedir/$devpath"
+        mount "/dev/disk/by-partlabel/EFI" "$basedir/$devpath"
     elif test "$devcount" = "2"; then
         mkdir -p "$basedir/efi2"
-        echo "mount efi and efi2 at $basedir/efi $basedir/efi2"
-        mount "/dev/disk/by-partlabel/EFI1" "$basedir/efi"
+        echo "mount efi and efi2 at $basedir/$devpath $basedir/efi2"
+        mount "/dev/disk/by-partlabel/EFI1" "$basedir/$devpath"
         mount "/dev/disk/by-partlabel/EFI2" "$basedir/efi2"
     fi
 }
@@ -801,8 +809,8 @@ unmount_boot() { # basedir
 unmount_data() { # basedir
     local basedir=$1
     if is_zfs "$(by_partlabel DATA)"; then
-        zfs unmount dpool
-        zpool export dpool
+        zfs unmount "$basedir/data"
+        zpool export dpool || echo "Warning, zpool export dpool exited with error"
     else
         if mountpoint -q "$basedir/data"; then umount "$basedir/data"; fi
     fi
@@ -811,8 +819,8 @@ unmount_data() { # basedir
 unmount_root() { # basedir
     local basedir=$1
     if is_zfs "$(by_partlabel ROOT)"; then
-        zfs unmount rpool
-        zpool export rpool
+        zfs unmount -a
+        zpool export rpool || echo "Warning, zpool export rpool exited with error"
     else
         if mountpoint -q "$basedir"; then umount "$basedir"; fi
     fi
