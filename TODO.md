@@ -16,26 +16,31 @@
 + fixme: cloud-init errors (with something around install user)
 
 ## next
-+ error: could not find needed files for frankenstein zfs-linux build, continue without custom build
-+ insert distrib_codename(focal) into /etc/pbuilderrc
-cp: cannot stat '/usr/local/lib/bootstrap-custom-archive/*': No such file or directory
-
-+ fixme: try to disable subiquity some how 
++ fixme: update-grub (mk-grubconfig) does not include boot as symlink to /efi
+    + should make efi be /boot on non boot and /efi on installations with boot
+        + instead boot , efi should be a symlink, this should resolve /boot issues
  
+    + resolution: boot partition should follow /boot because of legacy apps getting confused
+        + boot should be 
+        + no boot: /boot = efi1 /efi = symlink /boot
+        + boot: /boot = boot, efi=efi, etc no symlinks
+        
 ## todo
-+ also make target system honor http_proxy on devop install
++ fixme: try to disable subiquity some how 
++ fixme: rebase custom-zfs-patches and fix custom-build-zfs
 + fixme: ubuntu: after hardreset, recovery is not selected as fallback
 + fixme: Logical volume vg0/lvm-root contains a filesystem in use; Block deactivation of lvm/mdadm
-+ make distrib_id=Nixos distrib_codename=19.09 working
-    + make ./machine-bootstrap-configuration.nix in bootstrap-library
-        + make all machine-bootstrap knowledge available there
-    + make minimal configuration.nix on project create
++ also make target system honor http_proxy on devop install
 + all: optional use of tmux for long running ssh connections of bootstrap.sh
 + recovery scripts to replace a faulty disk, to invalidate a disk
     + all: add script to replace a changed faulty disk: recovery-replace-mirror.sh
     + all: add script to deactivate (invalidate) one of two disks: storage-invalidate-mirror.sh
 + desaster recovery from backup storage to new machine
     + install: make restore from backup: script bootstrap-1-restore and bootstrap-2-chroot-restore
++ make distrib_id=Nixos distrib_codename=19.09 working
+    + make ./machine-bootstrap-configuration.nix in bootstrap-library
+        + make all machine-bootstrap knowledge available there
+    + make minimal configuration.nix on project create
 + devop: ubuntu: install and configure ZFS Scrubbing
 + devop: ubuntu: make backup working
 + "cloud like" autorotating encrypted incremental snapshot backup to thirdparty storage with zfs and restic

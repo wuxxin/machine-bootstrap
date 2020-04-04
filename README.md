@@ -1,9 +1,8 @@
 # Machine bootstrap
 
 Unattended ssh based operating system installer
-for Ubuntu 20.04 LTS (Focal),
-with buildin recovery image, root storage on luks encrypted zfs,
-initrd with ssh luks support, other specialized storage layouts.
+for Ubuntu 20.04 LTS (Focal), with buildin recovery image, root storage on luks encrypted zfs and other specialized storage layouts,
+initrd with ssh support for remote luks open of encrypted data
 
 **Usage:** to be executed on an linux liveimage/recoveryimage system connected via ssh.
 
@@ -329,20 +328,20 @@ reboot
 ### GPT Layout
 
 + information leakage
-    be aware that, the way gpt labels are setup in this script, they leak metadata of encrypted data, eg. raid_luks_lvm.vg0_ext4_ROOT leaks the information that behind the luks encrypted data is a lvm partition with a volume group named vg0 and the root file system is ext4 (but not how to read this data). if this is an issue, simply rename volume labels after bootstrap completed, mounts will still work because they are pointing to the uuid.
+    be aware that, the way gpt labels are setup in this script, they leak metadata of encrypted data, eg. raid_luks_lvm.vg0_ext4_ROOT leaks the information that behind the luks encrypted data is a lvm partition with a volume group named vg0 and the root file system is ext4 (but not how to read this data). if this is an issue, rename the volume labels after bootstrap completed, mounts will still work because they are pointing to the uuid 
 
 + Partition Layout
 
 Nr |Name(max 36 x UTF16)|Description|
 ---|---|---
 6  | `BIOS,1,2`  | GRUB-BIOS boot binary partition, used to host grub code on gpt for bios boot
-5  | `EFI,1,2`   | EFI vfat partition
+5  | `EFI,1,2`   | EFI vfat partition, unencrypted
 .  | .           | dual efi & bios grub installation
-.  | .           | recovery- kernel,initrd,fs
-.  | .           | system- kernel,initrd
+.  | .           | recovery system: kernel,initrd,fs
+.  | .           | /boot for system- kernel,initrd
 4  | `LOG,1,2`   | **optional** ZFS Log or other usages
 3  | `CACHE,1,2` | **optional** ZFS Cache or other usages
 2  | `[raid_]luks_SWAP,1,2`  | **optional** encrypted hibernation compatible swap
-1  | `[raid_](zfs:ext4:xfs)_BOOT,1,2`  | **optional**,**deprecated** boot partition, unencrypted, kernel,initrd
+1  | `[raid_](zfs:ext4:xfs)_BOOT,1,2`  | **optional**,**legacy** boot partition, unencrypted, kernel,initrd
 0  | `[raid_][luks_][lvm.vg0_](zfs:ext4:xfs)_ROOT,1,2` | root partition
 7  | `[raid_][luks_][lvm.vgdata_](zfs:ext4:xfs:other)_DATA,1,2` | **optional** data partition
