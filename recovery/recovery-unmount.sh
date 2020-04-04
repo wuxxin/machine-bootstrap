@@ -14,7 +14,7 @@ shift
 . "$self_path/bootstrap-library.sh"
 
 if [ "$(stat -c %d:%i /)" != "$(stat -c %d:%i /proc/1/root/.)" ]; then
-    echo "error: looks like we are inside a chroot, refusing to continue"
+    echo "error: looks like we are inside a chroot, refusing to continue as safety measure. try 'exit' to exit from the chroot first."
     exit 1
 fi
 
