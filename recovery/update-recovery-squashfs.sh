@@ -14,16 +14,16 @@ Usage:  $0 --host [--output <squashfsoutputfile>] [<hostname>]
                     <scriptdir> <archivedir>|- <autologin(true|false)>
                     "<packagelist(default|-|package+)>" [<http_proxy>]
 
---custom        create a recovery squashfs file on custom parameter
+--host              create a recovery squash file based on the hosts default parameter
+    --output        <squashfsoutputfile>
+                    write to different outputfile
+    [<hostname>]    set different hostname
+
+--custom            create a recovery squashfs file on custom parameter
     hostid:         hostid in binary form, use "-" if no id
     archivedir:     expects local apt-archive with "Release" and
                     "Packages" files, use "-" if no archive
     <packagelist>:  "default" for default list, "-" for no packages, else list of packages
-
---host          create a recovery squash file based on the hosts default parameter
-    --output <squashfsoutputfile>
-                write to different outputfile
-    <hostname>  set different hostname
 
 defaults:
   squashfsoutputfile:   /efi/casper/recovery.squashfs

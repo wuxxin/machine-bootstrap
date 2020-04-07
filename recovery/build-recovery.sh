@@ -38,8 +38,10 @@ usage() {
     cat << EOF
 $0 download               <downloaddir>
 $0 extract                <downloaddir> <targetdir>
+
 $0 create liveimage       <downloaddir> <targetiso> [<recovery.squashfs>]
 $0 create installer-addon <src-squashfs> <dest-squashfs> <workdir> [<kernel_version>]
+
 $0 show grub.cfg          <grub_root> <casper_livemedia> <uuid_volume>
 $0 show grub.d/recovery   <grub_root> <casper_livemedia> <uuid_volume>
 $0 show grub.nix.entry    <grub_root> <casper_livemedia> <uuid_volume>
@@ -47,8 +49,11 @@ $0 show kernel_version    <targetdir containing kernel image>
     returns the kernel version found in targetdir
 $0 show imagename
     returns the expected source image name for recovery building
+$0 show imageurl
+    returns the expected download url image name for recovery building
 $0 show keyfile
     returns the expected signingkeys file name for verifying downloads
+
 $0 --check-req
     confirm all needed requisites are present, exit 0 if true
 
@@ -621,6 +626,8 @@ elif test "$cmd" = "extract"; then
 elif test "$cmd" = "show"; then
     if test "$1" = "imagename"; then
         echo "$imagename"
+    elif test "$1" = "imageurl"; then
+        echo "$baseurl/$imagename"
     elif test "$1" = "keyfile"; then
         echo "$cdimage_keyfile"
     elif test "$1" = "kernel_version"; then
