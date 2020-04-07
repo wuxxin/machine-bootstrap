@@ -1,0 +1,17 @@
+{% set bridge_cidr= salt['pillar.get']('node:network:internal:cidr', '10.140.250.1/24') %}
+{% set bridge_name= salt['pillar.get']('node:network:internal:name', 'resident' %}
+{% import_text 'netplan.yml' as raw_netplan %}
+{% set parsed_netplan= raw_netplan|load_yaml %}
+{% set netplan_recovery= salt['pillar.get']('node:network:recovery', parsed_netplan) %}
+{% set netplan_default= salt['pillar.get']('node:network:default', parsed_netplan) %}
+
+{% load_yaml as settings %}
+def_route_ip: {{ salt['cmd.run_stdout']('ip route list default | sed -r "s/.+src ([0-9a-f.:]+) metric.*/\\1/g"', python_shell=true) }}
+bridge_cidr: {{ bridge_cidr) }}
+bridge_name: {{ bridge_name) }}
+bridge_netcidr: {{ salt['network.convert_cidr'](bridge_cidr)['network'] }}
+bridge_netmask: {{ salt['network.convert_cidr'](bridge_cidr)['netmask'] }}
+bridge_ip: {{ bridge_cidr|regex_replace ('([^/]+)/.+', '\\1') }}
+netplan_recovery: {{ netplan_recovery }}
+netplan_default: {{ netplan_default }}
+{% endload %}
