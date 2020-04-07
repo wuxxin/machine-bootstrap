@@ -9,5 +9,11 @@ authorized_keys:
 
 ssh_deprecated_keys:
 
+node:
+  user:
+    - name: {{ machine_config.firstuser }}
+  ssh_user:
+    - {{ machine_config.firstuser }}
+
 desktop:
   user: {{ machine_config.firstuser }}

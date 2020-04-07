@@ -27,4 +27,5 @@ base:
     - locale
     - tools
     - ssh
+    - machine-bootstrap
     - custom
