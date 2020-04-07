@@ -319,8 +319,12 @@ mkdir -p /mnt/efi/grub
     "$efi_grub" "$casper_livemedia" "$efi_fs_uuid" > /mnt/efi/grub/grub.cfg
 
 echo "install grub"
+# workaround grub-install error searching for canonical path of '/cow'
+dd if=/dev/zero bs=1M count=1 of=/cowfile
+mkfs -t vfat /cowfile
+mv /cowfile /cow
 efi_disk=/dev/$(basename "$(readlink -f \
     "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | first_of)")/..")")
 install_grub /mnt/efi "$efi_disk"
 
-unmount_efi
+unmount_efi /mnt
