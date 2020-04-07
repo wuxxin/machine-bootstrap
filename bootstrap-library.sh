@@ -969,12 +969,11 @@ create_root_zpool() { # basedir zpool-create-args* (eg. mirror sda1 sda2)
                 -o logbias=throughput \
                 -o canmount=off \
                 rpool/var
-    zfs create  -o canmount=off \
-                rpool/var/lib
 
     zfs create  -o mountpoint=/tmp \
                 rpool/var/basedir-tmp
     chmod 1777 "$basedir/tmp"
+
     zfs create  rpool/var/tmp
     chmod 1777 "$basedir/var/tmp"
 
@@ -988,6 +987,8 @@ create_root_zpool() { # basedir zpool-create-args* (eg. mirror sda1 sda2)
                 -o devices=on \
                 rpool/var/cache/pbuilder
 
+    zfs create  -o canmount=off \
+                rpool/var/lib
     mkdir -p "$basedir/var/lib/apt/lists"
     zfs create  -o exec=off \
                 -o mountpoint=/var/lib/apt/lists \
