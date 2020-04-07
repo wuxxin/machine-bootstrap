@@ -1,16 +1,24 @@
-{# if /etc/recovery already exists
-update recovery casper and recovery squashfs if info updated #}
+{% from "machine-bootstrap/node/defaults.jinja" import settings %}
+
+/etc/recovery/netplan.yaml:
+  file.managed:
+    - contents: |
+{{ settings.netplan_recovery|yaml(false)|indent(8,True) }}
 
 {% for f in ['build-recovery.sh', 'efi-sync.sh', 'recovery-mount.sh', 'recovery-unmount.sh', 'storage-invalidate-mirror.sh', 'storage-replace-mirror.sh', 'update-recovery-squashfs.sh'] %}
 /etc/recovery/{{ f }}:
   file.managed:
-    source: salt://machine-bootstrap/{{ f }}
-    filemode: 0755
+    - source: salt://machine-bootstrap/{{ f }}
+    - filemode: 0755
+    - require_in:
+      - cmd: update-recovery-squashfs
+      - cmd: update-recovery-casper
+{% endfor %}
 
 update-recovery-squashfs:
   cmd.run:
-    - onlyif: test $(sha256sum -b /efi/casper/recovery.squashfs)  != $(update-recovery-squashfs.sh --host --output /dev/stdout | sha256sum -b)
     - name: update-recovery-squashfs.sh --host
+    - onlyif: test $(sha256sum -b /efi/casper/recovery.squashfs)  != $(update-recovery-squashfs.sh --host --output /dev/stdout | sha256sum -b)
 
 update-recovery-casper:
   cmd.run:

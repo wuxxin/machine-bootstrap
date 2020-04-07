@@ -56,13 +56,8 @@ bridge-utils:
 /etc/netplan/80-lan.yaml:
   file.managed:
     - contents: |
-{{ intend(quy<, yaml)}}
+{{ settings.netplan_default|yaml(false)|indent(8,True) }}
   cmd.run:
     - name: netplan generate && netplan apply
     - onchanges:
       - file: /etc/netplan/80-lan.yaml
-
-/etc/recovery/netplan.yaml:
-  file.managed:
-   - contents: |
-{{ intend(quy<, yaml)}}
