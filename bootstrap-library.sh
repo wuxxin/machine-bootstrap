@@ -764,6 +764,11 @@ mount_efi() { # basedir
         mount "/dev/disk/by-partlabel/EFI1" "$basedir/$devpath"
         mount "/dev/disk/by-partlabel/EFI2" "$basedir/efi2"
     fi
+    if test "$hasboot" != "true"; then
+        echo "symlink /efi to /boot because we have no boot partition"
+        if test -d $basedir/efi; then rm -r $basedir/efi; fi
+        if test ! -L $basedir/efi; then ln -s boot $basedir/efi; fi
+    fi
 }
 
 mount_bind_mounts() { # basedir
