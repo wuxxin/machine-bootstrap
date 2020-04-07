@@ -106,6 +106,7 @@ mkdir -p salt/custom
 cd salt
 git submodule add https://github.com/wuxxin/salt-shared.git
 cd ..
+ln -s ../../machine-bootstrap salt/custom/machine-bootstrap
 cat > config/top.sls << EOF
 base:
   '*':
