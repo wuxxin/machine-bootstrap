@@ -4,23 +4,27 @@
 ### virtual, 2 x 10g disks
 + distrib_codename=bionic, frankenstein=false, recovery_autologin=true, storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --swap=1024 --reuse"
 + http_proxy set, distrib_codename=focal, frankenstein=false, recovery_autologin=true, storage_opts="--boot=false --root-size=6000 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --log=128 --cache=384 --swap=512"
+### virtual, 2 x 15g disks
++ http_proxy="http://192.168.122.1:8123", distrib_id=Ubuntu, distrib_codename=focal, frankenstein=false, recovery_autologin=true, devop_target="/home/wuxxin", devop_user="wuxxin", storage_opts="--boot=false --efi-size=2048 --log=128 --cache=128 --root-fs=zfs --root-size=10240 --data-lvm=vgdata --data-fs=ext4 --data-lvm-vol-size=2048 --reuse"
+
 
 ## done
++ fixme: initrd has error on networkd
++ fixme: cloud-init errors (with something around install user)
++ fixme: update-grub (mk-grubconfig) does not include boot as symlink to /efi
 
 ## testing
 + ubuntu: keep EFI synced
-+ fixme: cloud-init errors (with something around install user)
-+ fixme: update-grub (mk-grubconfig) does not include boot as symlink to /efi
 + add devop once without custom.sls and once with run (so base system is installed first)
 
 ## next
-+ fixme: initrd has error on networkd
 + finish node state
-    
+
 ## todo
 + fixme: disable subiquity on recovery some how, maybe disable snapd
 + fixme: rebase custom-zfs-patches and fix custom-build-zfs
 + fixme: ubuntu: after hardreset, recovery is not selected as fallback
+
 + fixme: lvm-root busy (Logical volume vg0/lvm-root contains a filesystem in use)
 + fixme: rpool busy (can not export rpool)
 

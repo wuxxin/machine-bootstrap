@@ -4,7 +4,7 @@
 include:
   - .hostname
 
-{% for u in settings.user %}
+{%- for u in settings.user %}
 user_present_{{ u.name }}:
   user.present:
     - name: {{ u.name }}
@@ -15,7 +15,7 @@ user_present_{{ u.name }}:
   {%- endfor %}
 {%- endfor %}
 
-{% for u in settings.group %}
+{%- for u in settings.group %}
 group_present_{{ u.name }}:
   group.present:
     - name: {{ u.name }}
