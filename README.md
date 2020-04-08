@@ -266,12 +266,21 @@ installation is done in 4 steps:
 ```
 # test if everything needed is there
 ./machine-bootstrap/bootstrap.sh test
-# if alls looks fine, run
-./machine-bootstrap/bootstrap.sh execute all box.local
-# logs of each step will be written to log/bootstrap-*.log 
-# but log directory is in .gitignore and content won't be comitted
+
+# if alls looks fine, commit config
 git add .
 git commit -v -m "bootstrap run"
+
+# run all steps combined
+./machine-bootstrap/bootstrap.sh execute all box.local
+
+# or each step seperate
+./machine-bootstrap/bootstrap.sh execute recovery box.local
+./machine-bootstrap/bootstrap.sh execute install box.local
+./machine-bootstrap/bootstrap.sh execute devop box.local
+
+# logs of each step will be written to log/bootstrap-*.log 
+# but log directory is in .gitignore and content won't be comitted
 ```
 
 ### optional: push committed changes upstream
@@ -292,12 +301,12 @@ git push -u origin master
 
 + connect to initrd, open luks disks, exit, machine will continue to boot
 ```
-./machine-bootstrap/connect.sh initrdluks
+./machine-bootstrap/connect.sh initrdluks [--allow-virtual]
 ```
 
 + connect to recovery, open luks disks, mount storage, prepare chroot, shell
 ```
-./machine-bootstrap/connect.sh recoverymount
+./machine-bootstrap/connect.sh recoverymount [--allow-virtual]
 ```
 
 ### switch next boot to boot into recovery (from running target system)

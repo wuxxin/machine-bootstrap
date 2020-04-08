@@ -1,13 +1,9 @@
 # machine-bootstrap work list
 
 ## tested combinations
-+ 4gb ram, 2 x 10g disks
-    + distrib_codename=bionic, frankenstein=false, recovery_autologin=true, storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --swap=1024 --reuse"
-    + http_proxy set, distrib_codename=focal, frankenstein=false, recovery_autologin=true, storage_opts="--boot=false --root-size=6000 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --log=128 --cache=384 --swap=512"
-
-+ vm on a xenial host
-    + kvm qxl does not work (kernel faults) on suspend and hibernate, use virtio vga instead
-    + virtio vga does not work in X11, use qxl instead
+### virtual, 2 x 10g disks
++ distrib_codename=bionic, frankenstein=false, recovery_autologin=true, storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --swap=1024 --reuse"
++ http_proxy set, distrib_codename=focal, frankenstein=false, recovery_autologin=true, storage_opts="--boot=false --root-size=6000 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --log=128 --cache=384 --swap=512"
 
 ## done
 
@@ -15,19 +11,25 @@
 + ubuntu: keep EFI synced
 + fixme: cloud-init errors (with something around install user)
 + fixme: update-grub (mk-grubconfig) does not include boot as symlink to /efi
++ add devop once without custom.sls and once with run (so base system is installed first)
 
 ## next
++ fixme: initrd has error on networkd
++ finish node state
+    
+## todo
++ fixme: disable subiquity on recovery some how, maybe disable snapd
++ fixme: rebase custom-zfs-patches and fix custom-build-zfs
++ fixme: ubuntu: after hardreset, recovery is not selected as fallback
++ fixme: lvm-root busy (Logical volume vg0/lvm-root contains a filesystem in use)
++ fixme: rpool busy (can not export rpool)
+
+### features
 + add: connect.sh initrdluks|recoverymount --allow-virtual
     + checks after connecting if gatewaydev is emulated, aborts if emulated
     + use --allow-virtual if you know you're connecting to a vm
-+ fixme: try to disable subiquity some how 
-+ fixme: rebase custom-zfs-patches and fix custom-build-zfs
-
-## todo
-+ fixme: ubuntu: after hardreset, recovery is not selected as fallback
-+ fixme: Logical volume vg0/lvm-root contains a filesystem in use; Block deactivation of lvm/mdadm
-+ also make target system honor http_proxy on devop install
-+ all: optional use of tmux for long running ssh connections of bootstrap.sh
++ devop: make zfs, recovery updateable
++ devop: make target system honor http_proxy on devop install
 + recovery scripts to replace a faulty disk, to invalidate a disk
     + all: add script to replace a changed faulty disk: recovery-replace-mirror.sh
     + all: add script to deactivate (invalidate) one of two disks: storage-invalidate-mirror.sh
@@ -37,34 +39,44 @@
     + make ./machine-bootstrap-configuration.nix in bootstrap-library
         + make all machine-bootstrap knowledge available there
     + make minimal configuration.nix on project create
++ all: optional use of tmux for long running ssh connections of bootstrap.sh
 + devop: ubuntu: install and configure ZFS Scrubbing
 + devop: ubuntu: make backup working
 + "cloud like" autorotating encrypted incremental snapshot backup to thirdparty storage with zfs and restic
     this should be a little to no performance impact, encrypted, incremental, autorotating snapshot backup system, from and to redundant checksuming data storage on a single machine with the abbility to use common thirdparty storage for this backup. So far it is a very busy journey... https://xkcd.com/974/
-+ home-nas setup with 1 x internal:type:ssd + 2 x external:type:spindle harddisks
-    + todo: research issues at least with 0.7* and shutdown platters on external hds
-    
+
 ## write reasons for overlayfs on zfs for presentation in zfs-linux mailinglist
-+ after integration of overlayfs in the kernel,
+after integration of overlayfs in the kernel,
     adoption of overlayfs based solutions is rapidly growing.
-    in 2019 many software projects assume to be able
+in 2019 many software projects assume to be able
     to use overlayfs on any underlying storage.
-+ overlayfs runs on ext3/4,xfs,ramfs and even btrfs, you dont assume it doesn't on zfs
-+ overlayfs is the first will probably be one of the few solutions
+overlayfs runs on ext3/4,xfs,ramfs and even btrfs, 
+    you dont assume it doesn't on zfs.
+
+overlayfs is the first will probably be one of the few solutions
     that will have user namespace mount support, either eg.
     via ubuntu overlayfs that is patched for user ns,
     or via a fuseoverlayfs driver (developed by redhat),
     overlayfs in user ns has been adopted by eg. podman, k3s
-+ other examples of underlying storage is expected to support overlayfs to support a specific feature, i found during my journey of installing zfs on linux:
-    + systemd.volatile https://github.com/systemd/systemd/blob/adca059d55fe0a126dbdd62911b0705ddf8e9b8a/NEWS#L119
-    + ubuntu build script (find url again) which obviously uses anything but zfs as underlying storage for their build script by assuming the underlying storage layer has overlayfs support
-    + http://bazaar.launchpad.net/~ubuntu-cdimage/ubuntu-cdimage/mainline/
-        + https://git.launchpad.net/ubuntu/+source/casper/tree/debian/tests/prep-image?h=ubuntu/eoan
+
+examples of underlying storage expected to support overlayfs:
++ systemd.volatile https://github.com/systemd/systemd/blob/adca059d55fe0a126dbdd62911b0705ddf8e9b8a/NEWS#L119
++ ubuntu build script (find url again) which obviously uses anything but zfs as underlying storage for their build script by assuming the underlying storage layer has overlayfs support
++ http://bazaar.launchpad.net/~ubuntu-cdimage/ubuntu-cdimage/mainline/
+    + https://git.launchpad.net/ubuntu/+source/casper/tree/debian/tests/prep-image?h=ubuntu/eoan
 
 ## snippets
 
-find . -name ".git" -prune -o -type f -print0 | wc --files0-from=- | sort -n
++ vm on a xenial host
+    + kvm qxl does not work (kernel faults) on suspend and hibernate, use virtio vga instead
+    + virtio vga does not work in X11, use qxl instead
 
++ find and count lines,words
+```
+find . -name ".git" -prune -o -type f -print0 | wc --files0-from=- | sort -n
+```
+
++ media mount
 ```
 /lib/systemd/system/media-filesystem.mount
 [Mount]
