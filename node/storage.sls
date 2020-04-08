@@ -4,7 +4,7 @@ include:
   - .hostname
   - .accounts
 
-{%- if defined settings.storage.filesystem.zfs %}
+{%- if settings.storage.filesystem.zfs is defined %}
   {%- for fs in settings.storage.filesystem.zfs|d([]) %}
 zfs_fs_present_{{ fs.name }}:
   zfs.filesystem_present:
