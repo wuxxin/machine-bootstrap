@@ -6,7 +6,7 @@
 {% set netplan_recovery= salt['pillar.get']('node:network:recovery', netplan_parsed) %}
 {% set netplan_default= salt['pillar.get']('node:network:default', netplan_parsed) %}
 
-{% load_yaml as settings %}
+{% load_yaml as defaults %}
 def_route_ip: {{ salt['cmd.run_stdout']('ip route list default | sed -r "s/.+src ([0-9a-f.:]+) metric.*/\\1/g"', python_shell=true) }}
 bridge_cidr: {{ bridge_cidr }}
 bridge_name: {{ bridge_name }}
@@ -16,3 +16,6 @@ bridge_ip: {{ bridge_cidr|regex_replace ('([^/]+)/.+', '\\1') }}
 netplan_recovery: {{ netplan_recovery }}
 netplan_default: {{ netplan_default }}
 {% endload %}
+
+{% set settings=salt['grains.filter_by']({'none': defaults},
+  grain='none', default= 'none', merge= salt['pillar.get']('node', {})) %}
