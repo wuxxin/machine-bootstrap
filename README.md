@@ -113,9 +113,9 @@ base:
     - custom
 EOF
 for i in custom bootstrap; do
-    cp machine-bootstrap/devop/${i}-pillar.sls config/${i}.sls
+    cp machine-bootstrap/template/${i}-pillar.sls config/${i}.sls
 done
-cp machine-bootstrap/devop/top-state.sls salt/custom/top.sls
+cp machine-bootstrap/template/top-state.sls salt/custom/top.sls
 touch salt/custom/custom.sls
 git add .
 git commit -v -m "add saltstack skeleton"

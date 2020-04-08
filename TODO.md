@@ -17,6 +17,9 @@
 + fixme: update-grub (mk-grubconfig) does not include boot as symlink to /efi
 
 ## next
++ add: connect.sh initrdluks|recoverymount --allow-virtual
+    + checks after connecting if gatewaydev is emulated, aborts if emulated
+    + use --allow-virtual if you know you're connecting to a vm
 + fixme: try to disable subiquity some how 
 + fixme: rebase custom-zfs-patches and fix custom-build-zfs
 
