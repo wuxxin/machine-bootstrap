@@ -15,6 +15,7 @@
       - cmd: update-recovery-casper
 {% endfor %}
 
+fixme update-recovery-squashfs.sh is not stdout capable
 update-recovery-squashfs:
   cmd.run:
     - name: update-recovery-squashfs.sh --host
