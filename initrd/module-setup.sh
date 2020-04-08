@@ -35,10 +35,12 @@ install() {
     inst_simple "${moddir}/initramfs-sshd.service" "$systemdsystemunitdir/initramfs-sshd.service"
     inst_simple "${moddir}/sshd_config" /etc/ssh/sshd_config
 
-    for u in sshd systemd-network; do
-        grep "^${u}:" /etc/passwd >> "$initdir/etc/passwd"
-        grep "^${u}:" /etc/group  >> "$initdir/etc/group"
-    done
+    grep "^sshd:" /etc/passwd >> "$initdir/etc/passwd"
+    grep "^sshd:" /etc/group  >> "$initdir/etc/group"
+
+    # XXX fix dracut-networkd missing systemd-network user&group
+    echo "systemd-network:x:199:199:systemd Network Management,,,:/run/systemd:/usr/sbin/nologin" >> "$initdir/etc/passwd"
+    echo "systemd-network:x:199:" >> "$initdir/etc/group"
 
     systemctl --root "$initdir" enable initramfs-sshd
 
@@ -50,9 +52,10 @@ install() {
         /usr/bin/install -m 644 "$i" "$initdir/etc/systemd/network/$(basename $i)"
     done
 
+    # XXX stop sshd before pivot to final root
     inst_hook pre-pivot 20 "$moddir/stop-initramfs-sshd.sh"
 
-    # fix plymouth config, should be in plymouth
+    # XXX fix plymouth config, should be in plymouth
     mkdir -p "$initdir/etc/plymouth"
     cat > "$initdir/etc/plymouth/plymouthd.conf" << EOF
 [Daemon]
