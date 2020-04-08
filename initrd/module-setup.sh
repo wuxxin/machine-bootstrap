@@ -29,14 +29,16 @@ install() {
     /usr/bin/install -m 600 "$authorized_keys" \
             "$initdir/etc/ssh/root/authorized_keys"
 
-    inst_simple /usr/sbin/sshd 
+    inst_simple /usr/sbin/sshd
     inst_simple /etc/default/sshd
-    
+
     inst_simple "${moddir}/initramfs-sshd.service" "$systemdsystemunitdir/initramfs-sshd.service"
     inst_simple "${moddir}/sshd_config" /etc/ssh/sshd_config
 
-    grep '^sshd:' /etc/passwd >> "$initdir/etc/passwd"
-    grep '^sshd:' /etc/group  >> "$initdir/etc/group"
+    for u in sshd systemd-network; do
+        grep "^${u}:" /etc/passwd >> "$initdir/etc/passwd"
+        grep "^${u}:" /etc/group  >> "$initdir/etc/group"
+    done
 
     systemctl --root "$initdir" enable initramfs-sshd
 
@@ -44,12 +46,12 @@ install() {
         netplan generate
     fi
     mkdir -p "$initdir/etc/systemd/network"
-    for i in $(find /run/systemd/network -name "*.network"); do 
+    for i in $(find /run/systemd/network -name "*.network"); do
         /usr/bin/install -m 644 "$i" "$initdir/etc/systemd/network/$(basename $i)"
     done
-    
+
     inst_hook pre-pivot 20 "$moddir/stop-initramfs-sshd.sh"
-    
+
     # fix plymouth config, should be in plymouth
     mkdir -p "$initdir/etc/plymouth"
     cat > "$initdir/etc/plymouth/plymouthd.conf" << EOF
@@ -62,4 +64,3 @@ EOF
 
     return 0
 }
-
