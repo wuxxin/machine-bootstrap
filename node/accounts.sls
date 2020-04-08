@@ -2,7 +2,7 @@
 {% from "ssh/lib.sls" import ssh_keys_update %}
 
 include:
-  - machine-bootstrap.node.hostname
+  - .hostname
 
 {% for u in settings.user %}
 user_present_{{ u.name }}:

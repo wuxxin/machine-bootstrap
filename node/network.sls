@@ -1,6 +1,6 @@
 {% from "machine-bootstrap/node/defaults.jinja" import settings %}
 include:
-  - machine-bootstrap.node.hostname
+  - .hostname
 
 {% macro add_internal_bridge(bridge_name, bridge_cidr) %}
   {% if salt['cmd.retcode']('which netplan') == 0 %}

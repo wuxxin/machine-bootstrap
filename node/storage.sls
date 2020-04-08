@@ -1,8 +1,8 @@
 {% from "node/defaults.jinja" import settings %}
 
 include:
-  - machine-bootstrap.node.hostname
-  - machine-bootstrap.node.accounts
+  - .hostname
+  - .accounts
 
 {% for fs in settings.storage.filesystem.zfs|d([]) %}
 zfs_fs_present_{{ fs.name }}:
