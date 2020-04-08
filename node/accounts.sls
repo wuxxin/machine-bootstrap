@@ -8,20 +8,22 @@ include:
 user_present_{{ u.name }}:
   user.present:
     - name: {{ u.name }}
-{%- for name,value in u.items() %}
-{%- if name != 'name' %}
+  {%- for name,value in u.items() %}
+    {%- if name != 'name' %}
       {{ name }}: {{ value }}
-{%- endif %}
+    {%- endif %}
+  {%- endfor %}
 {%- endfor %}
 
 {% for u in settings.group %}
 group_present_{{ u.name }}:
   group.present:
     - name: {{ u.name }}
-{%- for name,value in u.items() %}
-{%- if name != 'name' %}
+  {%- for name,value in u.items() %}
+    {%- if name != 'name' %}
       {{ name }}: {{ value }}
-{%- endif %}
+    {%- endif %}
+  {%- endfor %}
 {%- endfor %}
 
 {% for n in settings.ssh_user|d([]) %}
