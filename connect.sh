@@ -17,25 +17,34 @@ Usage: $0 [--show-ssh|--show-scp]
 
 use ssh keys and config taken from $config_path to connect to system via ssh
 
-+ temporary, recovery, initrd, system:
++ temporary, recovery, initrd, system
     connect to system with the expected the ssh hostkey
 
-+ initrdluks:
++ initrdluks [--allow-virtual]
     uses the initrd host key for connection,
     and transfers the luks diskphrase keys to /lib/systemd/systemd-reply-password
 
-+ recoveryluks:
++ recoveryluks [--allow-virtual]
     uses the recovery host key for connection,
     and transfers the luks diskphrase keys to recovery-mount.sh
 
-+ recoverymount:
++ recoverymount [--allow-virtual]
     equal to recoveryluks but also mount all partitions and prepare a chroot at /mnt
 
+--allow-virtual: do not abort if target system looks like virtual machine
 --show-ssh: only displays the parameters for ssh
 --show-scp: only displays the parameters for scp
     may be used for scp \$(connect.sh --show-args system)/root/test.txt .
 EOF
     exit 1
+}
+
+abort_if_virtual_ssh() {# "$allowvirtual" "$sshopts" "$(ssh_uri ${sshlogin})"
+    local allowvirtual sshopts sshurl
+    allowvirtual="$1"
+    sshopts="$2"
+    sshurl="$3"
+    echo "Fixme: check for virtual machine via ssh"
 }
 
 
@@ -89,6 +98,7 @@ waitfor_ssh() {
 # parse args
 export LC_MESSAGES="POSIX"
 showargs=false
+allowvirtual=false
 if test "$1" = "--show-ssh"; then showargs=ssh; shift; fi
 if test "$1" = "--show-scp"; then showargs=scp; shift; fi
 if [[ ! "$1" =~ ^(temporary|recovery|recoveryluks|recoverymount|initrd|initrdluks|system)$ ]]; then usage; fi
@@ -121,6 +131,7 @@ if test "$hosttype" = "initrdluks" -o "$hosttype" = "recoveryluks" -o "$hosttype
         echo "ERROR: diskphrase file $diskpassphrase_file not found"
         usage
     fi
+    if test "$1" = "--allow-virtual"; then allowvirtual=true; shift; fi
     diskphrase=$(cat "$diskpassphrase_file" | gpg --decrypt)
     if test "$diskphrase" = ""; then
         echo "Error: diskphrase is empty, abort"
@@ -129,6 +140,7 @@ if test "$hosttype" = "initrdluks" -o "$hosttype" = "recoveryluks" -o "$hosttype
     if test "$hosttype" = "recoverymount" -o "$hosttype" = "recoveryluks"; then
         sshopts="-o UserKnownHostsFile=$config_path/recovery.known_hosts"
         waitfor_ssh "$sshlogin"
+        abort_if_virtual_ssh $allowvirtual $sshopts $(ssh_uri ${sshlogin})
         echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
             'recovery-mount.sh --yes --only-raid-crypt --luks-from-stdin'
         if test "$hosttype" = "recoverymount"; then
@@ -139,6 +151,7 @@ if test "$hosttype" = "initrdluks" -o "$hosttype" = "recoveryluks" -o "$hosttype
     else
         sshopts="-o UserKnownHostsFile=$config_path/initrd.known_hosts"
         waitfor_ssh "$sshlogin"
+        abort_if_virtual_ssh $allowvirtual $sshopts $(ssh_uri ${sshlogin})
         echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
             'phrase=$(cat -); for s in /var/run/systemd/ask-password/sck.*; do echo -n "$phrase" | /lib/systemd/systemd-reply-password 1 $s; done'
     fi
