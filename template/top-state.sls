@@ -28,4 +28,10 @@ base:
     - tools
     - ssh
     - machine-bootstrap
+
+  # custom states
+  # to disable custom states from running,
+  # add pillar='{"disable_custom": true}' to execution
+  'not I@disable_custom:true':
+    - match: compound
     - custom
