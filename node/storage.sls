@@ -4,18 +4,16 @@ include:
   - .hostname
   - .accounts
 
-{%- if settings.storage.filesystem.zfs is defined %}
-  {%- for fs in settings.storage.filesystem.zfs|d([]) %}
+{%- for fs in settings.storage.filesystem.zfs|d([]) %}
 zfs_fs_present_{{ fs.name }}:
   zfs.filesystem_present:
     - name: {{ fs.name }}
-    {%- for name,value in fs.items() %}
-      {%- if name != 'name' %}
+  {%- for name,value in fs.items() %}
+    {%- if name != 'name' %}
     - {{ name }}: {{ value }}
-      {%- endif %}
-    {%- endfor %}
+    {%- endif %}
   {%- endfor %}
-{%- endif %}
+{%- endfor %}
 
 {% for fs in settings.storage.filesystem.lvm|d([]) %}
 lvm_fs_present_{{ fs.name }}:
