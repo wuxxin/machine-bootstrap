@@ -1,4 +1,4 @@
-{% from "node/defaults.jinja" import settings %}
+{% from "machine-bootstrap/node/defaults.jinja" import settings %}
 
 set_hostsfile:
   host.only:
@@ -13,4 +13,3 @@ set_hostname:
     - onlyif: test "$(hostname -f)" != "{{ salt['pillar.get']('hostname') }}"
     - require:
       - host: set_hostsfile
-

@@ -1,4 +1,4 @@
-{% from "node/defaults.jinja" import settings %}
+{% from "machine-bootstrap/node/defaults.jinja" import settings %}
 
 include:
   - .hostname
