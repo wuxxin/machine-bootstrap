@@ -148,6 +148,11 @@ git add .
 git commit -v -m "add git-crypt config"
 ```
 
+### optional: add machine git-crypt user
+```
+
+```
+
 ### configure machine
 
 ```

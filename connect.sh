@@ -39,7 +39,7 @@ EOF
     exit 1
 }
 
-abort_if_virtual_ssh() {# "$allowvirtual" "$sshopts" "$(ssh_uri ${sshlogin})"
+abort_if_virtual_ssh() { # "$allowvirtual" "$sshopts" "$(ssh_uri ${sshlogin})"
     local allowvirtual sshopts sshurl
     allowvirtual="$1"
     sshopts="$2"
