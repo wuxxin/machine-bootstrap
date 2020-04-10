@@ -1,14 +1,15 @@
 {#
-
-update initrd files for dracut initrd generation
-update initrd if files changed
-
++ update files for dracut initrd generation
++ update dracut initrd if files have changed
 #}
 
 {% for f in ['initramfs-sshd.service', 'module-setup.sh', 'sshd_config', 'stop-initramfs-sshd.sh'] %}
 /usr/lib/dracut/modules.d/46sshd/{{ f }}:
   file.managed:
     - source: salt://machine-bootstrap/initrd/{{ f }}
+  {%- if f.endswith('.sh') %}
+    - mode: "755"
+  {%- endif %}
     - onchanges_in:
       - cmd: update_dracut
 {% endfor %}
