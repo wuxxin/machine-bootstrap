@@ -43,7 +43,7 @@ Some setups may work, most break under certain conditions.
 #### Example Configurations
 
 + a root server with custom network (eg. static ip)
-    + add custom `netplan.yml`
+    + add custom `netplan.yaml`
 + a laptop with encrypted hibernation: 
     + add `storage_opts="--swap=yes"` to `machine-config.env`
 + a vm with a http proxy on its host:
@@ -211,10 +211,10 @@ echo $(printf 'storage_ids="'; for i in \
 
 ```
 
-### optional: create a custom netplan.yml file
+### optional: create a custom netplan.yaml file
 
 ```
-cat > config/netplan.yml << EOF
+cat > config/netplan.yaml << EOF
 network:
     version: 2
     ethernets:

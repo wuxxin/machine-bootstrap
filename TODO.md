@@ -7,24 +7,21 @@
 ### virtual, 2 x 15g disks
 + http_proxy="http://192.168.122.1:8123", distrib_id=Ubuntu, distrib_codename=focal, frankenstein=false, recovery_autologin=true, devop_target="/home/wuxxin", devop_user="wuxxin", storage_opts="--boot=false --efi-size=2048 --log=128 --cache=128 --root-fs=zfs --root-size=10240 --data-lvm=vgdata --data-fs=ext4 --data-lvm-vol-size=2048 --reuse"
 
-
 ## done
-+ fixme: initrd has error on networkd
-+ fixme: cloud-init errors (with something around install user)
-+ fixme: update-grub (mk-grubconfig) does not include boot as symlink to /efi
 
 ## testing
 + ubuntu: keep EFI synced
-+ add devop once without custom.sls and once with run (so base system is installed first)
++ make devop state run without custom.sls (so base system is installed first)
 
 ## next
-+ finish node state
++ wip: make machine-bootstrap/initrd|recovery|zfs update
++ wip: add gitops feature (probably with nginx and letsencrypt ingress) as host service
++ wip: fixme: rebase custom-zfs-patches and fix custom-build-zfs
 
-## todo
+### bugs
++ fixme: resident: Could not generate persistent MAC: No data available
 + fixme: disable subiquity on recovery some how, maybe disable snapd
-+ fixme: rebase custom-zfs-patches and fix custom-build-zfs
 + fixme: ubuntu: after hardreset, recovery is not selected as fallback
-
 + fixme: lvm-root busy (Logical volume vg0/lvm-root contains a filesystem in use)
 + fixme: rpool busy (can not export rpool)
 
@@ -32,7 +29,6 @@
 + add: connect.sh initrdluks|recoverymount --allow-virtual
     + checks after connecting if gatewaydev is emulated, aborts if emulated
     + use --allow-virtual if you know you're connecting to a vm
-+ devop: make zfs, recovery updateable
 + devop: make target system honor http_proxy on devop install
 + recovery scripts to replace a faulty disk, to invalidate a disk
     + all: add script to replace a changed faulty disk: recovery-replace-mirror.sh
