@@ -3,11 +3,11 @@
 include:
   - .hostname
 
-{% macro add_internal_bridge(bridge_name, bridge_cidr) %}
+{% macro add_internal_bridge(bridge_name, bridge_cidr, priority=80) %}
   {% if salt['cmd.retcode']('which netplan') == 0 %}
 bridge_{{ bridge_name }}:
   file.managed:
-    - name: /etc/netplan/50-{{ bridge_name }}.yaml
+    - name: /etc/netplan/{{ priority }}-{{ bridge_name }}.yaml
     - makedirs: true
     - contents: |
         network:
@@ -18,8 +18,8 @@ bridge_{{ bridge_name }}:
                 stp: false
               addresses:
                 - {{ bridge_cidr }}
-              dhcp4: no
-              dhcp6: no
+              dhcp4: false
+              dhcp6: false
   cmd.run:
     - name: netplan generate && netplan apply
     - onchanges:
@@ -28,7 +28,7 @@ bridge_{{ bridge_name }}:
   {% else %}
 bridge_{{ bridge_name }}:
   file.managed:
-    - name: /etc/network/interfaces.d/{{ bridge_name }}.cfg
+    - name: /etc/network/interfaces.d/{{ priority }}-{{ bridge_name }}.cfg
     - makedirs: true
     - contents: |
         auto {{ bridge_name }}
@@ -54,11 +54,11 @@ bridge-utils:
 
 {{ add_internal_bridge(settings.bridge_name, settings.bridge_cidr) }}
 
-/etc/netplan/80-lan.yaml:
+/etc/netplan/50-lan.yaml:
   file.managed:
     - contents: |
-{{ settings.netplan_default|yaml(false)|indent(8,True) }}
+{{ settings.netplan_default|indent(8,True) }}
   cmd.run:
     - name: netplan generate && netplan apply
     - onchanges:
-      - file: /etc/netplan/80-lan.yaml
+      - file: /etc/netplan/50-lan.yaml
