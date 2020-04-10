@@ -29,7 +29,7 @@ defaults:
   squashfsoutputfile:   /efi/casper/recovery.squashfs
   hostname:             if not set from commandline, from hostname -f
   hostid:               if exists from /etc/hostid else "-"
-  netplan_file:         if exists from /etc/recovery/netplan.yml else from /etc/netplan/*
+  netplan_file:         if exists from /etc/recovery/netplan.yaml else from /etc/netplan/*
   hostkeys_file:        /etc/recovery/recovery_hostkeys
   authorized_keys_file: /root/.ssh/authorized_keys
   scriptdir:            /etc/recovery (will be copied to recovery:/usr/sbin/)
@@ -190,7 +190,7 @@ if test "$1" = "--host"; then
     $destfile \
     $(test "$1" != "" && echo "$1" || echo $(hostname -f)) \
     "$(test -e /etc/hostid && echo "/etc/hostid" || printf '%s' '-')" \
-    "$(test -e /etc/recovery/netplan.yml && echo '/etc/recovery/netplan.yml' || echo '/etc/netplan/*')" \
+    "$(test -e /etc/recovery/netplan.yaml && echo '/etc/recovery/netplan.yaml' || echo '/etc/netplan/*')" \
     /etc/recovery/recovery_hostkeys \
     /root/.ssh/authorized_keys \
     /etc/recovery \

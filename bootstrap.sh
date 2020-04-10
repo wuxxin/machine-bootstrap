@@ -43,7 +43,7 @@ Configuration:
 + additional mandatory config file if distrib_id=Nixos:
     + File: "configuration.nix"
 + optional config files:
-    + "netplan.yml" default created on step recovery install
+    + "netplan.yaml" default created on step recovery install
     + "recovery_hostkeys" created automatically on step recovery install
     + "[temporary|recovery|initrd|system].known_hosts": created on the fly
 + log directory path: $log_path
@@ -162,7 +162,7 @@ config_file=$config_path/machine-config.env
 diskpassphrase_file=$config_path/disk.passphrase.gpg
 authorized_keys_file=$config_path/authorized_keys
 nixos_configuration_file=$config_path/configuration.nix
-netplan_file=$config_path/netplan.yml
+netplan_file=$config_path/netplan.yaml
 recovery_hostkeys_file=$config_path/recovery_hostkeys
 log_path=$(readlink -m "$config_path/../log")
 run_path=$(readlink -m "$config_path/../run")
