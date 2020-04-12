@@ -200,8 +200,8 @@ cp /tmp/authorized_keys /mnt/root/.ssh/authorized_keys
 chmod "0600" /mnt/root/.ssh/authorized_keys
 
 echo "copy network config"
-warn_rename /mnt/etc/netplan/80-lan.yaml
-cp -a /tmp/netplan.yaml /mnt/etc/netplan/80-lan.yaml
+warn_rename /mnt/etc/netplan/50-lan.yaml
+cp -a /tmp/netplan.yaml /mnt/etc/netplan/50-lan.yaml
 
 if $option_frankenstein; then
     echo "copy custom archive files"
