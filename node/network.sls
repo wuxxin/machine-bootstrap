@@ -108,3 +108,11 @@ network-utils:
     - order: last
     - onchanges:
       - file: /etc/systemd/system/rpcbind.socket
+  service.running:
+    - name: rpcbind.socket
+    - enable: True
+    - require:
+      - pkg: network-utils
+      - cmd: /etc/systemd/system/rpcbind.socket
+    - watch:
+      - file: /etc/systemd/system/rpcbind.socket
