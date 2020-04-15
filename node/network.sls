@@ -88,6 +88,7 @@ network-utils:
         [Unit]
         Description=RPCbind Server Activation Socket
         DefaultDependencies=no
+        After=network-online.target
 
         [Socket]
         ListenStream=/run/rpcbind.sock
