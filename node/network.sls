@@ -54,6 +54,7 @@ bridge-utils:
 
 {{ add_internal_bridge(settings.bridge_name, settings.bridge_cidr) }}
 
+{# write possible different to recovery netplan #}
 /etc/netplan/50-lan.yaml:
   file.managed:
     - contents: |
@@ -62,3 +63,40 @@ bridge-utils:
     - name: netplan generate && netplan apply
     - onchanges:
       - file: /etc/netplan/50-lan.yaml
+
+{# restrict rpcbind to localhost and resident bridge #}
+/etc/default/rpcbind:
+  file.replace:
+    - pattern: "^OPTIONS=.+"
+    - repl: OPTIONS="-w -l -h 127.0.0.1 -h ::1 -h {{ settings.bridge_ip }}"
+    - append_if_not_found: true
+  service:
+
+
+/etc/systemd/system/rpcbind.socket:
+  file.managed:
+    - makedirs: true
+    - contents: |
+        [Unit]
+        Description=RPCbind Server Activation Socket
+        DefaultDependencies=no
+
+        [Socket]
+        ListenStream=/run/rpcbind.sock
+
+        # RPC netconfig can't handle ipv6/ipv4 dual sockets
+        BindIPv6Only=ipv6-only
+        ListenStream=127.0.0.1:111
+        ListenDatagram=127.0.0.1:111
+        ListenStream={{ settings.bridge_ip }}:111
+        ListenDatagram={{ settings.bridge_ip }}:111
+        ListenStream=[::1]:111
+        ListenDatagram=[::1]:111
+
+        [Install]
+        WantedBy=sockets.target
+  cmd.run:
+    - name: systemctl daemon-reload
+    - order: last
+    - onchanges:
+      - file: /etc/systemd/system/rpcbind.socket

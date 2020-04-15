@@ -91,14 +91,6 @@ if test "$(findmnt -n -o FSTYPE /boot)" = "vfat"; then
     echo "do_symlinks = no" > /etc/kernel-img.conf
 fi
 
-#echo "workaround /var staying busy at shutdown due to journald"
-#echo "https://github.com/systemd/systemd/issues/867"
-#mkdir -p /etc/systemd/system/var.mount.d
-#cat > /etc/systemd/system/var.mount.d/override.conf << EOF
-#[Mount]
-#LazyUnmount=yes
-#EOF
-
 echo "add grub casper recovery entry"
 EFI_NR=$(cat "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | first_of)")/partition")
 efi_grub="hd0,gpt${EFI_NR}"
@@ -153,6 +145,36 @@ Pin: release o=Ubuntu
 Pin-Priority: -1
 EOF
 done
+# dracut-network pulls in nfs-common which pulls in rpcbind
+# restricted rpcbind to localhost
+echo "overwriting /etc/default/rpcbind"
+cat > /etc/default/rpcbind << EOF
+# "warm start" utilizing a state file,
+# libwrap TCP-Wrapper connection logging
+# restrict rpcbind to localhost only for UDP requests
+OPTIONS="-w -l -h 127.0.0.1 -h ::1"
+EOF
+# restricted rpcbind to localhost
+echo "overwriting /etc/systemd/system/rpcbind.socket"
+mkdir -p /etc/systemd/system/
+cat > /etc/systemd/system/rpcbind.socket << EOF
+[Unit]
+Description=RPCbind Server Activation Socket
+DefaultDependencies=no
+
+[Socket]
+ListenStream=/run/rpcbind.sock
+
+# RPC netconfig can't handle ipv6/ipv4 dual sockets
+BindIPv6Only=ipv6-only
+ListenStream=127.0.0.1:111
+ListenDatagram=127.0.0.1:111
+ListenStream=[::1]:111
+ListenDatagram=[::1]:111
+
+[Install]
+WantedBy=sockets.target
+EOF
 
 if restore_not_overwrite /etc/modprobe.d/zfs.conf; then
     restore_warning "not overwriting /etc/modprobe.d/zfs.conf"
@@ -215,7 +237,7 @@ EOF
     apt install --yes \
         ubuntu-minimal- initramfs-tools- ubuntu-advantage-tools- \
         popularity-contest- friendly-recovery- \
-        dracut dracut-network zfs-dracut
+        dracut dracut-network nfs-common rpcbind zfs-dracut
     rm /etc/apt/apt.conf.d/90bootstrap-force-existing
     apt-get --yes clean
 fi

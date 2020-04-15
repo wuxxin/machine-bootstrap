@@ -12,6 +12,7 @@
 ## testing
 + ubuntu: keep EFI synced
 + make devop state run without custom.sls (so base system is installed first)
++ fix rpcbind listen to world
 
 ## next
 + wip: make machine-bootstrap/initrd|recovery|zfs update
