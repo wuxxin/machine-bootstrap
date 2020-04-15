@@ -55,6 +55,7 @@ network-utils:
       - nfs-common
       - rpcbind
 
+{# add resident bridge #}
 {{ add_internal_bridge(settings.bridge_name, settings.bridge_cidr) }}
 
 {# write possible different to recovery netplan #}
@@ -67,11 +68,11 @@ network-utils:
     - onchanges:
       - file: /etc/netplan/50-lan.yaml
 
-{# restrict rpcbind to localhost and resident bridge #}
+{# restrict rpcbind to localhost and default list ([bridge_ip]) #}
 /etc/default/rpcbind:
   file.replace:
     - pattern: "^OPTIONS=.+"
-    - repl: OPTIONS="-w -l -h 127.0.0.1 -h ::1 -h {{ settings.bridge_ip }}"
+    - repl: OPTIONS="-w -l -h 127.0.0.1 -h ::1 {% for ip in settings.rpcbind %}-h {{ ip }}{% endfor %}
     - append_if_not_found: true
   service.running:
     - name: rpcbind
@@ -97,11 +98,12 @@ network-utils:
         BindIPv6Only=ipv6-only
         ListenStream=127.0.0.1:111
         ListenDatagram=127.0.0.1:111
-        ListenStream={{ settings.bridge_ip }}:111
-        ListenDatagram={{ settings.bridge_ip }}:111
         ListenStream=[::1]:111
         ListenDatagram=[::1]:111
-
+{%- for ip in settings.rpcbind %}
+        ListenStream={{ ip }}:111
+        ListenDatagram={{ ip }}:111
+{%- endif %}
         [Install]
         WantedBy=sockets.target
   cmd.run:

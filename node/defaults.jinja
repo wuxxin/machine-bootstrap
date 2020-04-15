@@ -1,5 +1,6 @@
 {% set bridge_cidr= salt['pillar.get']('node:network:internal:cidr', '10.140.250.1/24') %}
 {% set bridge_name= salt['pillar.get']('node:network:internal:name', 'resident') %}
+{% set bridge_ip= bridge_cidr|regex_replace ('([^/]+)/.+', '\\1') %}
 {% set netplan_path= grains['project_basepath']+ '/config/netplan.yaml' %}
 {% import_text netplan_path as netplan_raw %}
 {% set netplan_recovery= salt['pillar.get']('node:network:recovery', netplan_raw) %}
@@ -11,7 +12,8 @@ bridge_cidr: {{ bridge_cidr }}
 bridge_name: {{ bridge_name }}
 bridge_netcidr: {{ salt['network.convert_cidr'](bridge_cidr)['network'] }}
 bridge_netmask: {{ salt['network.convert_cidr'](bridge_cidr)['netmask'] }}
-bridge_ip: {{ bridge_cidr|regex_replace ('([^/]+)/.+', '\\1') }}
+bridge_ip: {{ bridge_ip }}
+rpcbind: ['{{ bridge_ip }}']
 netplan_recovery: |
 {{ netplan_recovery|indent(4,True) }}
 netplan_default: |
