@@ -40,7 +40,7 @@ bridge_{{ bridge_name }}:
             bridge_ports none
             bridge_stp off
     - require:
-      - pkg: bridge-utils
+      - pkg: network-utils
   cmd.run:
     - name: ifup {{ bridge_name }}
     - onchanges:
@@ -48,9 +48,12 @@ bridge_{{ bridge_name }}:
   {% endif %}
 {% endmacro %}
 
-bridge-utils:
-  pkg:
-    - installed
+network-utils:
+  pkg.installed:
+    - pkgs:
+      - bridge-utils
+      - nfs-common
+      - rpcbind
 
 {{ add_internal_bridge(settings.bridge_name, settings.bridge_cidr) }}
 
@@ -70,8 +73,13 @@ bridge-utils:
     - pattern: "^OPTIONS=.+"
     - repl: OPTIONS="-w -l -h 127.0.0.1 -h ::1 -h {{ settings.bridge_ip }}"
     - append_if_not_found: true
-  service:
-
+  service.running:
+    - name: rpcbind
+    - enable: True
+    - require:
+      - pkg: network-utils
+    - watch:
+      - file: /etc/default/rpcbind
 
 /etc/systemd/system/rpcbind.socket:
   file.managed:
