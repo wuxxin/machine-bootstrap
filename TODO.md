@@ -5,18 +5,17 @@
 + distrib_codename=bionic, frankenstein=false, recovery_autologin=true, storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --swap=1024 --reuse"
 + http_proxy set, distrib_codename=focal, frankenstein=false, recovery_autologin=true, storage_opts="--boot=false --root-size=6000 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --log=128 --cache=384 --swap=512"
 ### virtual, 2 x 15g disks
-+ http_proxy="http://192.168.122.1:8123", distrib_id=Ubuntu, distrib_codename=focal, frankenstein=false, recovery_autologin=true, devop_target="/home/wuxxin", devop_user="wuxxin", storage_opts="--boot=false --efi-size=2048 --log=128 --cache=128 --root-fs=zfs --root-size=10240 --data-lvm=vgdata --data-fs=ext4 --data-lvm-vol-size=2048 --reuse"
++ http_proxy="http://192.168.122.1:8123", distrib_id=Ubuntu, distrib_codename=focal, frankenstein=false, recovery_autologin=true, gitops_target="/home/wuxxin", gitops_user="wuxxin", storage_opts="--boot=false --efi-size=2048 --log=128 --cache=128 --root-fs=zfs --root-size=10240 --data-lvm=vgdata --data-fs=ext4 --data-lvm-vol-size=2048 --reuse"
 
 ## done
 
 ## testing
-+ ubuntu: keep EFI synced
-+ make devop state run without custom.sls (so base system is installed first)
-+ fix rpcbind listen to world
++ make gitops state run without custom.sls (so base system is installed first)
 
 ## next
-+ wip: make machine-bootstrap/initrd|recovery|zfs update
 + wip: add gitops feature (probably with nginx and letsencrypt ingress) as host service
++ add: ubuntu: keep EFI synced start once on boot in addition to path change
++ wip: make machine-bootstrap/initrd|recovery|zfs update
 + wip: fixme: rebase custom-zfs-patches and fix custom-build-zfs
 
 ### bugs
@@ -30,7 +29,7 @@
 + add: connect.sh initrdluks|recoverymount --allow-virtual
     + checks after connecting if gatewaydev is emulated, aborts if emulated
     + use --allow-virtual if you know you're connecting to a vm
-+ devop: make target system honor http_proxy on devop install
++ gitops: make target system honor http_proxy on gitops install
 + recovery scripts to replace a faulty disk, to invalidate a disk
     + all: add script to replace a changed faulty disk: recovery-replace-mirror.sh
     + all: add script to deactivate (invalidate) one of two disks: storage-invalidate-mirror.sh
@@ -41,8 +40,8 @@
         + make all machine-bootstrap knowledge available there
     + make minimal configuration.nix on project create
 + all: optional use of tmux for long running ssh connections of bootstrap.sh
-+ devop: ubuntu: install and configure ZFS Scrubbing
-+ devop: ubuntu: make backup working
++ gitops: ubuntu: install and configure ZFS Scrubbing
++ gitops: ubuntu: make backup working
 + "cloud like" autorotating encrypted incremental snapshot backup to thirdparty storage with zfs and restic
     this should be a little to no performance impact, encrypted, incremental, autorotating snapshot backup system, from and to redundant checksuming data storage on a single machine with the abbility to use common thirdparty storage for this backup. So far it is a very busy journey... https://xkcd.com/974/
 
@@ -51,7 +50,7 @@ after integration of overlayfs in the kernel,
     adoption of overlayfs based solutions is rapidly growing.
 in 2019 many software projects assume to be able
     to use overlayfs on any underlying storage.
-overlayfs runs on ext3/4,xfs,ramfs and even btrfs, 
+overlayfs runs on ext3/4,xfs,ramfs and even btrfs,
     you dont assume it doesn't on zfs.
 
 overlayfs is the first will probably be one of the few solutions

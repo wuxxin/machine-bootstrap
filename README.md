@@ -11,7 +11,7 @@ It serves three use cases:
 + as a typical Rootserver (2xHD, headless)
 + as a home-nas/home-io headless server with one ssd and two attached spindle disks
 
-Current Status: **Experimental** 
+Current Status: **Experimental**
 
 Some setups may work, most break under certain conditions.
 
@@ -30,7 +30,7 @@ Some setups may work, most break under certain conditions.
 ### optional Features
 + luks encrypted **hibernate compatible swap** for eg. a desktop installation
 + ubuntu: **overlay fs and namespace uid/guid support on zfs** by building patched zfs-linux (frankenstein=true)
-+ ubuntu: **saltstack provision run** at devop stage with states from salt-shared (eg. desktop)
++ ubuntu: **saltstack provision run** at gitops stage with states from salt-shared (eg. desktop)
 + **build a preconfigured livesystem image** usable for headless physical installation
     + resulting image is compatible as CD or USB-Stick with BIOS and EFI support
     + optional netplan for static or other non dhcp based ip configurations
@@ -44,14 +44,14 @@ Some setups may work, most break under certain conditions.
 
 + a root server with custom network (eg. static ip)
     + add custom `netplan.yaml`
-+ a laptop with encrypted hibernation: 
-    + add `storage_opts="--swap=yes"` to `machine-config.env`
++ a laptop with encrypted hibernation:
+    + add `storage_opts="--swap=yes"` to `node.env`
 + a vm with a http proxy on its host:
-    + add `http_proxy="http://proxyip:port"`to `machine-config.env`
+    + add `http_proxy="http://proxyip:port"`to `node.env`
 + install ubuntu eoan instead of focal:
-    + add `distrib_codename=eoan` to `machine-config.env`
+    + add `distrib_codename=eoan` to `node.env`
 + install nixos instead of ubuntu:
-    + add `distrib_id=Nixos` and `distrib_codename=19.09` to `machine-config.env`
+    + add `distrib_id=Nixos` and `distrib_codename=19.09` to `node.env`
 
 ##### Storage Examples
 
@@ -78,7 +78,7 @@ Requirements:
     + frankenstein=no : 2GB RAM
     + frankenstein=yes: 4GB Ram (for compiling zfs in ram in recovery)
 + Minimum Storage
-    + 10GB (no swap, console) 
+    + 10GB (no swap, console)
     + \+ ~5GB (with swap for 4gb memory)
     + \+ ~5GB (full desktop installation)
 
@@ -100,22 +100,22 @@ git remote add origin ssh://git@some.where.net/path/box.git
 git push -u origin master
 ```
 
-### optional: add files for a saltstack run (only ubuntu and debian)
+### optional: add files for a gitops run (only ubuntu and debian)
 ```
+# add saltstack
 mkdir -p salt/custom
-cd salt
+pushd salt
 git submodule add https://github.com/wuxxin/salt-shared.git
-cd ..
-ln -s ../../machine-bootstrap salt/custom/machine-bootstrap
+popd
 cat > config/top.sls << EOF
 base:
   '*':
     - custom
 EOF
-for i in custom bootstrap; do
-    cp machine-bootstrap/template/${i}-pillar.sls config/${i}.sls
-done
-cp machine-bootstrap/template/top-state.sls salt/custom/top.sls
+cp salt/salt-shared/gitops/config.template.sls config/config.sls
+cp salt/salt-shared/gitops/pillar.template.sls config/custom.sls
+cp salt/salt-shared/gitops/state.template.sls salt/custom/top.sls
+printf "  '*':\n    - machine-bootstrap\n\n" >> salt/custom/top.sls
 touch salt/custom/custom.sls
 git add .
 git commit -v -m "add saltstack skeleton"
@@ -156,7 +156,7 @@ git commit -v -m "add git-crypt config"
 ### configure machine
 
 ```
-cat > config/machine-config.env <<EOF
+cat > config/node.env <<EOF
 # mandatory
 sshlogin=root@1.2.3.4
 hostname=box.local
@@ -164,13 +164,15 @@ firstuser=$(id -u -n)
 # storage_ids=""
 
 # optional
+# gitops_user="$(id -u -n)" # default $firstuser
+# gitops_target="/home/$(id -u -n)" # default /home/$firstuser
+# gitops_source=""
+# gitops_branch=""
 # http_proxy="http://192.168.122.1:8123" # default ""
 # distrib_id="Nixos" # default "Ubuntu"
 # distrib_codename="19.09-small" # default "focal"
 # recovery_autologin="true" # default "false"
 # frankenstein="true" # default "false"
-# devop_target="/home/$(id -u -n)"
-# devop_user="$(id -u -n)"
 # storage_opts=""
 # [--reuse]
 # [--log=        true|*false|<logsizemb,   default if true: 1024 mb>]
@@ -201,7 +203,7 @@ cat ~/.ssh/id_rsa.pub ~/.ssh/id_ed25519.pub \
 echo $(printf 'storage_ids="'; for i in \
     $(./machine-bootstrap/connect.sh temporary "ls /dev/disk/by-id/" | \
         grep -E "^virtio-[^-]+$"); do \
-    printf "$i "; done; printf '"') >> config/machine-config.env
+    printf "$i "; done; printf '"') >> config/node.env
 
 # create disk.passphrase.gpg
 # example: create a random diskphrase and encrypted with user gpg key
@@ -282,9 +284,9 @@ git commit -v -m "bootstrap run"
 # or each step seperate
 ./machine-bootstrap/bootstrap.sh execute recovery box.local
 ./machine-bootstrap/bootstrap.sh execute install box.local
-./machine-bootstrap/bootstrap.sh execute devop box.local
+./machine-bootstrap/bootstrap.sh execute gitops box.local
 
-# logs of each step will be written to log/bootstrap-*.log 
+# logs of each step will be written to log/bootstrap-*.log
 # but log directory is in .gitignore and content won't be comitted
 ```
 
@@ -343,7 +345,7 @@ reboot
 ### GPT Layout
 
 + information leakage
-    be aware that, the way gpt labels are setup in this script, they leak metadata of encrypted data, eg. raid_luks_lvm.vg0_ext4_ROOT leaks the information that behind the luks encrypted data is a lvm partition with a volume group named vg0 and the root file system is ext4 (but not how to read this data). if this is an issue, rename the volume labels after bootstrap completed, mounts will still work because they are pointing to the uuid 
+    be aware that, the way gpt labels are setup in this script, they leak metadata of encrypted data, eg. raid_luks_lvm.vg0_ext4_ROOT leaks the information that behind the luks encrypted data is a lvm partition with a volume group named vg0 and the root file system is ext4 (but not how to read this data). if this is an issue, rename the volume labels after bootstrap completed, mounts will still work because they are pointing to the uuid
 
 + Partition Layout
 
