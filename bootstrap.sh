@@ -8,21 +8,21 @@ self_path=$(dirname "$(readlink -e "$0")")
 usage() {
     cat << EOF
 
-$0 execute recovery|install|devop <hostname> [optional install parameter]
+$0 execute recovery|install|gitops <hostname> [optional install parameter]
 
     execute the requested stages of install on hostname, all output from target
         host is displayed on screen and captured to "log" dir
 
     + recovery: execute partitioning and recovery install (expects debianish live system)
     + install:  execute format and install system (expects running recovery image)
-    + devop:    execute step devop (expects installed and running base machine,
+    + gitops:    execute step gitops (expects installed and running base machine,
                 will first try to connect to initrd and unlock storage)
 
     <hostname>  must be the same value as in the config file config/hostname
     --restore-from-backup
                 partition & format system, then restore from backup
 
-    + all:      executes steps recovery,install,devop
+    + all:      executes steps recovery,install,gitops
     + plain:    executes steps recovery,install
 
 $0 test
@@ -37,7 +37,7 @@ Configuration:
 + config directory path: $config_path
     + can be overwritten with env var "MACHINE_BOOTSTRAP_CONFIG_DIR"
 + mandatory config files (see "README.md" for detailed description):
-    + Base Configuration File: "machine-config.env"
+    + Base Configuration File: "node.env"
     + File: "disk.passphrase.gpg"
     + File: "authorized_keys"
 + additional mandatory config file if distrib_id=Nixos:
@@ -158,7 +158,7 @@ config_path="$(readlink -m "$self_path/../config")"
 if test -n "$MACHINE_BOOTSTRAP_CONFIG_DIR"; then
     config_path="$MACHINE_BOOTSTRAP_CONFIG_DIR"
 fi
-config_file=$config_path/machine-config.env
+config_file=$config_path/node.env
 diskpassphrase_file=$config_path/disk.passphrase.gpg
 authorized_keys_file=$config_path/authorized_keys
 nixos_configuration_file=$config_path/configuration.nix
@@ -175,8 +175,8 @@ if test "$1" != "test" -a "$1" != "execute" -a "$1" != "create"; then usage; fi
 command=$1
 shift
 if test "$command" = "execute"; then
-    if [[ ! "$1" =~ ^(all|plain|recovery|install|devop)$ ]]; then
-        echo "ERROR: Stage must be one of 'all|plain|recovery|install|devop'"
+    if [[ ! "$1" =~ ^(all|plain|recovery|install|gitops)$ ]]; then
+        echo "ERROR: Stage must be one of 'all|plain|recovery|install|gitops'"
         usage
     fi
     if test "$2" = ""; then
@@ -251,8 +251,8 @@ fi
 # make defaults
 if test -z "$distrib_id"; then distrib_id="Ubuntu"; fi
 if test -z "$distrib_codename"; then distrib_codename="focal"; fi
-if test -z "$devop_target"; then devop_target="/home/$firstuser"; fi
-if test -z "$devop_user"; then devop_user="$firstuser"; fi
+if test -z "$gitops_target"; then gitops_target="/home/$firstuser"; fi
+if test -z "$gitops_user"; then gitops_user="$firstuser"; fi
 if test "$recovery_autologin" != "true"; then recovery_autologin="false"; fi
 if test "$frankenstein" = "true"; then
     frankenstein=true
@@ -437,11 +437,11 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
 fi
 
 
-# STEP devop
-if test "$do_phase" = "all" -o "$do_phase" = "devop"; then
+# STEP gitops
+if test "$do_phase" = "all" -o "$do_phase" = "gitops"; then
     # initramfs luks open
     waitfor_ssh "$sshlogin"
-    echo "Step: devop"
+    echo "Step: gitops"
     if (ssh-keyscan -p "$(ssh_uri ${sshlogin} port)" -H "$(ssh_uri ${sshlogin} host)" \
         | sed -r 's/.+(ssh-[^ ]+) (.+)$/\1 \2/g' \
         | grep -q -F -f - "$config_path/initrd.known_hosts") ; then
@@ -456,14 +456,14 @@ if test "$do_phase" = "all" -o "$do_phase" = "devop"; then
 
     echo "rsync setup repository to target"
     sshopts="-o UserKnownHostsFile=$config_path/system.known_hosts"
-    ssh $sshopts "$(ssh_uri ${sshlogin})" "mkdir -p $devop_target/$base_name"
+    ssh $sshopts "$(ssh_uri ${sshlogin})" "mkdir -p $gitops_target/$base_name"
     rsync -az -e "ssh $sshopts -p $(ssh_uri ${sshlogin} port)" \
         --delete --exclude "./run" --exclude "./log" \
-        "$base_path" "$(ssh_uri ${sshlogin} rsync):$devop_target"
+        "$base_path" "$(ssh_uri ${sshlogin} rsync):$gitops_target"
 
-    devop_args="$@"
-    if test "$devop_args" = ""; then devop_args="state.highstate"; fi
-    echo "call bootstrap-3, install saltstack and run: $devop_args"
+    gitops_args="$@"
+    if test "$gitops_args" = ""; then gitops_args="state.highstate"; fi
+    echo "execute salt-call $gitops_args"
     ssh $sshopts "$(ssh_uri ${sshlogin})" \
-        "http_proxy=\"$http_proxy\"; export http_proxy; chown -R $devop_user:$devop_user $devop_target; chmod +x $devop_target/$base_name/$(basename $self_path)/bootstrap-3-devop.sh; $devop_target/$base_name/$(basename $self_path)/bootstrap-3-devop.sh --yes $devop_args" 2>&1 | tee "$log_path/bootstrap-devop.log"
+        "http_proxy=\"$http_proxy\"; export http_proxy; chown -R $gitops_user:$gitops_user $gitops_target; chmod +x $gitops_target/$base_name/$(basename $self_path)/bootstrap-3-gitops.sh; $gitops_target/$base_name/$(basename $self_path)/salt/salt-shared/gitops/execute-saltstack.sh $gitops_target/$base_name --yes $gitops_args" 2>&1 | tee "$log_path/bootstrap-gitops.log"
 fi

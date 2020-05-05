@@ -1,5 +1,4 @@
 include:
-  - .node
   - .initrd
 {#
   - .recovery

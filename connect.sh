@@ -6,7 +6,7 @@ config_path="$(readlink -m "$self_path/../config")"
 if test -n "$MACHINE_BOOTSTRAP_CONFIG_DIR"; then
     config_path="$MACHINE_BOOTSTRAP_CONFIG_DIR"
 fi
-config_file=$config_path/machine-config.env
+config_file=$config_path/node.env
 diskpassphrase_file=$config_path/disk.passphrase.gpg
 
 

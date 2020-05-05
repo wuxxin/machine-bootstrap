@@ -47,7 +47,7 @@ Unfinished:
 + Configuration Directory:
     + mandatory config files:
         + File: backup.passphrase.gpg
-        + Base Configuration File: machine-config.env
+        + Base Configuration File: node.env
             + mandatory settings
             + backup_repository=/volatile/restic-backup
 
