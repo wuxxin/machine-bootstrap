@@ -1,7 +1,7 @@
-From 0ffd3a2a510dd4797151ea8f11cdaad8ff39c7bf Mon Sep 17 00:00:00 2001
+From b06bc28d4e493e668c6fbe8e174f15259502e1ba Mon Sep 17 00:00:00 2001
 From: Pavel Snajdr <snajpa@snajpa.net>
 Date: Thu, 7 Nov 2019 12:07:08 -0500
-Subject: [PATCH 06/12] EL7 directory inode operations rename2 compat
+Subject: [PATCH 07/13] EL7 directory inode operations rename2 compat
 
 EL7 has .rename2 op upper in the inode_operations_wrapper,
 so let's add a wrapping ifdef to dir inode_operations

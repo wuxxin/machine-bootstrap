@@ -1,7 +1,7 @@
-From e55772119885f6c26fc108812ef66efe3aac2b16 Mon Sep 17 00:00:00 2001
+From 3f4260581b5ff784364bfaea72471e174cda584e Mon Sep 17 00:00:00 2001
 From: Aleksa Sarai <cyphar@cyphar.com>
 Date: Fri, 26 Apr 2019 23:23:07 +1000
-Subject: [PATCH 01/12] zfs_rename: restructure to have cleaner fallbacks
+Subject: [PATCH 02/13] zfs_rename: restructure to have cleaner fallbacks
 
 This is in preparation for RENAME_EXCHANGE and RENAME_WHITEOUT support
 for ZoL, but the changes here allow for far nicer fallbacks than the
@@ -32,10 +32,10 @@ index 0f15e4345..1f3cf1323 100644
  extern int zfs_link_destroy(zfs_dirlock_t *, znode_t *, dmu_tx_t *, int,
      boolean_t *);
 diff --git a/module/os/linux/zfs/zfs_dir.c b/module/os/linux/zfs/zfs_dir.c
-index 7ebf38ddb..648ad9518 100644
+index 591e35fd1..ee37a5c84 100644
 --- a/module/os/linux/zfs/zfs_dir.c
 +++ b/module/os/linux/zfs/zfs_dir.c
-@@ -914,6 +914,74 @@ zfs_dropname(zfs_dirlock_t *dl, znode_t *zp, znode_t *dzp, dmu_tx_t *tx,
+@@ -925,6 +925,74 @@ zfs_dropname(zfs_dirlock_t *dl, znode_t *zp, znode_t *dzp, dmu_tx_t *tx,
  	return (error);
  }
  
@@ -110,7 +110,7 @@ index 7ebf38ddb..648ad9518 100644
  /*
   * Unlink zp from dl, and mark zp for deletion if this was the last link. Can
   * fail if zp is a mount point (EBUSY) or a non-empty directory (ENOTEMPTY).
-@@ -954,31 +1022,8 @@ zfs_link_destroy(zfs_dirlock_t *dl, znode_t *zp, dmu_tx_t *tx, int flag,
+@@ -965,31 +1033,8 @@ zfs_link_destroy(zfs_dirlock_t *dl, znode_t *zp, dmu_tx_t *tx, int flag,
  			return (error);
  		}
  
@@ -145,10 +145,10 @@ index 7ebf38ddb..648ad9518 100644
  	} else {
  		error = zfs_dropname(dl, zp, dzp, tx, flag);
 diff --git a/module/os/linux/zfs/zfs_vnops.c b/module/os/linux/zfs/zfs_vnops.c
-index 4929c97e9..b9029721a 100644
+index aba125f3b..781701af6 100644
 --- a/module/os/linux/zfs/zfs_vnops.c
 +++ b/module/os/linux/zfs/zfs_vnops.c
-@@ -3493,7 +3493,6 @@ zfs_rename(znode_t *sdzp, char *snm, znode_t *tdzp, char *tnm,
+@@ -3502,7 +3502,6 @@ zfs_rename(znode_t *sdzp, char *snm, znode_t *tdzp, char *tnm,
  		return (SET_ERROR(EINVAL));
  
  	ZFS_ENTER(zfsvfs);
@@ -156,7 +156,7 @@ index 4929c97e9..b9029721a 100644
  	zilog = zfsvfs->z_log;
  
  	ZFS_VERIFY_ZP(tdzp);
-@@ -3685,16 +3684,12 @@ top:
+@@ -3694,16 +3693,12 @@ top:
  		/*
  		 * Source and target must be the same type.
  		 */
@@ -179,7 +179,7 @@ index 4929c97e9..b9029721a 100644
  		}
  		/*
  		 * POSIX dictates that when the source and target
-@@ -3750,51 +3745,49 @@ top:
+@@ -3759,51 +3754,49 @@ top:
  		return (error);
  	}
  
@@ -269,7 +269,7 @@ index 4929c97e9..b9029721a 100644
  	dmu_tx_commit(tx);
  out:
  	if (zl != NULL)
-@@ -3822,6 +3815,29 @@ out:
+@@ -3831,6 +3824,29 @@ out:
  
  	ZFS_EXIT(zfsvfs);
  	return (error);

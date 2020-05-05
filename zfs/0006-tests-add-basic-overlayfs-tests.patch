@@ -1,19 +1,19 @@
-From f640b0f62257d296fc6f2e2d940768251afd5a4c Mon Sep 17 00:00:00 2001
+From 918f9f0e5f1c62f186348fdcd5afa7199ff98450 Mon Sep 17 00:00:00 2001
 From: Pavel Snajdr <snajpa@snajpa.net>
 Date: Wed, 6 Nov 2019 21:08:15 +0100
-Subject: [PATCH 05/12] tests: add basic overlayfs tests
+Subject: [PATCH 06/13] tests: add basic overlayfs tests
 
 Signed-off-by: Pavel Snajdr <snajpa@snajpa.net>
 ---
  configure.ac                                  |  1 +
- tests/runfiles/linux.run                      | 13 +---
+ tests/runfiles/linux.run                      |  4 +
  tests/zfs-tests/tests/functional/Makefile.am  |  1 +
  .../tests/functional/overlayfs/Makefile.am    |  6 ++
  .../tests/functional/overlayfs/cleanup.ksh    | 34 +++++++++
  .../functional/overlayfs/overlayfs_basic.ksh  | 69 +++++++++++++++++
  .../overlayfs/overlayfs_layered.ksh           | 75 +++++++++++++++++++
  .../tests/functional/overlayfs/setup.ksh      | 43 +++++++++++
- 8 files changed, 232 insertions(+), 10 deletions(-)
+ 8 files changed, 233 insertions(+)
  create mode 100644 tests/zfs-tests/tests/functional/overlayfs/Makefile.am
  create mode 100755 tests/zfs-tests/tests/functional/overlayfs/cleanup.ksh
  create mode 100755 tests/zfs-tests/tests/functional/overlayfs/overlayfs_basic.ksh
@@ -21,10 +21,10 @@ Signed-off-by: Pavel Snajdr <snajpa@snajpa.net>
  create mode 100755 tests/zfs-tests/tests/functional/overlayfs/setup.ksh
 
 diff --git a/configure.ac b/configure.ac
-index 70ba5326e..de4fb2780 100644
+index 09a17c07d..0c189e47c 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -336,6 +336,7 @@ AC_CONFIG_FILES([
+@@ -337,6 +337,7 @@ AC_CONFIG_FILES([
  	tests/zfs-tests/tests/functional/no_space/Makefile
  	tests/zfs-tests/tests/functional/nopwrite/Makefile
  	tests/zfs-tests/tests/functional/online_offline/Makefile
@@ -33,29 +33,20 @@ index 70ba5326e..de4fb2780 100644
  	tests/zfs-tests/tests/functional/pool_names/Makefile
  	tests/zfs-tests/tests/functional/poolversion/Makefile
 diff --git a/tests/runfiles/linux.run b/tests/runfiles/linux.run
-index 6828578cb..aaad5862b 100644
+index 6828578cb..ab137e34c 100644
 --- a/tests/runfiles/linux.run
 +++ b/tests/runfiles/linux.run
-@@ -113,16 +113,9 @@ tags = ['functional', 'io']
- tests = ['mmap_libaio_001_pos']
- tags = ['functional', 'mmap']
+@@ -124,6 +124,10 @@ tags = ['functional', 'mmp']
+ tests = ['umount_unlinked_drain']
+ tags = ['functional', 'mount']
  
--[tests/functional/mmp:Linux]
--tests = ['mmp_on_thread', 'mmp_on_uberblocks', 'mmp_on_off', 'mmp_interval',
--    'mmp_active_import', 'mmp_inactive_import', 'mmp_exported_import',
--    'mmp_write_uberblocks', 'mmp_reset_interval', 'multihost_history',
--    'mmp_on_zdb', 'mmp_write_distribution', 'mmp_hostid']
--tags = ['functional', 'mmp']
--
--[tests/functional/mount:Linux]
--tests = ['umount_unlinked_drain']
--tags = ['functional', 'mount']
 +[tests/functional/overlayfs:Linux]
 +tests = ['overlayfs_basic', 'overlayfs_layered']
 +tags = ['functional', 'overlayfs']
- 
++
  [tests/functional/procfs:Linux]
  tests = ['procfs_list_basic', 'procfs_list_concurrent_readers',
+     'procfs_list_stale_read', 'pool_state']
 diff --git a/tests/zfs-tests/tests/functional/Makefile.am b/tests/zfs-tests/tests/functional/Makefile.am
 index 5efacf729..111ffb29a 100644
 --- a/tests/zfs-tests/tests/functional/Makefile.am

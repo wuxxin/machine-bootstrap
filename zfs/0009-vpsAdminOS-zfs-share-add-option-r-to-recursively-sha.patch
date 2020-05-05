@@ -1,7 +1,7 @@
-From 9a6b33393e52ad7f9c8217b2e1e77f150feb1cf1 Mon Sep 17 00:00:00 2001
+From e67d5d40a61fa5ba32dfabfddd183dc6993bfa13 Mon Sep 17 00:00:00 2001
 From: Jakub Skokan <jakub.skokan@havefun.cz>
 Date: Sun, 16 Jun 2019 11:26:50 +0200
-Subject: [PATCH 08/12] [vpsAdminOS] zfs share: add option -r to recursively
+Subject: [PATCH 09/13] [vpsAdminOS] zfs share: add option -r to recursively
  share descendant filesystems
 
 Signed-off-by: Jakub Skokan <jakub.skokan@havefun.cz>
@@ -11,10 +11,10 @@ Signed-off-by: Jakub Skokan <jakub.skokan@havefun.cz>
  2 files changed, 65 insertions(+), 7 deletions(-)
 
 diff --git a/cmd/zfs/zfs_main.c b/cmd/zfs/zfs_main.c
-index 5e5bbc972..141db7e04 100644
+index ae71cdc88..51dde216f 100644
 --- a/cmd/zfs/zfs_main.c
 +++ b/cmd/zfs/zfs_main.c
-@@ -325,7 +325,7 @@ get_usage(zfs_help_t idx)
+@@ -328,7 +328,7 @@ get_usage(zfs_help_t idx)
  		return (gettext("\tset <property=value> ... "
  		    "<filesystem|volume|snapshot> ...\n"));
  	case HELP_SHARE:
@@ -23,7 +23,7 @@ index 5e5bbc972..141db7e04 100644
  	case HELP_SNAPSHOT:
  		return (gettext("\tsnapshot [-r] [-o property=value] ... "
  		    "<filesystem|volume>@<snap> ...\n"));
-@@ -6813,13 +6813,14 @@ static int
+@@ -6818,13 +6818,14 @@ static int
  share_mount(int op, int argc, char **argv)
  {
  	int do_all = 0;
@@ -39,7 +39,7 @@ index 5e5bbc972..141db7e04 100644
  	    != -1) {
  		switch (c) {
  		case 'a':
-@@ -6850,6 +6851,9 @@ share_mount(int op, int argc, char **argv)
+@@ -6855,6 +6856,9 @@ share_mount(int op, int argc, char **argv)
  		case 'f':
  			flags |= MS_FORCE;
  			break;
@@ -49,7 +49,7 @@ index 5e5bbc972..141db7e04 100644
  		case ':':
  			(void) fprintf(stderr, gettext("missing argument for "
  			    "'%c' option\n"), optopt);
-@@ -6964,9 +6968,55 @@ share_mount(int op, int argc, char **argv)
+@@ -6969,9 +6973,55 @@ share_mount(int op, int argc, char **argv)
  		    ZFS_TYPE_FILESYSTEM)) == NULL) {
  			ret = 1;
  		} else {

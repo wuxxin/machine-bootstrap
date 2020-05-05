@@ -1,7 +1,7 @@
-From e739032b92cf32cf454547155c6b6b94c089c8f1 Mon Sep 17 00:00:00 2001
+From 6991deacdf9782faae5b234a4af2a757f9548f2a Mon Sep 17 00:00:00 2001
 From: Jakub Skokan <jakub.skokan@havefun.cz>
 Date: Mon, 14 May 2018 17:22:39 +0200
-Subject: [PATCH 07/12] [vpsAdminOS] Configurable UID/GID maps
+Subject: [PATCH 08/13] [vpsAdminOS] Configurable UID/GID maps
 
 This patch introduces two new properties: uidmap and gidmap.
 These properties are used to map user and group IDs to a different
@@ -62,10 +62,10 @@ entries are searched for sequentially, first matching entry wins.
  create mode 100755 tests/zfs-tests/tests/functional/ugid_maps/ugid_maps_004.ksh
 
 diff --git a/configure.ac b/configure.ac
-index de4fb2780..afd384aaf 100644
+index 0c189e47c..5d4457012 100644
 --- a/configure.ac
 +++ b/configure.ac
-@@ -370,6 +370,7 @@ AC_CONFIG_FILES([
+@@ -371,6 +371,7 @@ AC_CONFIG_FILES([
  	tests/zfs-tests/tests/functional/truncate/Makefile
  	tests/zfs-tests/tests/functional/upgrade/Makefile
  	tests/zfs-tests/tests/functional/user_namespace/Makefile
@@ -107,7 +107,7 @@ index 82165170a..3493d6199 100644
  	$(top_srcdir)/include/sys/zil_impl.h \
  	$(top_srcdir)/include/sys/zio_checksum.h \
 diff --git a/include/sys/fs/zfs.h b/include/sys/fs/zfs.h
-index 3484b13e3..f5acc6f2d 100644
+index 477356aa7..aa20a8c5c 100644
 --- a/include/sys/fs/zfs.h
 +++ b/include/sys/fs/zfs.h
 @@ -186,6 +186,8 @@ typedef enum {
@@ -149,7 +149,7 @@ index 000000000..1d3d2659e
 +
 +#endif	/* _SYS_FS_ZFS_UGID_MAP_H */
 diff --git a/lib/libzfs/libzfs_dataset.c b/lib/libzfs/libzfs_dataset.c
-index 48d656323..7368e7faf 100644
+index 45e7a79fb..a8df54e2c 100644
 --- a/lib/libzfs/libzfs_dataset.c
 +++ b/lib/libzfs/libzfs_dataset.c
 @@ -60,6 +60,7 @@
@@ -450,10 +450,10 @@ index 000000000..8c33da83c
 +	return 65534;
 +}
 diff --git a/module/os/linux/zfs/zfs_vfsops.c b/module/os/linux/zfs/zfs_vfsops.c
-index 3b8d89f90..a3dabdc7f 100644
+index 72c1006bb..32e3bba40 100644
 --- a/module/os/linux/zfs/zfs_vfsops.c
 +++ b/module/os/linux/zfs/zfs_vfsops.c
-@@ -59,6 +59,7 @@
+@@ -60,6 +60,7 @@
  #include <sys/objlist.h>
  #include <sys/zpl.h>
  #include <linux/vfs_compat.h>
@@ -461,7 +461,7 @@ index 3b8d89f90..a3dabdc7f 100644
  #include "zfs_comutil.h"
  
  enum {
-@@ -654,6 +655,9 @@ zfsvfs_init(zfsvfs_t *zfsvfs, objset_t *os)
+@@ -655,6 +656,9 @@ zfsvfs_init(zfsvfs_t *zfsvfs, objset_t *os)
  		return (error);
  	zfsvfs->z_acl_type = (uint_t)val;
  
@@ -471,7 +471,7 @@ index 3b8d89f90..a3dabdc7f 100644
  	/*
  	 * Fold case on file systems that are always or sometimes case
  	 * insensitive.
-@@ -946,6 +950,8 @@ zfsvfs_free(zfsvfs_t *zfsvfs)
+@@ -949,6 +953,8 @@ zfsvfs_free(zfsvfs_t *zfsvfs)
  	}
  	vmem_free(zfsvfs->z_hold_trees, sizeof (avl_tree_t) * size);
  	vmem_free(zfsvfs->z_hold_locks, sizeof (kmutex_t) * size);
@@ -481,10 +481,10 @@ index 3b8d89f90..a3dabdc7f 100644
  	dataset_kstats_destroy(&zfsvfs->z_kstat);
  	kmem_free(zfsvfs, sizeof (zfsvfs_t));
 diff --git a/module/os/linux/zfs/zfs_vnops.c b/module/os/linux/zfs/zfs_vnops.c
-index d284c566c..5b758d237 100644
+index 3a96b25b9..972317ea5 100644
 --- a/module/os/linux/zfs/zfs_vnops.c
 +++ b/module/os/linux/zfs/zfs_vnops.c
-@@ -2666,6 +2666,7 @@ zfs_setattr(znode_t *zp, vattr_t *vap, int flags, cred_t *cr)
+@@ -2675,6 +2675,7 @@ zfs_setattr(znode_t *zp, vattr_t *vap, int flags, cred_t *cr)
  	int		trim_mask = 0;
  	uint64_t	new_mode;
  	uint64_t	new_kuid = 0, new_kgid = 0, new_uid, new_gid;
@@ -492,7 +492,7 @@ index d284c566c..5b758d237 100644
  	uint64_t	xattr_obj;
  	uint64_t	mtime[2], ctime[2], atime[2];
  	uint64_t	projid = ZFS_INVALID_PROJID;
-@@ -3173,10 +3174,14 @@ top:
+@@ -3182,10 +3183,14 @@ top:
  	if (mask & (ATTR_UID|ATTR_GID)) {
  
  		if (mask & ATTR_UID) {
@@ -509,7 +509,7 @@ index d284c566c..5b758d237 100644
  			if (attrzp) {
  				SA_ADD_BULK_ATTR(xattr_bulk, xattr_count,
  				    SA_ZPL_UID(zfsvfs), NULL, &new_uid,
-@@ -3186,10 +3191,14 @@ top:
+@@ -3195,10 +3200,14 @@ top:
  		}
  
  		if (mask & ATTR_GID) {
@@ -623,10 +623,10 @@ index 3ba3b8a84..30aeccda1 100644
  	/* readonly number properties */
  	zprop_register_number(ZFS_PROP_USED, "used", 0, PROP_READONLY,
 diff --git a/tests/runfiles/linux.run b/tests/runfiles/linux.run
-index aaad5862b..c3e8c38ca 100644
+index ab137e34c..108a41c14 100644
 --- a/tests/runfiles/linux.run
 +++ b/tests/runfiles/linux.run
-@@ -149,6 +149,10 @@ tests = ['tmpfile_001_pos', 'tmpfile_002_pos', 'tmpfile_003_pos',
+@@ -160,6 +160,10 @@ tests = ['tmpfile_001_pos', 'tmpfile_002_pos', 'tmpfile_003_pos',
      'tmpfile_stat_mode']
  tags = ['functional', 'tmpfile']
  

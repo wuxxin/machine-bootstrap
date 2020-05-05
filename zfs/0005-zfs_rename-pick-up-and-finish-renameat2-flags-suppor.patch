@@ -1,7 +1,7 @@
-From b91c840a715ff81f91d06f953d5019bdceead1fb Mon Sep 17 00:00:00 2001
+From f95b2c522099b542af350b8874531466ca449ee0 Mon Sep 17 00:00:00 2001
 From: Pavel Snajdr <snajpa@snajpa.net>
 Date: Tue, 5 Nov 2019 01:19:57 +0100
-Subject: [PATCH 04/12] zfs_rename: pick up and finish renameat2 flags support
+Subject: [PATCH 05/13] zfs_rename: pick up and finish renameat2 flags support
 
 Removing new txtypes in favor of compound ZIL operations, see comment in
 module/zfs/zfs_log.c.
@@ -156,10 +156,10 @@ index 1099c2f7f..716b19e56 100644
  /*
   * The transactions for mkdir, symlink, remove, rmdir, link, and rename
 diff --git a/module/os/linux/zfs/zfs_dir.c b/module/os/linux/zfs/zfs_dir.c
-index 648ad9518..dcf390468 100644
+index ee37a5c84..99f290935 100644
 --- a/module/os/linux/zfs/zfs_dir.c
 +++ b/module/os/linux/zfs/zfs_dir.c
-@@ -1023,7 +1023,8 @@ zfs_link_destroy(zfs_dirlock_t *dl, znode_t *zp, dmu_tx_t *tx, int flag,
+@@ -1034,7 +1034,8 @@ zfs_link_destroy(zfs_dirlock_t *dl, znode_t *zp, dmu_tx_t *tx, int flag,
  		}
  
  		/* The only error is !zfs_dirempty() and we checked earlier. */
@@ -170,10 +170,10 @@ index 648ad9518..dcf390468 100644
  	} else {
  		error = zfs_dropname(dl, zp, dzp, tx, flag);
 diff --git a/module/os/linux/zfs/zfs_vnops.c b/module/os/linux/zfs/zfs_vnops.c
-index 449c05bbb..d284c566c 100644
+index 9c39a329c..3a96b25b9 100644
 --- a/module/os/linux/zfs/zfs_vnops.c
 +++ b/module/os/linux/zfs/zfs_vnops.c
-@@ -3488,24 +3488,18 @@ zfs_rename(znode_t *sdzp, char *snm, znode_t *tdzp, char *tnm,
+@@ -3497,24 +3497,18 @@ zfs_rename(znode_t *sdzp, char *snm, znode_t *tdzp, char *tnm,
  	int		error = 0;
  	int		zflg = 0;
  	boolean_t	waited = B_FALSE;
@@ -200,7 +200,7 @@ index 449c05bbb..d284c566c 100644
  	ZFS_ENTER(zfsvfs);
  	zilog = zfsvfs->z_log;
  
-@@ -3702,7 +3696,7 @@ top:
+@@ -3711,7 +3705,7 @@ top:
  		/*
  		 * Source and target must be the same type (unless exchanging).
  		 */
@@ -209,7 +209,7 @@ index 449c05bbb..d284c566c 100644
  			boolean_t s_is_dir = S_ISDIR(ZTOI(szp)->i_mode) != 0;
  			boolean_t t_is_dir = S_ISDIR(ZTOI(tzp)->i_mode) != 0;
  
-@@ -3720,15 +3714,14 @@ top:
+@@ -3729,15 +3723,14 @@ top:
  			error = 0;
  			goto out;
  		}
@@ -228,7 +228,7 @@ index 449c05bbb..d284c566c 100644
  		error = zfs_zaccess(sdzp, ACE_ADD_FILE, 0, B_FALSE, cr);
  		if (error)
  			goto out;
-@@ -3752,7 +3745,7 @@ top:
+@@ -3761,7 +3754,7 @@ top:
  	tx = dmu_tx_create(zfsvfs->z_os);
  	dmu_tx_hold_sa(tx, szp->z_sa_hdl, B_FALSE);
  	dmu_tx_hold_sa(tx, sdzp->z_sa_hdl, B_FALSE);
@@ -237,7 +237,7 @@ index 449c05bbb..d284c566c 100644
  	dmu_tx_hold_zap(tx, tdzp->z_id, TRUE, tnm);
  	if (sdzp != tdzp) {
  		dmu_tx_hold_sa(tx, tdzp->z_sa_hdl, B_FALSE);
-@@ -3762,7 +3755,7 @@ top:
+@@ -3771,7 +3764,7 @@ top:
  		dmu_tx_hold_sa(tx, tzp->z_sa_hdl, B_FALSE);
  		zfs_sa_upgrade_txholds(tx, tzp);
  	}
@@ -246,7 +246,7 @@ index 449c05bbb..d284c566c 100644
  		dmu_tx_hold_sa_create(tx, acl_ids.z_aclp->z_acl_bytes +
  		    ZFS_SA_BASE_ATTR_SIZE);
  
-@@ -3815,7 +3808,7 @@ top:
+@@ -3824,7 +3817,7 @@ top:
  
  	error = sa_update(szp->z_sa_hdl, SA_ZPL_FLAGS(zfsvfs),
  	    (void *)&szp->z_pflags, sizeof (uint64_t), tx);
@@ -255,7 +255,7 @@ index 449c05bbb..d284c566c 100644
  
  	error = zfs_link_destroy(sdl, szp, tx, ZRENAMING, NULL);
  	if (error)
-@@ -3827,7 +3820,7 @@ top:
+@@ -3836,7 +3829,7 @@ top:
  	if (tzp) {
  		int tzflg = zflg;
  
@@ -264,7 +264,7 @@ index 449c05bbb..d284c566c 100644
  			/* This inode will be re-linked soon. */
  			tzflg |= ZRENAMING;
  
-@@ -3861,38 +3854,50 @@ top:
+@@ -3870,38 +3863,50 @@ top:
  		goto commit_link_tzp;
  	}
  
@@ -341,7 +341,7 @@ index 449c05bbb..d284c566c 100644
  
  commit:
  	dmu_tx_commit(tx);
-@@ -3900,12 +3905,6 @@ out:
+@@ -3909,12 +3914,6 @@ out:
  	if (have_acl)
  		zfs_acl_ids_free(&acl_ids);
  
@@ -354,7 +354,7 @@ index 449c05bbb..d284c566c 100644
  	zfs_inode_update(sdzp);
  	if (sdzp == tdzp)
  		rw_exit(&sdzp->z_name_lock);
-@@ -3915,11 +3914,21 @@ out:
+@@ -3924,11 +3923,21 @@ out:
  
  	zfs_inode_update(szp);
  	zrele(szp);

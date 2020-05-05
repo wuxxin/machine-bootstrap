@@ -1,7 +1,7 @@
-From ba7d1ecceaa6f8ba971807e2881815c380a724ad Mon Sep 17 00:00:00 2001
+From 295210782d840220e3cd724179b5233d8e246e2d Mon Sep 17 00:00:00 2001
 From: Aleksa Sarai <cyphar@cyphar.com>
 Date: Mon, 14 Oct 2019 22:37:03 +0200
-Subject: [PATCH 03/12] tests: add tests for renameat2(2) flags
+Subject: [PATCH 04/13] tests: add tests for renameat2(2) flags
 
 Since mv(1) doesn't expose the RENAME_* flags we need to have our own
 variation in the tests/ tree. The tests are fairly obvious functional
@@ -39,7 +39,7 @@ Signed-off-by: Pavel Snajdr <snajpa@snajpa.net>
  create mode 100755 tests/zfs-tests/tests/functional/renameat2/setup.ksh
 
 diff --git a/configure.ac b/configure.ac
-index eeb0a3843..70ba5326e 100644
+index 370a1970f..09a17c07d 100644
 --- a/configure.ac
 +++ b/configure.ac
 @@ -209,6 +209,7 @@ AC_CONFIG_FILES([
@@ -50,7 +50,7 @@ index eeb0a3843..70ba5326e 100644
  	tests/zfs-tests/cmd/rename_dir/Makefile
  	tests/zfs-tests/cmd/rm_lnkcnt_zero_file/Makefile
  	tests/zfs-tests/cmd/stride_dd/Makefile
-@@ -349,6 +350,7 @@ AC_CONFIG_FILES([
+@@ -350,6 +351,7 @@ AC_CONFIG_FILES([
  	tests/zfs-tests/tests/functional/refquota/Makefile
  	tests/zfs-tests/tests/functional/refreserv/Makefile
  	tests/zfs-tests/tests/functional/removal/Makefile

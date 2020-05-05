@@ -1,17 +1,17 @@
-From c107678607f31ecdc51fe4306f0ecc32fa59e7c1 Mon Sep 17 00:00:00 2001
+From 0220c02e1e243ed55ed2971a0453bbdfbce3c992 Mon Sep 17 00:00:00 2001
 From: Jakub Skokan <jakub.skokan@havefun.cz>
 Date: Tue, 12 Nov 2019 16:13:37 +0100
-Subject: [PATCH 12/12] [vpsAdminOS] Hide ZFS from podman
+Subject: [PATCH 13/13] [vpsAdminOS] Hide ZFS from podman
 
 ---
  module/os/linux/zfs/zfs_vfsops.c | 2 ++
  1 file changed, 2 insertions(+)
 
 diff --git a/module/os/linux/zfs/zfs_vfsops.c b/module/os/linux/zfs/zfs_vfsops.c
-index 8cf431701..effbbabcc 100644
+index e015a7ffe..25929e5ef 100644
 --- a/module/os/linux/zfs/zfs_vfsops.c
 +++ b/module/os/linux/zfs/zfs_vfsops.c
-@@ -1140,6 +1140,8 @@ zfs_statvfs(struct dentry *dentry, struct kstatfs *statp)
+@@ -1143,6 +1143,8 @@ zfs_statvfs(struct dentry *dentry, struct kstatfs *statp)
  		magic_hack = true;
  	if (strcmp(current->comm, "lxd") == 0)
  		magic_hack = true;

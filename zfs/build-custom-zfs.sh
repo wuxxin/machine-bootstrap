@@ -51,9 +51,9 @@ if ! grep -q "focal" /usr/share/distro-info/ubuntu.csv; then
 fi
 if test "$nobuild" != "true"; then
     if test ! -e "$BASEPATH"; then
-        cowbuilder --create --distribution "$dest" --basepath "$BASEPATH"
+        sudo cowbuilder --create --distribution "$dest" --basepath "$BASEPATH"
     else
-        cowbuilder --update --basepath "$BASEPATH"
+        sudo cowbuilder --update --basepath "$BASEPATH"
     fi
 fi
 
@@ -64,7 +64,7 @@ cd "$basedir"
 # backport spl-linux (was merged into zfs-linux after disco)
 if test "$source" = "disco"; then
     $(which python2) $(which pull-lp-source) spl-linux "$source"
-    BASEPATH="$BASEPATH" backportpackage -B cowbuilder -d "$dest" --dont-sign -b -w build spl-linux*.dsc
+    BASEPATH="$BASEPATH" sudo backportpackage -B cowbuilder -d "$dest" --dont-sign -b -w build spl-linux*.dsc
 fi
 
 # patch and backport zfs-linux
@@ -80,7 +80,7 @@ cd ..
 if test "$nobuild" = "true"; then
     exit 0
 fi
-BASEPATH="$BASEPATH" backportpackage -B cowbuilder -d "$dest" --dont-sign -b -w build zfs-linux*vpsfreecz*.dsc
+BASEPATH="$BASEPATH" sudo backportpackage -B cowbuilder -d "$dest" --dont-sign -b -w build zfs-linux*vpsfreecz*.dsc
 
 # generate local apt archive files
 cd build/buildresult

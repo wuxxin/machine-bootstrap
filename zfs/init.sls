@@ -5,6 +5,10 @@
   + if there is a newer version (or not installed so far)
     + build and update running system
     + update recovery-squashfs
+
+https://github.com/vpsfreecz/zfs/tree/vpsadminos-master-2004060
+
+
 #}
 
 {% for f in ['build-custom-zfs.sh', 'customize-running-system.sh'] %}
