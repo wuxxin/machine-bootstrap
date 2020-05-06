@@ -8,22 +8,21 @@ self_path=$(dirname "$(readlink -e "$0")")
 usage() {
     cat << EOF
 
-$0 execute recovery|install|gitops <hostname> [optional install parameter]
-
+$0 execute recovery|install|gitops|all|plain <hostname> [optional install parameter]
     execute the requested stages of install on hostname, all output from target
         host is displayed on screen and captured to "log" dir
 
     + recovery: execute partitioning and recovery install (expects debianish live system)
     + install:  execute format and install system (expects running recovery image)
-    + gitops:    execute step gitops (expects installed and running base machine,
+    + gitops:   execute step gitops (expects installed and running base machine,
                 will first try to connect to initrd and unlock storage)
+    + all:      executes steps recovery,install,gitops
+    + plain:    executes steps recovery,install
 
     <hostname>  must be the same value as in the config file config/hostname
     --restore-from-backup
                 partition & format system, then restore from backup
 
-    + all:      executes steps recovery,install,gitops
-    + plain:    executes steps recovery,install
 
 $0 test
     + test the setup for mandatory files and settings, exits 0 if successful
@@ -454,7 +453,9 @@ if test "$do_phase" = "all" -o "$do_phase" = "gitops"; then
         waitfor_ssh "$sshlogin"
     fi
 
-    echo "rsync setup repository to target"
+    echo "temporary: rsync setup repository to target"
+    echo "FIXME: only good for testing or real movement of the repository to the calling computer, eg. desktop setup"
+    echo "should be extended with an option to run salt-shared/gitops/from-git.sh instead"
     sshopts="-o UserKnownHostsFile=$config_path/system.known_hosts"
     ssh $sshopts "$(ssh_uri ${sshlogin})" "mkdir -p $gitops_target/$base_name"
     rsync -az -e "ssh $sshopts -p $(ssh_uri ${sshlogin} port)" \
@@ -463,7 +464,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "gitops"; then
 
     gitops_args="$@"
     if test "$gitops_args" = ""; then gitops_args="state.highstate"; fi
-    echo "execute salt-call $gitops_args"
+    echo "execute-saltstack.sh ... $gitops_args"
     ssh $sshopts "$(ssh_uri ${sshlogin})" \
         "http_proxy=\"$http_proxy\"; export http_proxy; chown -R $gitops_user:$gitops_user $gitops_target; chmod +x $gitops_target/$base_name/$(basename $self_path)/bootstrap-3-gitops.sh; $gitops_target/$base_name/$(basename $self_path)/salt/salt-shared/gitops/execute-saltstack.sh $gitops_target/$base_name --yes $gitops_args" 2>&1 | tee "$log_path/bootstrap-gitops.log"
 fi
