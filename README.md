@@ -1,8 +1,10 @@
 # Machine bootstrap
 
-Unattended ssh based operating system installer
-for Ubuntu 20.04 LTS (Focal), with buildin recovery image, root storage on luks encrypted zfs and other specialized storage layouts,
-initrd with ssh support for remote luks open of encrypted data
+Unattended ssh based operating system installer for Ubuntu 20.04 LTS (Focal)
+
++ buildin recovery image based on casper of ubuntu 20.04
++ root storage on luks encrypted zfs and other specialized storage layouts,
++ dracut initrd with ssh support for remote luks open of encrypted data
 
 **Usage:** to be executed on an linux liveimage/recoveryimage system connected via ssh.
 
@@ -11,7 +13,7 @@ It serves three use cases:
 + as a typical Rootserver (2xHD, headless)
 + as a home-nas/home-io headless server with one ssd and two attached spindle disks
 
-Current Status: **Experimental**
+**Current Status:** Experimental
 
 Some setups may work, most break under certain conditions.
 
@@ -30,7 +32,7 @@ Some setups may work, most break under certain conditions.
 ### optional Features
 + luks encrypted **hibernate compatible swap** for eg. a desktop installation
 + ubuntu: **overlay fs and namespace uid/guid support on zfs** by building patched zfs-linux (frankenstein=true)
-+ ubuntu: **saltstack provision run** at gitops stage with states from salt-shared (eg. desktop)
++ ubuntu: **gitops stage using saltstack**  with states from salt-shared (eg. desktop)
 + **build a preconfigured livesystem image** usable for headless physical installation
     + resulting image is compatible as CD or USB-Stick with BIOS and EFI support
     + optional netplan for static or other non dhcp based ip configurations
@@ -100,7 +102,7 @@ git remote add origin ssh://git@some.where.net/path/box.git
 git push -u origin master
 ```
 
-### optional: add files for a gitops run (only ubuntu and debian)
+### optional: add files for a gitops run (only ubuntu/debian)
 ```
 # add saltstack
 mkdir -p salt/custom
@@ -164,8 +166,8 @@ firstuser=$(id -u -n)
 # storage_ids=""
 
 # optional
-# gitops_user="$(id -u -n)" # default $firstuser
-# gitops_target="/home/$(id -u -n)" # default /home/$firstuser
+# gitops_user="$firstuser" # default $firstuser
+# gitops_target="/home/$firstuser" # default /home/$firstuser
 # gitops_source=""
 # gitops_branch=""
 # http_proxy="http://192.168.122.1:8123" # default ""
@@ -278,7 +280,7 @@ installation is done in 4 steps:
 git add .
 git commit -v -m "bootstrap run"
 
-# run all steps combined
+# run all steps (recovery, install, gitops) combined
 ./machine-bootstrap/bootstrap.sh execute all box.local
 
 # or each step seperate
