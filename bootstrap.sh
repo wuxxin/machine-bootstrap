@@ -8,21 +8,25 @@ self_path=$(dirname "$(readlink -e "$0")")
 usage() {
     cat << EOF
 
-$0 execute recovery|install|gitops|all|plain <hostname> [optional install parameter]
+$0 execute recovery|install|gitops|all|plain <hostname> [optional parameter]
     execute the requested stages of install on hostname, all output from target
         host is displayed on screen and captured to "log" dir
 
-    + recovery: execute partitioning and recovery install (expects debianish live system)
-    + install:  execute format and install system (expects running recovery image)
-    + gitops:   execute step gitops (expects installed and running base machine,
-                will first try to connect to initrd and unlock storage)
+    + recovery
+        execute partitioning and recovery install (expects debianish live system)
+
+    + install [--restore-from-backup]
+        execute format and install system (expects running recovery image)
+        --restore-from-backup: partition & format system, then restore from backup
+
+    + gitops
+        execute step gitops (expects installed and running base machine,
+        will first try to connect to initrd and unlock storage)
+
     + all:      executes steps recovery,install,gitops
     + plain:    executes steps recovery,install
 
     <hostname>  must be the same value as in the config file config/hostname
-    --restore-from-backup
-                partition & format system, then restore from backup
-
 
 $0 test
     + test the setup for mandatory files and settings, exits 0 if successful
@@ -453,18 +457,41 @@ if test "$do_phase" = "all" -o "$do_phase" = "gitops"; then
         waitfor_ssh "$sshlogin"
     fi
 
-    echo "temporary: rsync setup repository to target"
-    echo "FIXME: only good for testing or real movement of the repository to the calling computer, eg. desktop setup"
-    echo "should be extended with an option to run salt-shared/gitops/from-git.sh instead"
     sshopts="-o UserKnownHostsFile=$config_path/system.known_hosts"
     ssh $sshopts "$(ssh_uri ${sshlogin})" "mkdir -p $gitops_target/$base_name"
-    rsync -az -e "ssh $sshopts -p $(ssh_uri ${sshlogin} port)" \
-        --delete --exclude "./run" --exclude "./log" \
-        "$base_path" "$(ssh_uri ${sshlogin} rsync):$gitops_target"
+
+    if test "$1" = "--rsync-git"; then
+        shift
+        echo "rsync setup repository to target"
+        echo "only good for testing or real movement of the repository to the calling computer, eg. desktop setup"
+        rsync -az -e "ssh $sshopts -p $(ssh_uri ${sshlogin} port)" \
+            --delete --exclude "./run" --exclude "./log" \
+            "$base_path" "$(ssh_uri ${sshlogin} rsync):$gitops_target"
+    else
+        scp $sshopts \
+            "$self_path/../salt/salt-shared/gitops/from-git.sh" \
+            "$(ssh_uri ${sshlogin} scp)/tmp"
+        echo "call from-git.sh with keys from stdin"
+        fixme keys from stdin, and check them before hand
+        ssh $sshopts "$(ssh_uri ${sshlogin})" \
+            "http_proxy=\"$http_proxy\"; export http_proxy; \
+            chmod +x /tmp/from-git.sh;
+            /tmp/from-git.sh \
+            bootstrap
+            --url {{ gitops.git.source }}
+            --branch {{ gitops.git.branch }}
+            --user {{ gitops.user }}
+            --home {{ gitops.home_dir }}
+            --git-dir {{ gitops.home_dir }}/k3s.goof
+            --keys-from-stdin"
+    fi
 
     gitops_args="$@"
     if test "$gitops_args" = ""; then gitops_args="state.highstate"; fi
     echo "execute-saltstack.sh ... $gitops_args"
     ssh $sshopts "$(ssh_uri ${sshlogin})" \
-        "http_proxy=\"$http_proxy\"; export http_proxy; chown -R $gitops_user:$gitops_user $gitops_target; chmod +x $gitops_target/$base_name/$(basename $self_path)/bootstrap-3-gitops.sh; $gitops_target/$base_name/$(basename $self_path)/salt/salt-shared/gitops/execute-saltstack.sh $gitops_target/$base_name --yes $gitops_args" 2>&1 | tee "$log_path/bootstrap-gitops.log"
+        "http_proxy=\"$http_proxy\"; export http_proxy; \
+        chown -R $gitops_user:$gitops_user $gitops_target/$base_name; \
+        $gitops_target/$base_name/$(basename $self_path)/salt/salt-shared/gitops/execute-saltstack.sh \
+            $gitops_target/$base_name $gitops_args" 2>&1 | tee "$log_path/bootstrap-gitops.log"
 fi
