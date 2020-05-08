@@ -51,7 +51,7 @@ else
     echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\nLC_MESSAGES=$LC_MESSAGES\n" > /etc/default/locale
     locale-gen $LANG
     echo "Etc/UTC" > /etc/timezone
-    dpkg-reconfigure tzdata
+    timedatectl set-timezone "Etc/UTC"
 fi
 
 setup_hostname "$hostname"
