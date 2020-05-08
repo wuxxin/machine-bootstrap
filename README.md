@@ -85,7 +85,7 @@ Requirements:
     + \+ ~5GB (full desktop installation)
 
 ### make a new project repository (eg. box)
-```
+```bash
 mkdir box
 cd box
 git init
@@ -97,14 +97,13 @@ git commit -v -m "initial config"
 ```
 
 ### optional: add an upstream
-```
+```bash
 git remote add origin ssh://git@some.where.net/path/box.git
 git push -u origin master
 ```
 
 ### optional: add files for a gitops run (only ubuntu/debian)
-```
-# add saltstack
+```bash
 mkdir -p salt/custom
 pushd salt
 git submodule add https://github.com/wuxxin/salt-shared.git
@@ -125,7 +124,7 @@ git commit -v -m "add saltstack skeleton"
 
 ### optional: git-crypt config
 
-```
+```bash
 git-crypt init
 cat > .gitattributes <<EOF
 **/secret/** filter=git-crypt diff=git-crypt
@@ -157,7 +156,7 @@ git commit -v -m "add git-crypt config"
 
 ### configure machine
 
-```
+```bash
 cat > config/node.env <<EOF
 # mandatory
 sshlogin=root@1.2.3.4
@@ -166,15 +165,18 @@ firstuser=$(id -u -n)
 # storage_ids=""
 
 # optional
-# gitops_user="$firstuser" # default $firstuser
-# gitops_target="/home/$firstuser" # default /home/$firstuser
-# gitops_source=""
-# gitops_branch=""
+
 # http_proxy="http://192.168.122.1:8123" # default ""
 # distrib_id="Nixos" # default "Ubuntu"
 # distrib_codename="19.09-small" # default "focal"
 # recovery_autologin="true" # default "false"
 # frankenstein="true" # default "false"
+
+# gitops_user="$firstuser" # default $firstuser
+# gitops_target="/home/$firstuser" # default /home/$firstuser
+# gitops_source=""
+# gitops_branch=""
+
 # storage_opts=""
 # [--reuse]
 # [--log=        true|*false|<logsizemb,   default if true: 1024 mb>]
@@ -192,6 +194,7 @@ firstuser=$(id -u -n)
 # [--data-crypt= *true|false]
 # [--data-lvm=   *""|<vgname>]
 # [--data-lvm-vol-size= <volsizemb, default if lvm is true: 20480 mb>]
+
 EOF
 
 # copy current user ssh public key as authorized_keys
@@ -215,9 +218,28 @@ echo $(printf 'storage_ids="'; for i in \
 
 ```
 
+### optional: add ssh credentials for git repository cloning on target
+
++ if gitops_source is empty, rsync will be used to transfer the files to the target
++ if gitops_source is set, the script will clone the repository files on target
++ if gitops_source is a ssh git url, additional files are needed in config dir
+    + gitops.id_ed25519, gitops.id_ed25519.pub, gitops_known_hosts
+```bash
+ssh-keygen -q -t ed25519 -N '' -C 'gitops@box' -f config/gitops.id_ed25519
+ssh-keyscan -H -p 10023 git.server.domain > config/gitops.known_hosts
+```
+
+### optional: add gpg key for git-crypt encrypted files access
+
++ if git-crypt is used on repository files, additional files are needed in config dir
+    + gitops@node-secret-key.gpg gitops@node-public-key.gpg
+```bash
+gpgutils.py gen_keypair gitops@node "box" config/gitops@node-secret-key.gpg config/gitops@node-public-key.gpg
+```
+
 ### optional: create a custom netplan.yaml file
 
-```
+```bash
 cat > config/netplan.yaml << EOF
 network:
     version: 2
@@ -235,7 +257,7 @@ EOF
 
 ### optional: create a minimal Nixos configuration.nix
 
-```
+```bash
 cat > config/configuration.nix << EOF
 # Help is available in the configuration.nix(5) man page
 { config, pkgs, ... }:
@@ -257,7 +279,7 @@ bootable via efi or bios.
 this can be useful eg. if the target is headless,
 or inside an emulator supplied with a live image preconfigured with ssh and other keys.
 
-```
+```bash
 ./machine-bootstrap/bootstrap.sh create-liveimage
 # copy run/liveimage/bootstrap-0-liveimage.iso to usbstick
 # boot target machine from usbstick
@@ -272,7 +294,7 @@ installation is done in 4 steps:
 + 3 recovery chroot target: configure system, kernel, initrd, install standard software, reboot into target
 + 4 target system: install and run saltstack
 
-```
+```bash
 # test if everything needed is there
 ./machine-bootstrap/bootstrap.sh test
 
@@ -294,7 +316,7 @@ git commit -v -m "bootstrap run"
 
 ### optional: push committed changes upstream
 
-```
+```bash
 git push -u origin master
 
 ```
@@ -304,22 +326,22 @@ git push -u origin master
 ### connect to machine
 
 + connect to target machine running in the temporary liveimage, in the recovery system, in the initrd of the productiton system, or the production system
-```
+```bash
 ./machine-bootstrap/connect.sh temporary|recovery|initrd|system
 ```
 
 + connect to initrd, open luks disks, exit, machine will continue to boot
-```
+```bash
 ./machine-bootstrap/connect.sh initrdluks [--allow-virtual]
 ```
 
 + connect to recovery, open luks disks, mount storage, prepare chroot, shell
-```
+```bash
 ./machine-bootstrap/connect.sh recoverymount [--allow-virtual]
 ```
 
 ### switch next boot to boot into recovery (from running target system)
-```
+```bash
 grub-reboot recovery
 reboot
 ```
