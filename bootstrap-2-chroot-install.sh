@@ -16,12 +16,8 @@ EOF
     exit 1
 }
 
-warn_restore() {
+restore_warning() {
     echo "WARNING: --restore-from-backup: $@"
-}
-
-restore_not_overwrite() {
-    test -e "$1" -a "$option_restore_backup" = "true"
 }
 
 
@@ -46,7 +42,7 @@ export LC_MESSAGES="POSIX"
 export LANG="en_US.UTF-8"
 export LANGUAGE="en_US:en"
 if $option_restore_backup; then
-    warn_restore "not setting default locale and timezone"
+    restore_warning "not setting default locale and timezone"
 else
     echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\nLC_MESSAGES=$LC_MESSAGES\n" > /etc/default/locale
     locale-gen $LANG
@@ -57,8 +53,8 @@ fi
 setup_hostname "$hostname"
 
 echo "configure apt"
-if restore_not_overwrite /etc/apt/sources.list; then
-    warn_restore "not overwriting /etc/apt/sources.list"
+if $option_restore_backup; then
+    restore_warning "not overwriting /etc/apt/sources.list"
 else
     cat > /etc/apt/sources.list << EOF
 deb http://archive.ubuntu.com/ubuntu/ $(lsb_release -c -s) main restricted universe multiverse
@@ -101,10 +97,9 @@ mkdir -p /etc/grub.d
     "$efi_grub" "$casper_livemedia" "$efi_fs_uuid" > /etc/grub.d/40_recovery
 chmod +x /etc/grub.d/40_recovery
 
-
-echo "configure plymouth"
-if restore_not_overwrite /usr/bin/plymouth-set-default-theme; then
-    warn_restore "not overwriting /usr/bin/plymouth-set-default-theme"
+echo "workaround plymouth default theme"
+if $option_restore_backup; then
+    restore_warning "not overwriting /usr/bin/plymouth-set-default-theme"
 else
     cat > /usr/bin/plymouth-set-default-theme <<"EOF"
 #!/bin/bash
@@ -119,79 +114,23 @@ EOF
 fi
 
 echo "configure dracut"
-mkdir -p /etc/dracut.conf.d
-cat > /etc/dracut.conf.d/90-custom.conf << EOF
-do_prelink=no
-hostonly=yes
-omit_drivers+=" crc32c "
-omit_dracutmodules+=" ifcfg "
-$(test -e "/dev/mapper/luks-swap" && echo 'add_device+=" /dev/mapper/luks-swap"')
-add_dracutmodules+=" kernel-network-modules systemd-networkd sshd rescue"
-kernel_commandline=
-#rd.debug rd.break=pre-shutdown rd.break=shutdown rd.shell
-EOF
-echo "fix /etc/dracut.conf.d/10-debian.conf (crc32 module)"
-if test -e /etc/dracut.conf.d/10-debian.conf; then
-    rm /etc/dracut.conf.d/10-debian.conf
-fi
-touch /etc/dracut.conf.d/10-debian.conf
-# workaround dracut and initramfs-tools clashes
-# while there, keep whoopsie and apport from hitting the disk
-echo "pin whoopsie apport brltty initramfs-tools to unwanted"
-for i in whoopsie apport brltty initramfs-tools; do
-    cat > /etc/apt/preferences.d/${i}-preference << EOF
-Package: $i
-Pin: release o=Ubuntu
-Pin-Priority: -1
-EOF
-done
-# dracut-network pulls in nfs-common which pulls in rpcbind
-# restricted rpcbind to localhost
-echo "overwriting /etc/default/rpcbind"
-cat > /etc/default/rpcbind << EOF
-# "warm start" utilizing a state file,
-# libwrap TCP-Wrapper connection logging
-# restrict rpcbind to localhost only for UDP requests
-OPTIONS="-w -l -h 127.0.0.1 -h ::1"
-EOF
-# restricted rpcbind to localhost
-echo "overwriting /etc/systemd/system/rpcbind.socket"
-mkdir -p /etc/systemd/system/
-cat > /etc/systemd/system/rpcbind.socket << EOF
-[Unit]
-Description=RPCbind Server Activation Socket
-DefaultDependencies=no
+echo "warning: dracut-network pulls in nfs-common which pulls in rpcbind"
+configure_dracut
 
-[Socket]
-ListenStream=/run/rpcbind.sock
-
-# RPC netconfig can't handle ipv6/ipv4 dual sockets
-BindIPv6Only=ipv6-only
-ListenStream=127.0.0.1:111
-ListenDatagram=127.0.0.1:111
-ListenStream=[::1]:111
-ListenDatagram=[::1]:111
-
-[Install]
-WantedBy=sockets.target
-EOF
-
-if restore_not_overwrite /etc/modprobe.d/zfs.conf; then
+if $option_restore_backup; then
+    restore_warning "not overwriting /etc/default/rpcbind and /etc/systemd/system/rpcbind.socket"
     restore_warning "not overwriting /etc/modprobe.d/zfs.conf"
-else
-    configure_module_zfs
-fi
-if restore_not_overwrite /etc/modprobe.d/overlay.conf; then
     restore_warning "not overwriting /etc/modprobe.d/overlay.conf"
 else
+    configure_rpcbind
+    configure_module_zfs
     configure_module_overlay
 fi
 
 echo "update installation"
 apt-get update --yes
-
 if $option_restore_backup; then
-    warn_restore "not installing base packages"
+    restore_warning "not installing base packages"
 else
     dpkg-divert --local --rename --divert /usr/sbin/update-initramfs.dpkg-divert \
         --add /usr/sbin/update-initramfs
@@ -247,7 +186,7 @@ getent group lpadmin > /dev/null || addgroup --system lpadmin
 getent group sambashare > /dev/null || addgroup --system sambashare
 
 if $option_restore_backup; then
-    warn_restore "not creating first user $firstuser"
+    restore_warning "not creating first user $firstuser"
 else
     echo "add first user: $firstuser"
     adduser --gecos "" --disabled-password "$firstuser"
@@ -259,33 +198,15 @@ else
     usermod -a -G adm,cdrom,dip,lpadmin,plugdev,sambashare,sudo "$firstuser"
 fi
 
-echo "setup sshd, config taken at 2019-02-26 (but without ecsda) from https://infosec.mozilla.org/guidelines/openssh.html "
-echo "only use >= 3072-bit-long moduli"
-awk '$5 >= 3071' /etc/ssh/moduli > /etc/ssh/moduli.tmp && mv /etc/ssh/moduli.tmp /etc/ssh/moduli
-echo "do not use and remove ecdsa keys"
-for i in ssh_host_ecdsa_key ssh_host_ecdsa_key.pub; do
-    if test -e /etc/ssh/$i; then rm /etc/ssh/$i; fi
-done
-if restore_not_overwrite /etc/ssh/sshd_config; then
-    warn_restore "but overwriting sshd_config to a minimal secure version, original renamed to .old"
-    mv /etc/ssh/sshd_config /etc/ssh/sshd_config.old
+echo "configure sshd"
+if $option_restore_backup; then
+    restore_warning "not overwriting /etc/ssh/sshd"
+else
+    configure_sshd
 fi
-cat >> /etc/ssh/sshd_config <<EOF
-# ### MACHINE-BOOTSTRAP BEGIN ###
-# Supported HostKey algorithms by order of preference.
-HostKey /etc/ssh/ssh_host_ed25519_key
-HostKey /etc/ssh/ssh_host_rsa_key
-AuthenticationMethods publickey
-KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256
-Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
-MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-512,hmac-sha2-256,umac-128@openssh.com
-# ### MACHINE-BOOTSTRAP END ###
-EOF
-
 
 echo "rewrite recovery squashfs"
 /etc/recovery/update-recovery-squashfs.sh --host "$hostname"
-
 
 echo "setup dracut initrd"
 echo "writing new dracut /etc/ssh/initrd_ssh_host_ed25519_key[.pub]"
@@ -303,7 +224,6 @@ for version in $(find /boot -maxdepth 1 -name "vmlinuz*" | sed -r "s#^/boot/vmli
         echo "Warning: skipping kernel $version (found in /boot), because /lib/modules/$version is not existing"
     fi
 done
-
 
 echo "setup grub"
 sed -r -i.bak 's/^(GRUB_CMDLINE_LINUX=).*/\1"quiet splash"/g' /etc/default/grub

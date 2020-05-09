@@ -32,6 +32,90 @@ overlay
 EOF
 }
 
+configure_sshd() {
+    echo "setup sshd, config taken at 2019-02-26 (but without ecsda) from https://infosec.mozilla.org/guidelines/openssh.html "
+    echo "only use >= 3072-bit-long moduli"
+    awk '$5 >= 3071' /etc/ssh/moduli > /etc/ssh/moduli.tmp && mv /etc/ssh/moduli.tmp /etc/ssh/moduli
+    echo "do not use and remove ecdsa keys"
+    for i in ssh_host_ecdsa_key ssh_host_ecdsa_key.pub; do
+        if test -e /etc/ssh/$i; then rm /etc/ssh/$i; fi
+    done
+    cat >> /etc/ssh/sshd_config <<EOF
+# ### MACHINE-BOOTSTRAP BEGIN ###
+# Supported HostKey algorithms by order of preference.
+HostKey /etc/ssh/ssh_host_ed25519_key
+HostKey /etc/ssh/ssh_host_rsa_key
+AuthenticationMethods publickey
+KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256
+Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-512,hmac-sha2-256,umac-128@openssh.com
+# ### MACHINE-BOOTSTRAP END ###
+EOF
+}
+
+configure_dracut() {
+    mkdir -p /etc/dracut.conf.d
+    cat > /etc/dracut.conf.d/90-custom.conf << EOF
+do_prelink=no
+hostonly=yes
+omit_drivers+=" crc32c "
+omit_dracutmodules+=" ifcfg "
+$(test -e "/dev/mapper/luks-swap" && echo 'add_device+=" /dev/mapper/luks-swap"')
+add_dracutmodules+=" kernel-network-modules systemd-networkd sshd rescue"
+kernel_commandline=
+#rd.debug rd.break=pre-shutdown rd.break=shutdown rd.shell
+EOF
+    echo "fix /etc/dracut.conf.d/10-debian.conf (crc32 module)"
+    if test -e /etc/dracut.conf.d/10-debian.conf; then
+        rm /etc/dracut.conf.d/10-debian.conf
+    fi
+    touch /etc/dracut.conf.d/10-debian.conf
+    # workaround dracut and initramfs-tools clashes
+    # while there, keep whoopsie and apport from hitting the disk
+    echo "pin whoopsie apport brltty initramfs-tools to unwanted"
+    for i in whoopsie apport brltty initramfs-tools; do
+        cat > /etc/apt/preferences.d/${i}-preference << EOF
+Package: $i
+Pin: release o=Ubuntu
+Pin-Priority: -1
+EOF
+    done
+}
+
+configure_rpcbind() {
+    # dracut-network pulls in nfs-common which pulls in rpcbind
+    # restricted rpcbind to localhost
+    echo "restricted rpcbind to localhost"
+    echo "overwriting /etc/default/rpcbind"
+    cat > /etc/default/rpcbind << EOF
+# "warm start" utilizing a state file,
+# libwrap TCP-Wrapper connection logging
+# restrict rpcbind to localhost only for UDP requests
+OPTIONS="-w -l -h 127.0.0.1 -h ::1"
+EOF
+    # restricted rpcbind to localhost
+    echo "overwriting /etc/systemd/system/rpcbind.socket"
+    mkdir -p /etc/systemd/system/
+    cat > /etc/systemd/system/rpcbind.socket << EOF
+[Unit]
+Description=RPCbind Server Activation Socket
+DefaultDependencies=no
+
+[Socket]
+ListenStream=/run/rpcbind.sock
+
+# RPC netconfig can't handle ipv6/ipv4 dual sockets
+BindIPv6Only=ipv6-only
+ListenStream=127.0.0.1:111
+ListenDatagram=127.0.0.1:111
+ListenStream=[::1]:111
+ListenDatagram=[::1]:111
+
+[Install]
+WantedBy=sockets.target
+EOF
+}
+
 setup_hostname() { # hostname
     local hostname shortname domainname intip intip_re
     hostname="$1"
