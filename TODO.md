@@ -10,13 +10,12 @@
 ## done
 
 ## testing
-+ make gitops state run without custom.sls (so base system is installed first)
++ ubuntu: keep EFI synced start once on boot in addition to path change
 
 ## next
-+ wip: add gitops feature (probably with nginx and letsencrypt ingress) as host service
-+ add: ubuntu: keep EFI synced start once on boot in addition to path change
-+ wip: make machine-bootstrap/initrd|recovery|zfs update
-+ wip: fixme: rebase custom-zfs-patches and fix custom-build-zfs
++ make saltstackstates for initrd|recovery|zfs work
++ rebase custom-zfs-patches and fix custom-build-zfs
++ gitops: make target system honor http_proxy on gitops install
 
 ### bugs
 + fixme: resident: Could not generate persistent MAC: No data available
@@ -29,19 +28,16 @@
 + add: connect.sh initrdluks|recoverymount --allow-virtual
     + checks after connecting if gatewaydev is emulated, aborts if emulated
     + use --allow-virtual if you know you're connecting to a vm
-+ gitops: make target system honor http_proxy on gitops install
 + recovery scripts to replace a faulty disk, to invalidate a disk
     + all: add script to replace a changed faulty disk: recovery-replace-mirror.sh
     + all: add script to deactivate (invalidate) one of two disks: storage-invalidate-mirror.sh
 + desaster recovery from backup storage to new machine
     + install: make restore from backup: script bootstrap-1-restore and bootstrap-2-chroot-restore
++ optional use of tmux for long running ssh connections of bootstrap.sh
 + make distrib_id=Nixos distrib_codename=19.09 working
     + make ./machine-bootstrap-configuration.nix in bootstrap-library
         + make all machine-bootstrap knowledge available there
     + make minimal configuration.nix on project create
-+ all: optional use of tmux for long running ssh connections of bootstrap.sh
-+ gitops: ubuntu: install and configure ZFS Scrubbing
-+ gitops: ubuntu: make backup working
 + "cloud like" autorotating encrypted incremental snapshot backup to thirdparty storage with zfs and restic
     this should be a little to no performance impact, encrypted, incremental, autorotating snapshot backup system, from and to redundant checksuming data storage on a single machine with the abbility to use common thirdparty storage for this backup. So far it is a very busy journey... https://xkcd.com/974/
 
