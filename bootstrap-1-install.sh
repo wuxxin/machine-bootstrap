@@ -199,9 +199,9 @@ warn_rename /mnt/root/.ssh/authorized_keys
 cp /tmp/authorized_keys /mnt/root/.ssh/authorized_keys
 chmod "0600" /mnt/root/.ssh/authorized_keys
 
-echo "copy network config"
-warn_rename /mnt/etc/netplan/50-lan.yaml
-cp -a /tmp/netplan.yaml /mnt/etc/netplan/50-lan.yaml
+echo "copy network netplan config to 50-default.yaml"
+warn_rename /mnt/etc/netplan/50-default.yaml
+cp -a /tmp/netplan.yaml /mnt/etc/netplan/50-default.yaml
 
 if $option_frankenstein; then
     echo "copy custom archive files"
