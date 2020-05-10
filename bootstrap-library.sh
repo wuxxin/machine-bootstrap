@@ -82,18 +82,14 @@ EOF
     done
 }
 
-configure_rpcbind() {
+configure_nfs_common() {
     # dracut-network pulls in nfs-common which pulls in rpcbind
-    # restricted rpcbind to localhost
-    echo "restricted rpcbind to localhost"
+    echo "restricted rpcbind to localhost (in case rpcbind is needed)"
     echo "overwriting /etc/default/rpcbind"
     cat > /etc/default/rpcbind << EOF
-# "warm start" utilizing a state file,
-# libwrap TCP-Wrapper connection logging
 # restrict rpcbind to localhost only for UDP requests
 OPTIONS="-w -l -h 127.0.0.1 -h ::1"
 EOF
-    # restricted rpcbind to localhost
     echo "overwriting /etc/systemd/system/rpcbind.socket"
     mkdir -p /etc/systemd/system/
     cat > /etc/systemd/system/rpcbind.socket << EOF
@@ -103,7 +99,6 @@ DefaultDependencies=no
 
 [Socket]
 ListenStream=/run/rpcbind.sock
-
 # RPC netconfig can't handle ipv6/ipv4 dual sockets
 BindIPv6Only=ipv6-only
 ListenStream=127.0.0.1:111
@@ -114,16 +109,18 @@ ListenDatagram=[::1]:111
 [Install]
 WantedBy=sockets.target
 EOF
-    mkdir -p /etc/default
+    echo "mask (disable) rpcbind.server and .socket, because nfs4 only setup"
+    systemctl mask rpcbind.service
+    systemctl mask rpcbind.socket
     echo "overwriting /etc/default/nfs-common"
+    mkdir -p /etc/default
     cat > /etc/default/nfs-common << EOF
-# If you do not set values for the NEED_ options, they will be attempted
-# autodetected; Valid alternatives for the NEED_ options are "yes" and "no".
-
-# Options for rpc.statd.
-#   For more information, see rpc.statd(8) or http://wiki.debian.org/SecuringNFS
+# nfs4 only configuration (-N 2 -N 3, NEED_STATD=no,NEED_IDMAPD=yes)
+# Options for rpc.statd, see rpc.statd(8) or http://wiki.debian.org/SecuringNFS
 STATDOPTS="--port 32765 --outgoing-port 32766 --name 127.0.0.1 --name ::1"
 
+# If you do not set values for the NEED_ options, they will be attempted
+# autodetected; Valid alternatives for the NEED_ options are "yes" and "no".
 # Do you want to start the gssd daemon? It is required for Kerberos mounts.
 NEED_GSSD=
 NEED_STATD="no"
@@ -132,24 +129,23 @@ NEED_IDMAPD="yes"
 EOF
     echo "overwriting /etc/default/nfs-kernel-server"
     cat > /etc/default/nfs-kernel-server << EOF
+# nfs4 only configuration (-N 2 -N 3)
 # Number of servers to start up
 RPCNFSDCOUNT=8
-
 # Runtime priority of server (see nice(1))
 RPCNFSDPRIORITY=0
 
 # Options for rpc.mountd.
 RPCMOUNTDOPTS="-N 2 -N 3 --manage-gids --port 32767 --no-udp"
 
+# Options for rpc.nfsd.
+RPCNFSDOPTS="-N 2 -N 3 --no-udp --host 127.0.0.1 --host ::1"
+
 # Do you want to start the svcgssd daemon? It is only required for Kerberos
 # exports. Valid alternatives are "yes" and "no"; the default is "no".
 NEED_SVCGSSD=""
-
 # Options for rpc.svcgssd.
 RPCSVCGSSDOPTS=""
-
-# Options for rpc.nfsd.
-RPCNFSDOPTS="-N 2 -N 3 --no-udp --host 127.0.0.1 --host ::1"
 
 EOF
 }

@@ -122,7 +122,7 @@ if $option_restore_backup; then
     restore_warning "not overwriting /etc/modprobe.d/zfs.conf"
     restore_warning "not overwriting /etc/modprobe.d/overlay.conf"
 else
-    configure_rpcbind
+    configure_nfs_common
     configure_module_zfs
     configure_module_overlay
 fi
