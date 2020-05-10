@@ -84,34 +84,16 @@ EOF
 
 configure_nfs_common() {
     # dracut-network pulls in nfs-common which pulls in rpcbind
-    echo "restricted rpcbind to localhost (in case rpcbind is needed)"
+    echo "restricted nfs to version 4, disable rpcbind"
     echo "overwriting /etc/default/rpcbind"
     cat > /etc/default/rpcbind << EOF
 # restrict rpcbind to localhost only for UDP requests
 OPTIONS="-w -l -h 127.0.0.1 -h ::1"
 EOF
-    echo "overwriting /etc/systemd/system/rpcbind.socket"
     mkdir -p /etc/systemd/system/
-    cat > /etc/systemd/system/rpcbind.socket << EOF
-[Unit]
-Description=RPCbind Server Activation Socket
-DefaultDependencies=no
-
-[Socket]
-ListenStream=/run/rpcbind.sock
-# RPC netconfig can't handle ipv6/ipv4 dual sockets
-BindIPv6Only=ipv6-only
-ListenStream=127.0.0.1:111
-ListenDatagram=127.0.0.1:111
-ListenStream=[::1]:111
-ListenDatagram=[::1]:111
-
-[Install]
-WantedBy=sockets.target
-EOF
-    echo "mask (disable) rpcbind.server and .socket, because nfs4 only setup"
-    systemctl mask rpcbind.service
-    systemctl mask rpcbind.socket
+    echo "mask (disable) rpcbind.service and rpbind.socket, because nfs4 only setup"
+    ln -s -f /dev/null /etc/systemd/system/rpcbind.service
+    ln -s -f /dev/null /etc/systemd/system/rpcbind.socket
     echo "overwriting /etc/default/nfs-common"
     mkdir -p /etc/default
     cat > /etc/default/nfs-common << EOF
