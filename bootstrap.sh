@@ -257,13 +257,9 @@ if test -z "$distrib_codename"; then distrib_codename="focal"; fi
 if test -z "$gitops_target"; then gitops_target="/home/$firstuser"; fi
 if test -z "$gitops_user"; then gitops_user="$firstuser"; fi
 if test "$recovery_autologin" != "true"; then recovery_autologin="false"; fi
-if test "$frankenstein" = "true"; then
-    frankenstein=true
-    select_frankenstein="--frankenstein"
-else
-    frankenstein=false
-    select_frankenstein=""
-fi
+# function frankenstein is disabled
+frankenstein=false
+select_frankenstein=""
 
 # verify nix configuration file is present if distrib_id=Nixos
 if test "$distrib_id" = "Nixos"; then
@@ -398,7 +394,6 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
         "$(ssh_uri ${sshlogin} scp)/tmp"
     scp $sshopts -rp \
         "$self_path/recovery" \
-        "$self_path/zfs" \
         "$self_path/initrd" \
         "$(ssh_uri ${sshlogin} scp)/tmp"
 

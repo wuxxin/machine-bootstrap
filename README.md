@@ -31,8 +31,8 @@ Some setups may work, most break under certain conditions.
 
 ### optional Features
 + luks encrypted **hibernate compatible swap** for eg. a desktop installation
-+ ubuntu: **overlay fs and namespace uid/guid support on zfs** by building patched zfs-linux (frankenstein=true)
 + ubuntu: **gitops stage using saltstack**  with states from salt-shared (eg. desktop)
++ ubuntu, at gitops state: **overlay fs and namespace uid/guid support on zfs** by building patched zfs-linux
 + **build a preconfigured livesystem image** usable for headless physical installation
     + resulting image is compatible as CD or USB-Stick with BIOS and EFI support
     + optional netplan for static or other non dhcp based ip configurations
@@ -63,22 +63,20 @@ Some setups may work, most break under certain conditions.
     + storage_opts="--boot-fs=ext4 --root-fs=ext4"
 + virtual machine with encrypted lvm and root lv (30gb) on ext4
     + storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-lvm=vgroot --root-lvm-vol-size=30720"
-+ desktop: encrypted root and swap, boot and root on zfs, patched zfs for overlay support
-    + storage_opts="--swap=true --frankenstein=true"
-+ server: one or two encrypted disks, boot and root on zfs, patched zfs for overlay support
-    + storage_opts="--frankenstein=true"
++ desktop: encrypted root and swap, boot and root on zfs
+    + storage_opts="--swap=true"
++ server: one or two encrypted disks, boot and root on zfs
+    + storage_opts=""
 + server: one or two encrypted disks with lvm storage (100gb) with root (25gb) and zfs on data (rest)
     + storage_opts="--root-fs=ext4 --root-size=102400 --root-lvm=vgroot --root-lvm-vol-size=25600" --data-fs=zfs"
 + server: one or two encrypted disks, root on zfs (100g), with data lvm storage vgdata
-    + storage_opts="--frankenstein=true --root-size=102400 --data-lvm=vgdata --data-lvm-vol-size=25600" --data-fs=ext4"
+    + storage_opts="--root-size=102400 --data-lvm=vgdata --data-lvm-vol-size=25600" --data-fs=ext4"
 
 ## Preparation
 
 Requirements:
 
-+ Minimum RAM: **currently 4GB**, may become less again, was
-    + frankenstein=no : 2GB RAM
-    + frankenstein=yes: 4GB Ram (for compiling zfs in ram in recovery)
++ Minimum RAM: 2GB RAM
 + Minimum Storage
     + 10GB (no swap, console)
     + \+ ~5GB (with swap for 4gb memory)
@@ -170,7 +168,6 @@ firstuser=$(id -u -n)
 # distrib_id="Nixos" # default "Ubuntu"
 # distrib_codename="19.09-small" # default "focal"
 # recovery_autologin="true" # default "false"
-# frankenstein="true" # default "false"
 
 # gitops_user="$firstuser" # default $firstuser
 # gitops_target="/home/$firstuser" # default /home/$firstuser
