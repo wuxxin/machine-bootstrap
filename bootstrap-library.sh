@@ -118,7 +118,7 @@ RPCNFSDCOUNT=8
 RPCNFSDPRIORITY=0
 
 # Options for rpc.mountd.
-RPCMOUNTDOPTS="-N 2 -N 3 --manage-gids --port 32767 --no-udp"
+RPCMOUNTDOPTS="-N 2 -N 3 --no-udp --manage-gids --port 32767"
 
 # Options for rpc.nfsd.
 RPCNFSDOPTS="-N 2 -N 3 --no-udp --host 127.0.0.1 --host ::1"
