@@ -1,6 +1,3 @@
 include:
   - .initrd
-{#
   - .recovery
-  - .zfs
-#}
