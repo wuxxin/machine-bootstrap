@@ -2,10 +2,10 @@
 
 ## tested combinations
 ### virtual, 2 x 10g disks
-+ distrib_codename=bionic, frankenstein=false, recovery_autologin=true, storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --swap=1024 --reuse"
-+ http_proxy set, distrib_codename=focal, frankenstein=false, recovery_autologin=true, storage_opts="--boot=false --root-size=6000 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --log=128 --cache=384 --swap=512"
++ distrib_codename=bionic,  recovery_autologin=true, storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --swap=1024 --reuse"
++ http_proxy set, distrib_codename=focal, recovery_autologin=true, storage_opts="--boot=false --root-size=6000 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --log=128 --cache=384 --swap=512"
 ### virtual, 2 x 15g disks
-+ http_proxy="http://192.168.122.1:8123", distrib_id=Ubuntu, distrib_codename=focal, frankenstein=false, recovery_autologin=true, gitops_target="/home/wuxxin", gitops_user="wuxxin", storage_opts="--boot=false --efi-size=2048 --log=128 --cache=128 --root-fs=zfs --root-size=10240 --data-lvm=vgdata --data-fs=ext4 --data-lvm-vol-size=2048 --reuse"
++ http_proxy="http://192.168.122.1:8123", distrib_id=Ubuntu, distrib_codename=focal, recovery_autologin=true, gitops_target="/home/wuxxin", gitops_user="wuxxin", storage_opts="--boot=false --efi-size=2048 --log=128 --cache=128 --root-fs=zfs --root-size=10240 --data-lvm=vgdata --data-fs=ext4 --data-lvm-vol-size=2048 --reuse"
 
 ## done
 
@@ -13,8 +13,7 @@
 + ubuntu: keep EFI synced start once on boot in addition to path change
 
 ## next
-+ make saltstackstates for initrd|recovery|zfs work
-+ rebase custom-zfs-patches and fix custom-build-zfs
++ make saltstackstates for initrd|recovery work
 + gitops: make target system honor http_proxy on gitops install
 
 ### bugs
@@ -31,26 +30,24 @@
 + recovery scripts to replace a faulty disk, to invalidate a disk
     + all: add script to replace a changed faulty disk: recovery-replace-mirror.sh
     + all: add script to deactivate (invalidate) one of two disks: storage-invalidate-mirror.sh
-+ desaster recovery from backup storage to new machine
-    + install: make restore from backup: script bootstrap-1-restore and bootstrap-2-chroot-restore
 + optional use of tmux for long running ssh connections of bootstrap.sh
 + make distrib_id=Nixos distrib_codename=19.09 working
     + make ./machine-bootstrap-configuration.nix in bootstrap-library
         + make all machine-bootstrap knowledge available there
     + make minimal configuration.nix on project create
-+ "cloud like" autorotating encrypted incremental snapshot backup to thirdparty storage with zfs and restic
-    this should be a little to no performance impact, encrypted, incremental, autorotating snapshot backup system, from and to redundant checksuming data storage on a single machine with the abbility to use common thirdparty storage for this backup. So far it is a very busy journey... https://xkcd.com/974/
++ desaster recovery from backup storage to new machine
+    + install: make restore from backup: script bootstrap-1-restore and bootstrap-2-chroot-restore
 
-## write reasons for overlayfs on zfs for presentation in zfs-linux mailinglist
+## reasons for overlayfs on zfs for presentation in zfs-linux mailinglist
+
 after integration of overlayfs in the kernel,
-    adoption of overlayfs based solutions is rapidly growing.
-in 2019 many software projects assume to be able
-    to use overlayfs on any underlying storage.
+    adoption of overlayfs based solutions has been rapidly growing.
+in 2020 many software projects assume to be able
+    to use overlayfs on any underlying storage fs.
 overlayfs runs on ext3/4,xfs,ramfs and even btrfs,
     you dont assume it doesn't on zfs.
-
-overlayfs is the first will probably be one of the few solutions
-    that will have user namespace mount support, either eg.
+overlayfs is the first and will probably keep beeing one of the few solutions
+    that have or will have user namespace mount support, either eg.
     via ubuntu overlayfs that is patched for user ns,
     or via a fuseoverlayfs driver (developed by redhat),
     overlayfs in user ns has been adopted by eg. podman, k3s
