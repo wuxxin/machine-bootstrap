@@ -963,9 +963,14 @@ create_boot_zpool() { # basedir zpool-create-parameter (eg. mirror sda1 sda2)
         -R "$basedir" \
         bpool "$@"
 
-    # bpool/BOOT
-    zfs create -o canmount=off -o mountpoint=none bpool/BOOT
-    zfs create -o canmount=noauto -o mountpoint=/boot bpool/BOOT/ubuntu
+    zfs create \
+        -o canmount=off \
+        -o mountpoint=none \
+        bpool/BOOT
+    zfs create \
+        -o canmount=noauto \
+        -o mountpoint=/boot \
+        bpool/BOOT/ubuntu
 }
 
 
@@ -990,7 +995,7 @@ create_data_zpool() { # basedir zpool-create-args* (eg. mirror sda1 sda2)
         -o exec=off \
         -o canmount=noauto \
         -o mountpoint=/data \
-        -o com.sun:auto-snapshot=true \
+        -o com.sun:auto-snapshot:frequent=true \
         "dpool/data"
 }
 
@@ -1011,97 +1016,78 @@ create_root_zpool() { # basedir zpool-create-args* (eg. mirror sda1 sda2)
         -R "$basedir" \
         rpool "$@"
 
-    # root=rpool/ROOT/ubuntu
-    zfs create  -o canmount=off \
-                -o mountpoint=none \
-                rpool/ROOT
-    zfs create  -o canmount=noauto \
-                -o mountpoint=/ \
-                -o com.sun:auto-snapshot:frequent=true \
-                -o com.sun:auto-snapshot:hourly=false \
-                -o com.sun:auto-snapshot:daily=true \
-                -o com.sun:auto-snapshot:weekly=false \
-                -o com.sun:auto-snapshot:monthly=false \
-                rpool/ROOT/ubuntu
+    zfs create \
+        -o canmount=off \
+        -o mountpoint=none \
+        rpool/ROOT
+
+    zfs create \
+        -o canmount=noauto \
+        -o mountpoint=/ \
+        -o com.sun:auto-snapshot:frequent=true \
+        -o com.sun:auto-snapshot:hourly=false \
+        -o com.sun:auto-snapshot:daily=true \
+        -o com.sun:auto-snapshot:weekly=false \
+        -o com.sun:auto-snapshot:monthly=false \
+        rpool/ROOT/ubuntu
 
     # mount future root ("/") to $basedir/
     zfs mount rpool/ROOT/ubuntu
 
-    # data to be saved: rpool/data
-    zfs create  -o setuid=off \
-                -o exec=off \
-                -o canmount=off \
-                -o mountpoint=none \
-                -o com.sun:auto-snapshot:frequent=true \
-                -o com.sun:auto-snapshot:hourly=true \
-                -o com.sun:auto-snapshot:daily=true \
-                -o com.sun:auto-snapshot:weekly=true \
-                -o com.sun:auto-snapshot:monthly=true \
-                rpool/data
+    # container for ephemeral parts of /var
+    zfs create \
+        -o com.sun:auto-snapshot:frequent=true \
+        -o com.sun:auto-snapshot:hourly=false \
+        -o com.sun:auto-snapshot:daily=false \
+        -o com.sun:auto-snapshot:weekly=false \
+        -o com.sun:auto-snapshot:monthly=false \
+        -o local.custom:auto-backup=false \
+        -o logbias=throughput \
+        -o canmount=off \
+        rpool/var
 
-    # rpool/data/home at /home
-    zfs create  -o setuid=off \
-                -o exec=on \
-                -o mountpoint=/home \
-                rpool/data/home
+    # comfort: create unmountable container, so /var/lib subcontainer dont need a mountpoint specification
+    zfs create \
+        -o canmount=off \
+        rpool/var/lib
 
-    # rpool/data/home/root at /root
-    zfs create  -o mountpoint=/root \
-                rpool/data/home/root
-
-    # rpool/data/mail at /var/lib/mail
+    # create /var/lib (which is part of system /var) and other needed base directories
     mkdir -p "$basedir/var/lib"
-    zfs create  -o mountpoint=/var/lib/mail \
-                rpool/data/mail
+    mkdir -p "$basedir/var/lib/apt"
 
-    # rpool/data/postgresql
-    zfs create  -o recordsize=16K \
-                -o logbias=throughput \
-                -o primarycache=metadata \
-                rpool/data/postgresql
+    # data to keep save container: rpool/data
+    zfs create \
+        -o setuid=off \
+        -o exec=off \
+        -o canmount=off \
+        -o mountpoint=none \
+        -o com.sun:auto-snapshot:frequent=true \
+        -o com.sun:auto-snapshot:hourly=true \
+        -o com.sun:auto-snapshot:daily=true \
+        -o com.sun:auto-snapshot:weekly=true \
+        -o com.sun:auto-snapshot:monthly=true \
+        rpool/data
 
-    # rpool/data/postgresql/localhost at /var/lib/postgresql
-    zfs create  -o mountpoint=/var/lib/postgresql \
-                rpool/data/postgresql/localhost
+    # keep in sync with salt-shared/zfs/defaults.jinja/zfs_rpool_defaults, see README.md for snippet
+    zfs create -o "mountpoint=/home" -o "setuid=off" -o "exec=on" rpool/data/home
+    zfs create -o "mountpoint=/root" rpool/data/home/root
+    zfs create -o "recordsize=16K" -o "logbias=throughput" -o "primarycache=metadata" rpool/data/postgresql
+    zfs create -o "mountpoint=/var/lib/postgresql" rpool/data/postgresql/localhost
+    zfs create -o "mountpoint=/var/lib/mail" rpool/data/mail
+    zfs create -o "mountpoint=/tmp" rpool/var/basedir-tmp
+    zfs create rpool/var/tmp
+    zfs create rpool/var/spool
+    zfs create rpool/var/backups
+    zfs create -o "exec=off" rpool/var/log
+    zfs create -o "exec=off" rpool/var/cache
+    zfs create -o "exec=on" -o "devices=on" rpool/var/cache/pbuilder
+    zfs create -o "exec=off" -o "mountpoint=/var/lib/apt/lists" rpool/var/lib/apt-lists
+    zfs create rpool/var/lib/snapd
+    # keep in sync end
 
-    # ephemeral rpool/var
-    zfs create  -o com.sun:auto-snapshot:frequent=true \
-                -o com.sun:auto-snapshot:hourly=false \
-                -o com.sun:auto-snapshot:daily=false \
-                -o com.sun:auto-snapshot:weekly=false \
-                -o com.sun:auto-snapshot:monthly=false \
-                -o local.custom:auto-backup=false \
-                -o logbias=throughput \
-                -o canmount=off \
-                rpool/var
-
-    zfs create  -o mountpoint=/tmp \
-                rpool/var/basedir-tmp
+    # correct filepermission for temp directories
     chmod 1777 "$basedir/tmp"
-
-    zfs create  rpool/var/tmp
     chmod 1777 "$basedir/var/tmp"
-
-    zfs create  rpool/var/spool
-    zfs create  rpool/var/backups
-    zfs create -o exec=off \
-                rpool/var/log
-    zfs create -o exec=off \
-                rpool/var/cache
-    zfs create  -o exec=on \
-                -o devices=on \
-                rpool/var/cache/pbuilder
-
-    zfs create  -o canmount=off \
-                rpool/var/lib
-    mkdir -p "$basedir/var/lib/apt/lists"
-    zfs create  -o exec=off \
-                -o mountpoint=/var/lib/apt/lists \
-                rpool/var/lib/apt-lists
-    mkdir -p "$basedir/var/lib/snapd"
-    zfs create  rpool/var/lib/snapd
-    mkdir -p "$basedir/var/lib/libvirt"
-    zfs create  rpool/var/lib/libvirt
 }
 
 
