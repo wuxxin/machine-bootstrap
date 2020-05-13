@@ -1,3 +1,3 @@
 include:
-  - .initrd
-  - .recovery
+  - machine-bootstrap.initrd
+  - machine-bootstrap.recovery
