@@ -6,11 +6,24 @@ include:
 {% set hash_new = 'update-recovery-squashfs.sh --host --output-manifest | sha256sum || echo "invalid"' %}
 {% set hash_old = 'cat '+ recovery_squashfs_path+ '.files.sha256sum | sha256sum || echo "unknown"' %}
 {% set recovery_version_old = salt['cmd.run_stdout']('cat /etc/recovery/recovery.version')|d('none') %}
+{% set recovery_netplan_path= grains['project_basepath']+ '/config/netplan.yaml' %}
 
+{% if salt['file.file_exists'](recovery_netplan_path) %}
 /etc/recovery/netplan.yaml:
   file.managed:
     - contents: |
-{{ settings.netplan_recovery|yaml(false)|indent(8,True) }}
+{{ salt['cmd.run_stdout']('cat '+ recovery_netplan_path)|indent(8,True) }}
+    - require_in:
+      - cmd: update-recovery-squashfs
+{% else %}
+missing_recovery_netplan:
+  test.show_notification:
+    - text: Error, missing recovery netplan on {{ recovery_netplan_path }}
+/etc/recovery/netplan.yaml:
+  test.fail_without_changes:
+    - require_in:
+      - cmd: update-recovery-squashfs
+{% endif %}
 
 /etc/recovery/bootstrap-library.sh:
   file.managed:

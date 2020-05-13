@@ -239,16 +239,16 @@ gpgutils.py gen_keypair gitops@node "box" config/gitops@node-secret-key.gpg conf
 ```bash
 cat > config/netplan.yaml << EOF
 network:
-    version: 2
-    ethernets:
-        all-en:
-            match:
-                name: "en*"
-            dhcp4: true
-        all-eth:
-            match:
-                name: "eth*"
-            dhcp4: true
+  version: 2
+  ethernets:
+    all-en:
+      match:
+        name: "en*"
+      dhcp4: true
+    all-eth:
+      match:
+        name: "eth*"
+      dhcp4: true
 EOF
 ```
 
