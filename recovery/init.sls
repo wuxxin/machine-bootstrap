@@ -68,4 +68,4 @@ update-recovery-casper:
         /etc/recovery/efi-sync.sh --yes
         /etc/recovery/build-recovery.sh show recovery_version > /etc/recovery/recovery_version
     - require:
-      - sls: .efi-sync
+      - sls: machine-bootstrap.recovery.efi-sync
