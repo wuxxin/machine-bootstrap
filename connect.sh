@@ -20,18 +20,26 @@ use ssh keys and config taken from $config_path to connect to system via ssh
 + temporary, recovery, initrd, system
     connect to system with the expected the ssh hostkey
 
-+ initrdluks [--allow-virtual]
++ initrdluks [--unsafe]
     uses the initrd host key for connection,
     and transfers the luks diskphrase keys to /lib/systemd/systemd-reply-password
 
-+ recoveryluks [--allow-virtual]
++ recoveryluks [--unsafe]
     uses the recovery host key for connection,
     and transfers the luks diskphrase keys to recovery-mount.sh
 
-+ recoverymount [--allow-virtual]
++ recoverymount [--unsafe]
     equal to recoveryluks but also mount all partitions and prepare a chroot at /mnt
 
---allow-virtual: do not abort if target system looks like virtual machine
+--unsafe
+    before posting the disk encryption unlock key,
+    connect does some attestation of the remote platform
+    and exits if any of these tests are failing.
+    to ignore these attestation errors, use --unsafe
+
+    currently only the storageid's configured in
+    config/node.env:storage_ids are checked to be available
+
 --show-ssh: only displays the parameters for ssh
 --show-scp: only displays the parameters for scp
     may be used for scp \$(connect.sh --show-args system)/root/test.txt .
@@ -39,12 +47,23 @@ EOF
     exit 1
 }
 
-abort_if_virtual_ssh() { # "$allowvirtual" "$sshopts" "$(ssh_uri ${sshlogin})"
-    local allowvirtual sshopts sshurl
-    allowvirtual="$1"
-    sshopts="$2"
-    sshurl="$3"
-    echo "Fixme: check for virtual machine via ssh"
+
+remote_attestation_ssh() { # "$sshopts" "$(ssh_uri ${sshlogin})" ignorefail
+    local sshopts sshurl ignorefail err
+    sshopts="$1"
+    sshurl="$2"
+    ignorefail=$(echo $3 | tr '[:upper:]' '[:lower:]')
+
+    ssh $sshopts $sshurl \
+        'for i in ${storage_ids}; do if test ! -e /dev/disk/by-id/\$i; exit 1; fi; done' && err=$? || err=$?
+    if test $err -ne 0; then
+        if test "$ignorefail" = "true"; then
+            echo "Warning: Remote Attestation failed, but ignorefail=true"
+        else
+            echo "Error: Remote Attestation failed, and ignorefail!=true, abort"
+            exit 1
+        fi
+    fi
 }
 
 
@@ -98,7 +117,7 @@ waitfor_ssh() {
 # parse args
 export LC_MESSAGES="POSIX"
 showargs=false
-allowvirtual=false
+allowunsafe=false
 if test "$1" = "--show-ssh"; then showargs=ssh; shift; fi
 if test "$1" = "--show-scp"; then showargs=scp; shift; fi
 if [[ ! "$1" =~ ^(temporary|recovery|recoveryluks|recoverymount|initrd|initrdluks|system)$ ]]; then usage; fi
@@ -126,12 +145,13 @@ if test "$showargs" != "false"; then
     echo "-o UserKnownHostsFile=$config_path/${hosttype}.known_hosts $(ssh_uri ${sshlogin} $showargs)"
     exit 0
 fi
-if test "$hosttype" = "initrdluks" -o "$hosttype" = "recoveryluks" -o "$hosttype" = "recoverymount"; then
+if test "$hosttype" = "initrdluks" -o \
+        "$hosttype" = "recoveryluks" -o "$hosttype" = "recoverymount"; then
+    if test "$1" = "--unsafe"; then allowunsafe=true; shift; fi
     if test ! -e "$diskpassphrase_file"; then
         echo "ERROR: diskphrase file $diskpassphrase_file not found"
         usage
     fi
-    if test "$1" = "--allow-virtual"; then allowvirtual=true; shift; fi
     diskphrase=$(cat "$diskpassphrase_file" | gpg --decrypt)
     if test "$diskphrase" = ""; then
         echo "Error: diskphrase is empty, abort"
@@ -140,7 +160,7 @@ if test "$hosttype" = "initrdluks" -o "$hosttype" = "recoveryluks" -o "$hosttype
     if test "$hosttype" = "recoverymount" -o "$hosttype" = "recoveryluks"; then
         sshopts="-o UserKnownHostsFile=$config_path/recovery.known_hosts"
         waitfor_ssh "$sshlogin"
-        abort_if_virtual_ssh $allowvirtual $sshopts $(ssh_uri ${sshlogin})
+        remote_attestation_ssh $sshopts $(ssh_uri ${sshlogin}) $allowunsafe
         echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
             'recovery-mount.sh --yes --only-raid-crypt --luks-from-stdin'
         if test "$hosttype" = "recoverymount"; then
@@ -151,7 +171,7 @@ if test "$hosttype" = "initrdluks" -o "$hosttype" = "recoveryluks" -o "$hosttype
     else
         sshopts="-o UserKnownHostsFile=$config_path/initrd.known_hosts"
         waitfor_ssh "$sshlogin"
-        abort_if_virtual_ssh $allowvirtual $sshopts $(ssh_uri ${sshlogin})
+        remote_attestation_ssh $sshopts $(ssh_uri ${sshlogin}) $allowunsafe
         echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
             'phrase=$(cat -); for s in /var/run/systemd/ask-password/sck.*; do echo -n "$phrase" | /lib/systemd/systemd-reply-password 1 $s; done'
     fi
