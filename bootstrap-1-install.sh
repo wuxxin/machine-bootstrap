@@ -225,15 +225,23 @@ EOF
     rm $custom_sources_list
 fi
 
-echo "copy additional bootstrap files"
+echo "copy bootstrap files for chroot install"
+echo "copying files to /usr/lib/dracut/modules.d/46sshd"
 mkdir -p /mnt/usr/lib/dracut/modules.d/46sshd
 cp -a -t /mnt/usr/lib/dracut/modules.d/46sshd /tmp/initrd/*
+echo "copying files to /etc/recovery"
 mkdir -p /mnt/etc/recovery/zfs
 cp -a -t /mnt/etc/recovery /tmp/recovery/*
-cp -a -t /mnt/etc/recovery/zfs /tmp/zfs/*
+if test -d /tmp/recovery/zfs; then
+    echo "copying files to /etc/recovery/zfs"
+    cp -a -t /mnt/etc/recovery/zfs /tmp/zfs/*
+fi
+echo "copy bootstrap-library.sh to /tmp and /etc/recovery"
 cp /tmp/bootstrap-library.sh /mnt/etc/recovery
+echo "copy ssh hostkeys to /etc/recovery"
 cp /tmp/recovery_hostkeys /mnt/etc/recovery
 chmod 0600 /mnt/etc/recovery/recovery_hostkeys
+echo "copy bootstrap-2-chroot-install.sh and bootstrap-library.sh to /tmp"
 cp /tmp/bootstrap-library.sh /mnt/tmp
 cp /tmp/bootstrap-2-chroot-install.sh /mnt/tmp
 chmod +x /mnt/tmp/bootstrap-2-chroot-install.sh
@@ -259,7 +267,7 @@ if test "$option_restore_backup" = "true"; then
     if test "$err" != "0"; then echo "Backup - Restore Error $err"; exit $err; fi
 fi
 
-echo "copy initrd and system ssh host keys"
+echo "copy initrd and system ssh host keys from install"
 mkdir -p /tmp/ssh_hostkeys
 for i in initrd_ssh_host_ed25519_key.pub ssh_host_ed25519_key.pub ssh_host_rsa_key.pub; do
     cp /mnt/etc/ssh/$i /tmp/ssh_hostkeys
