@@ -10,10 +10,10 @@ distroversion=20.04
 kernel_name="vmlinuz"
 initrd_name="initrd"
 baseurl="http://releases.ubuntu.com/releases/${distroname}"
-imagename="ubuntu-${distroversion}-beta-live-server-amd64.iso"
+imagename="ubuntu-${distroversion}-live-server-amd64.iso"
 
 # recovery version
-recovery_version=${distroversion}~beta-live-server-recovery-1.0
+recovery_version=${distroversion}-live-server-recovery-1.0
 
 # gpg keys allowed to sign images
 cdimage_keyids="0x46181433FBB75451 0xD94AA3F0EFE21092"
