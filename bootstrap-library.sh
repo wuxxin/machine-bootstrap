@@ -176,7 +176,7 @@ install_efi_sync() { # rootprefix(default="")
     if test "$1" != ""; then rootprefix="$1"; shift; fi
     cat > "$rootprefix/etc/systemd/system/efi-sync.path" << EOF
 [Unit]
-Description=Copy EF to EFI2 System Partition
+Description=Copy EFI to EFI2 System Partition
 
 [Path]
 PathChanged=/efi
@@ -205,7 +205,7 @@ efi_sync() { # efi_src efi_dest
 
     echo "Sync contents of $efi_src to $efi_dest"
     rsync -a --exclude EFI/Ubuntu/grub.cfg --exclude grub/grub.cfg \
-        --delete-during "$efi_src/" "$efi_dest/"
+        --exclude grub/grubenv --delete-during "$efi_src/" "$efi_dest/"
 
     echo "copy and modify EFI/Ubuntu/grub.cfg and grub/grub.cfg for fsuuid of efi2"
     efi_fs_uuid=$(dev_fs_uuid "$(by_partlabel EFI | first_of)")
