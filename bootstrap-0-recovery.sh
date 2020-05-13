@@ -23,10 +23,6 @@ install a recovery system and overwrite all existing data of all disks matching 
   --reuse
     # will clean first sectors of data from disks before re-partitioning
 
-  --boot=       true|*false|<bootsizemb, if true: default=$boot_size mb>
-  --boot-fs=    *zfs|ext4|xfs
-    # set boot partition filesystem
-
   --root-fs=    *zfs|ext4|xfs
     # set root partition filesystem
   --root-lvm=   *""|<vgname>
@@ -49,6 +45,11 @@ install a recovery system and overwrite all existing data of all disks matching 
     # create a lvm volume group, and create data volume as logical volume
 
   --efi-size=   <efisizemb, default $efi_size mb>
+
+  --boot=       true|*false|<bootsizemb, if true: default=$boot_size mb>
+  --boot-fs=    *zfs|ext4|xfs
+    # legacy boot partition filesystem, most boot related files in this setup are on efi
+
   --swap=       true|*false|<swapsizemb, if true: default= 1.25 x RAM mb>
     # enable swap usable for hibernation (suspend to disk)
   --log=        true|*false|<logsizemb, if true: logsizemb=$log_size mb>
@@ -78,8 +79,8 @@ log_size="1024"
 # default l2arc RAM size = 1gb corresponds to ~= 58gb l2arc disk cache_size
 l2arcramsizemb="1024"
 cache_size="$(( l2arcramsizemb * 1024 * 1024 / 70 * 4096 /1024 /1024))"
-# default efi size to = 1600mb corresponds to 2 times casper livemedia (~800mb)
-efi_size=1600
+# default efi size to = 2200mb corresponds to 2 times casper livemedia (~800mb)+ reserve
+efi_size=2200
 boot_fs=zfs
 boot_size=400
 root_fs=zfs
@@ -293,13 +294,6 @@ echo "build recovery to /mnt/efi"
 mkdir -p /tmp/liveimage
 /tmp/recovery/build-recovery.sh download /tmp/liveimage
 /tmp/recovery/build-recovery.sh extract /tmp/liveimage /mnt/efi
-#echo "build installer.squashfs to /mnt/efi/casper"
-#kernel_version=$(/tmp/recovery/build-recovery.sh show kernel_version /mnt/efi/casper)
-#/tmp/recovery/build-recovery.sh create installer-addon \
-#    /mnt/efi/casper/filesystem.squashfs \
-#    /mnt/efi/casper/installer.squashfs \
-#    /tmp/liveimage \
-#    $kernel_version
 
 echo "create recovery.squashfs to /mnt/efi/casper"
 cp "$self_path/bootstrap-library.sh" /tmp/recovery
