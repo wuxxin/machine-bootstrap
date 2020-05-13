@@ -1,6 +1,6 @@
 include:
   - machine-bootstrap.initrd
-  - .efi-sync
+  - machine-bootstrap.recovery.efi-sync
 
 {% set recovery_squashfs_path= '/efi/casper/recovery.squashfs' %}
 {% set hash_new = 'update-recovery-squashfs.sh --host --output-manifest | sha256sum || echo "invalid"' %}
@@ -35,7 +35,7 @@ missing_recovery_netplan:
   'storage-invalidate-mirror.sh', 'storage-replace-mirror.sh', 'update-recovery-squashfs.sh'] %}
 /etc/recovery/{{ f }}:
   file.managed:
-    - source: salt://machine-bootstrap/{{ f }}
+    - source: salt://machine-bootstrap/recovery/{{ f }}
     - filemode: 0755
     - require_in:
       - cmd: update-recovery-squashfs
@@ -47,7 +47,7 @@ update-recovery-squashfs:
     - onlyif: test $({{ hash_new }}) != $({{ hash_old }})
     - name: update-recovery-squashfs.sh --host
     - require:
-      - sls: .efi-sync
+      - sls: machine-bootstrap.recovery.efi-sync
 
 update-recovery-casper:
   cmd.run:
