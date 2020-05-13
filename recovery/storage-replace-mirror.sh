@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+. "$self_path/bootstrap-library.sh"
+
 cat <<"EOF"
 recovery-replace-mirror.sh --valid-data sourceserial --new-mirror targetserial
 
@@ -19,6 +21,7 @@ recovery-replace-mirror.sh --valid-data sourceserial --new-mirror targetserial
 
 EOF
 
+. "$self_path/bootstrap-library.sh"
 
 
 exit 1

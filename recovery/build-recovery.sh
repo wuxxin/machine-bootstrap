@@ -5,18 +5,15 @@ set -e
 self_path=$(dirname "$(readlink -e "$0")")
 
 # Install Image
-#distroname=bionic
-#distroversion=18.04.3
-#kernel_name="hwe-vmlinuz"
-#initrd_name="hwe-initrd"
-#baseurl="http://releases.ubuntu.com/releases/${distroname}"
-#imagename="ubuntu-${distroversion}-live-server-amd64.iso"
 distroname=focal
 distroversion=20.04
 kernel_name="vmlinuz"
 initrd_name="initrd"
 baseurl="http://releases.ubuntu.com/releases/${distroname}"
 imagename="ubuntu-${distroversion}-beta-live-server-amd64.iso"
+
+# recovery version
+recovery_version=${distroversion}~beta-live-server-recovery-1.0
 
 # gpg keys allowed to sign images
 cdimage_keyids="0x46181433FBB75451 0xD94AA3F0EFE21092"
@@ -35,27 +32,26 @@ efi_ldlinux="/usr/lib/syslinux/modules/efi64/ldlinux.e64"
 
 
 usage() {
+    local cmd
+    cmd=$(basename $0)
     cat << EOF
-$0 download               <downloaddir>
-$0 extract                <downloaddir> <targetdir>
+$cmd download               <downloaddir>
+$cmd extract                <downloaddir> <targetdir>
+$cmd create liveimage       <downloaddir> <targetiso> [<recovery.squashfs>]
 
-$0 create liveimage       <downloaddir> <targetiso> [<recovery.squashfs>]
-$0 create installer-addon <src-squashfs> <dest-squashfs> <workdir> [<kernel_version>]
+$cmd show grub.cfg          <grub_root> <casper_livemedia> <uuid_volume>
+$cmd show grub.d/recovery   <grub_root> <casper_livemedia> <uuid_volume>
+$cmd show grub.nix.entry    <grub_root> <casper_livemedia> <uuid_volume>
+$cmd show kernel_version    <targetdir containing kernel image>
+                                         returns the kernel version found in targetdir
+$cmd show recovery_version  returns the image plus the recovery-script version for change detection
+$cmd show imagename         returns the expected source image name for recovery building
+$cmd show imageurl          returns the expected download url image name for recovery building
+$cmd show keyfile           returns the expected signingkeys file name for verifying downloads
 
-$0 show grub.cfg          <grub_root> <casper_livemedia> <uuid_volume>
-$0 show grub.d/recovery   <grub_root> <casper_livemedia> <uuid_volume>
-$0 show grub.nix.entry    <grub_root> <casper_livemedia> <uuid_volume>
-$0 show kernel_version    <targetdir containing kernel image>
-    returns the kernel version found in targetdir
-$0 show imagename
-    returns the expected source image name for recovery building
-$0 show imageurl
-    returns the expected download url image name for recovery building
-$0 show keyfile
-    returns the expected signingkeys file name for verifying downloads
+$cmd --check-req            confirm all needed requisites are present, exit 0 if true
 
-$0 --check-req
-    confirm all needed requisites are present, exit 0 if true
+Version: $recovery_version
 
 EOF
     exit 1
@@ -275,222 +271,6 @@ set fallback=recovery
 EOF
 }
 
-setup_mountpoint() {
-    local mountpoint="$1"
-    as_root mount --rbind /dev "$mountpoint/dev"
-    as_root mount --make-rslave "$mountpoint/dev"
-    as_root mount proc-live -t proc "$mountpoint/proc"
-    as_root mount sysfs-live -t sysfs "$mountpoint/sys"
-    as_root mount -t tmpfs none "$mountpoint/tmp"
-    as_root mount -t tmpfs none "$mountpoint/var/lib/apt"
-    as_root mount -t tmpfs none "$mountpoint/var/cache/apt"
-}
-
-
-teardown_mountpoint() {
-    # Reverse the operations from setup_mountpoint
-    local mountpoint="$1"
-    # ensure we have exactly one trailing slash, and escape all slashes for awk
-    mountpoint_match=$(echo "$mountpoint" | sed -e's,/$,,; s,/,\\/,g;')'\/'
-    # sort -r ensures that deeper mountpoints are unmounted first
-    for submount in $(awk </proc/self/mounts "\$2 ~ /$mountpoint_match/ \
-                      { print \$2 }" | LC_ALL=C sort -r); do
-        echo "unmounting $submount"
-        as_root mount --make-private "$submount"
-        as_root umount "$submount"
-    done
-}
-
-
-umount_loop() {
-    dir=$1
-    ! mountpoint -q -- "$dir" && return
-    # limitation: can only find processes using mountpoint before unmount
-    # https://github.com/karelzak/util-linux/issues/484
-    open_files=$(as_root lsof "$dir" 2>/dev/null || true)
-    # Exits non-zero if object not in use
-    # Avoid "WARNING: can't stat() fuse.gvfsd-fuse file system /run/user/1000/gvfs"
-    mountpoints=$(awk -v dir="$dir" 'BEGIN{dir="^" dir "$"} $2 ~ dir {print $1}' /etc/mtab)
-
-    while as_root "umount" -Rdl -- "$dir"; do # returns false when already unmounted
-      # -R  Recursive unmount
-      # -d  Remove the associated loop device
-      # -l  Lazy remove filesystem references immediately
-      # -v  Verbose
-      sleep 0.01;
-    done
-
-    if loop_dev=$(losetup -a --list | grep --fixed-strings "$mountpoints"); then
-      printf "WARNING: loop device remains after unmount:\n%s\n" "$loop_dev" 2>&1
-      printf "%s\n" "$open_files" 2>&1
-    fi
-}
-
-
-create_installer_squashfs() { # src_squash dest_squash workdir kernel_version
-    local src_squash=$1
-    local dest_squash=$2
-    local workdir=$3
-    local kernel_version=$4
-    local src_mount=$workdir/filesystem.squashfs.dir
-    local dest_mount=$workdir/installer.squashfs.dir
-    local overlay_dir=$workdir/overlay
-    local overlay_work_dir=$workdir/work
-    local loopdev
-
-    cd "$workdir"
-    as_root mkdir -p "$src_mount" "$dest_mount" "$overlay_dir" "$overlay_work_dir"
-
-    # mount source squash, mount overlay, mount bind mounts
-    loopdev=$(as_root losetup --show -f "$src_squash")
-    as_root mount -t squashfs "$loopdev" "$src_mount"
-    as_root mount -t overlay overlay \
-        -olowerdir="$src_mount",upperdir="$overlay_dir",workdir="$overlay_work_dir" \
-        "$dest_mount"
-    setup_mountpoint "$dest_mount"
-
-    # customize for running in chroot
-    as_root /bin/bash << POSTMOUNTEOF
-set -x
-
-# save original resolv.conf, copy current resolv.conf from running system
-if test -e "$dest_mount/etc/resolv.conf"; then
-    cp -f "$dest_mount/etc/resolv.conf" resolv.conf.tmp
-fi
-cp -L --remove-destination /etc/resolv.conf "$dest_mount/etc/resolv.conf"
-
-# allow installing software without additional setup (eg. write out kernel)
-cat > "$dest_mount/usr/sbin/policy-rc.d" << EOF
-#!/bin/sh
-echo "All runlevel operations denied by policy" >&2
-exit 101
-EOF
-chmod 0755 "$dest_mount/usr/sbin/policy-rc.d"
-
-# create dummy update-initramfs
-cat > $workdir/update-initramfs << EOF
-#! /bin/sh
-echo "update-initramfs: diverted" >&2
-exit 0
-EOF
-chmod +x $workdir/update-initramfs
-
-# create exit early version of systemd-detect-virt, will be copied after dpkg diversion
-echo "exit 1" > $workdir/systemd-detect-virt
-chmod +x $workdir/systemd-detect-virt
-
-if test "$http_proxy" != ""; then
-  mkdir -p "$dest_mount/etc/apt/apt.conf.d"
-  cat > "$dest_mount/etc/apt/apt.conf.d/02proxy" << EOF
-Acquire::http { Proxy "$http_proxy"; };
-EOF
-fi
-
-POSTMOUNTEOF
-
-    # diverts
-    for i in /etc/grub.d/30_os-prober /usr/sbin/update-initramfs /usr/bin/systemd-detect-virt; do
-        deb_chroot "$dest_mount" dpkg-divert --local --rename \
-            --divert $i.dpkg-divert --add $i
-    done
-    as_root cp -f $workdir/update-initramfs "$dest_mount/usr/sbin/update-initramfs"
-    as_root cp -f $workdir/systemd-detect-virt "$dest_mount/usr/bin/systemd-detect-virt"
-
-    # Make installer layer
-    # Install casper for live session magic and other selected packages
-    packages="lupin-casper linux-firmware $(get_default_packages)"
-    if test "$kernel_version" != ""; then
-        packages="$packages linux-modules-$kernel_version linux-modules-extra-$kernel_version linux-headers-$kernel_version"
-    fi
-    deb_chroot "$dest_mount" apt-get update
-    deb_chroot "$dest_mount" apt-get -y install $packages
-    deb_chroot "$dest_mount" apt-get clean
-
-    # remove diverts
-    deb_chroot "$dest_mount" rm -f /usr/sbin/update-initramfs  /usr/bin/systemd-detect-virt
-    for i in /etc/grub.d/30_os-prober /usr/sbin/update-initramfs /usr/bin/systemd-detect-virt; do
-        deb_chroot "$dest_mount" dpkg-divert --local --rename --remove $i
-    done
-
-    # unmount bind mounts, unmount overlay, unmount source squashfs
-    teardown_mountpoint "$dest_mount"
-    as_root umount "$dest_mount"
-    umount_loop "$src_mount"
-
-    # cleanup and finalize overlay
-    as_root /bin/bash << POSTUNMOUNTEOF
-set -x
-
-# remove temporary created files in workdir
-for i in systemd-detect-virt update-initramfs resolv.conf.tmp; do
-    if test -e $workdir/$i; then rm -f $workdir/$i; fi
-done
-
-# remove temporary /etc/resolv.conf
-if test -e $overlay_dir/etc/resolv.conf; then
-    rm -f $overlay_dir/etc/resolv.conf
-fi
-
-# remove policy-rc.d runlevel override
-if test -e $overlay_dir/usr/sbin/policy-rc.d; then
-    rm $overlay_dir/usr/sbin/policy-rc.d
-fi
-
-rm -rf $overlay_dir/run
-rm -rf $overlay_dir/boot
-if test -e "$overlay_dir/var/lib/dpkg/triggers"; then
-    rm -rf "$overlay_dir/var/lib/dpkg/triggers"
-fi
-
-# wait until network is online
-ln -s /bin/true $overlay_dir/lib/systemd/systemd-networkd-wait-online
-
-# do not ratelimit journald
-mkdir -p $overlay_dir/etc/systemd/journald.conf.d
-printf '[Journal]\nRateLimitIntervalSec=0\n' \
-    > $overlay_dir/etc/systemd/journald.conf.d/no-rate-limit.conf
-
-# copied from original installer.squashfs, in the hope to make snapd working
-mkdir -p $overlay_dir/lib/systemd/system/snapd.service.d
-printf '[Service]\nEnvironment=SNAP_REEXEC=0\n' \
-    > $overlay_dir/lib/systemd/system/snapd.service.d/no-reexec.conf
-
-# keep lxd from snapd seeds
-sed -i -e'N;/name: lxd/,+2d' $overlay_dir/var/lib/snapd/seed/seed.yaml
-
-# remove casper script trying to mount any swap on startup
-rm -f $overlay_dir/usr/share/initramfs-tools/scripts/casper-bottom/*swap
-
-# remove other stray files
-for i in \
-    initrd.img initrd.img.old vmlinuz vmlinuz.old \
-    etc/apt/apt.conf.d/02proxy \
-    etc/.pwd.lock etc/shadow- etc/passwd- \
-    etc/ssh/ssh_host_ecdsa_key etc/ssh/ssh_host_ecdsa_key.pub \
-    etc/ssh/ssh_host_ed25519_key etc/ssh/ssh_host_ed25519_key.pub \
-    etc/ssh/ssh_host_rsa_key etc/ssh/ssh_host_rsa_key.pub \
-    var/lib/dpkg/lock var/lib/dpkg/lock-frontend var/lib/dpkg/status-old \
-    var/lib/dpkg/triggers/Lock \
-    var/lib/update-notifier/updates-available; do
-    if test -e $overlay_dir/\$i; then
-        rm -f $overlay_dir/\$i
-    fi
-done
-POSTUNMOUNTEOF
-
-    # create squashfs from overlay
-    cd "$overlay_dir"
-    if test -e "${dest_squash}"; then as_root rm -f ${dest_squash}; fi
-    echo "mksquashfs ${dest_squash}"
-    as_root mksquashfs . "${dest_squash}" -no-progress -xattrs -comp xz
-    as_root chown "$(id -u -n):$(id -u -n)" "${dest_squash}"
-    cd "$workdir"
-
-    # remove work files
-    as_root rm -rf "$overlay_dir"
-    as_root rm -rf "$overlay_work_dir"
-}
-
 
 create_liveimage() {
     local download_path build_path liveimage recoverysquash
@@ -510,10 +290,6 @@ create_liveimage() {
     as_root chmod -R u+w "$build_path"
     kernel_version=$(file "$build_path/casper/$kernel_name" -b | sed -r "s/^.+version ([^ ]+) .+/\1/g")
 
-    # add installer.squashfs (tools that are needed for recovery, eg. ssh)
-    # create_installer_squashfs "$build_path/casper/filesystem.squashfs" \
-    #    "$build_path/casper/installer.squashfs" "$installer_path" "$kernel_version"
-
     # add recovery settings squashfs if set as calling parameter
     if test "$recoverysquash" != ""; then
       # add recovery.squashfs if specified
@@ -532,7 +308,7 @@ EOF
     as_root cp "$bios_isolinux" "$build_path/isolinux/isolinux.bin"
     as_root cp "$bios_ldlinux" "$build_path/isolinux/ldlinux.c32"
 
-    # EFI booting: make ESP partition image (efi/boot/bootx64.efi)
+    # EFI booting: make ESP partition image
     esp_img="$build_path/isolinux/esp.img"
     esp_mount="$download_path/espmount"
     if mountpoint -q "$esp_mount"; then as_root umount "$esp_mount"; fi
@@ -553,7 +329,8 @@ EOF
     cp $efi_ldlinux "$esp_mount/efi/boot/"
     cp "$build_path/casper/$kernel_name" "$esp_mount/boot/"
     cp "$build_path/casper/$initrd_name" "$esp_mount/boot/"
-    cat "$build_path/isolinux/isolinux.cfg" | sed -r "s#/casper#/boot#g" > "$esp_mount/syslinux/syslinux.cfg"
+    cat "$build_path/isolinux/isolinux.cfg" | \
+        sed -r "s#/casper#/boot#g" > "$esp_mount/syslinux/syslinux.cfg"
     as_root umount "$esp_mount"
     if test -e "$esp_mount"; then as_root rmdir "$esp_mount"; fi
     as_root syslinux --install --directory syslinux/ "$esp_img"
@@ -584,33 +361,21 @@ shift
 # if http_proxy is set, reexport for sub-processes
 if test "$http_proxy" != ""; then export http_proxy; fi
 
-for i in . ..; do
-    if test -e "$self_path/$i/bootstrap-library.sh"; then
-        . "$self_path/$i/bootstrap-library.sh"
-    fi
-done
+# for i in . ..; do
+#     if test -e "$self_path/$i/bootstrap-library.sh"; then
+#        . "$self_path/$i/bootstrap-library.sh"
+#    fi
+# done
 
-if test "$cmd" = "create"; then
-    if test "$1" = "liveimage"; then
-        shift
-        if test "$2" = ""; then usage; fi
-        downloaddir="$1"
-        liveimage="$2"
-        shift 2
-        recoverysquash=""
-        if test "$1" != ""; then recoverysquash="$1"; shift; fi
-        check_requisites
-        create_liveimage "$downloaddir" "$liveimage" "$recoverysquash"
-    elif test "$1" = "installer-addon"; then
-        shift
-        src_squash="$1"
-        dest_squash="$2"
-        work_dir="$3"
-        kernel_version="$4"
-        if test "$work_dir" = "" -o ! -e "$src_squash" -o ! -e "$work_dir"; then usage; fi
-        check_requisites
-        create_installer_squashfs "$src_squash" "$dest_squash" "$work_dir" "$kernel_version"
-    fi
+if test "$cmd" = "create" -a "$1" = "liveimage"; then
+    if test "$3" = ""; then usage; fi
+    downloaddir="$2"
+    liveimage="$3"
+    shift 3
+    recoverysquash=""
+    if test "$1" != ""; then recoverysquash="$1"; shift; fi
+    check_requisites
+    create_liveimage "$downloaddir" "$liveimage" "$recoverysquash"
 elif test "$cmd" = "download"; then
     if test "$1" = ""; then usage; fi
     downloaddir="$1"
@@ -638,6 +403,8 @@ elif test "$cmd" = "show"; then
         fi
         kernel_version=$(file "$targetdir/$kernel_name" -b | sed -r "s/^.+version ([^ ]+) .+/\1/g")
         echo "$kernel_version"
+    elif test "$1" = "recovery_version"; then
+        echo "$recovery_version"
     elif test "$1" = "grub.cfg" -o "$1" = "grub.d/recovery" -o "$1" = "grub.nix.entry"; then
         if test "$4" = ""; then usage; fi
         show_grub="$1"
@@ -652,5 +419,8 @@ elif test "$cmd" = "show"; then
         elif test "$show_grub" = "grub.nix.entry"; then
             show_grub_nix_entry "$grub_root" "$casper_livemedia" "$uuid_volume"
         fi
+    else
+        echo "error: show $1 is unknown"
+        usage
     fi
 fi

@@ -1,19 +1,25 @@
-{#
-+ update files
-+ if zfs was updated, or files:
-  + regenerate recovery-squashfs
-+ if casper can be updated
-  + update casper
-#}
+include:
+  - machine-bootstrap.initrd
+  - .efi-sync
 
-{% from "machine-bootstrap/node/defaults.jinja" import settings %}
+{% set recovery_squashfs_path= '/efi/casper/recovery.squashfs' %}
+{% set hash_new = 'update-recovery-squashfs.sh --host --output-manifest | sha256sum || echo "invalid"' %}
+{% set hash_old = 'cat '+ recovery_squashfs_path+ '.files.sha256sum | sha256sum || echo "unknown"' %}
+{% set recovery_version_old = salt['cmd.run_stdout']('cat /etc/recovery/recovery.version')|d('none') %}
 
 /etc/recovery/netplan.yaml:
   file.managed:
     - contents: |
 {{ settings.netplan_recovery|yaml(false)|indent(8,True) }}
 
-{% for f in ['build-recovery.sh', 'efi-sync.sh', 'recovery-mount.sh', 'recovery-unmount.sh', 'storage-invalidate-mirror.sh', 'storage-replace-mirror.sh', 'update-recovery-squashfs.sh'] %}
+/etc/recovery/bootstrap-library.sh:
+  file.managed:
+    - source: salt://machine-bootstrap/bootstrap-library.sh
+    - require_in:
+      - cmd: update-recovery-squashfs
+
+{% for f in ['build-recovery.sh', 'recovery-mount.sh', 'recovery-unmount.sh',
+  'storage-invalidate-mirror.sh', 'storage-replace-mirror.sh', 'update-recovery-squashfs.sh'] %}
 /etc/recovery/{{ f }}:
   file.managed:
     - source: salt://machine-bootstrap/{{ f }}
@@ -23,17 +29,30 @@
       - cmd: update-recovery-casper
 {% endfor %}
 
-fixme update-recovery-squashfs.sh is not stdout capable
 update-recovery-squashfs:
   cmd.run:
+    - onlyif: test $({{ hash_new }}) != $({{ hash_old }})
     - name: update-recovery-squashfs.sh --host
-    - onlyif: test $(sha256sum -b /efi/casper/recovery.squashfs)  != $(update-recovery-squashfs.sh --host --output /dev/stdout | sha256sum -b)
     - require:
-      - sls: .zfs
+      - sls: .efi-sync
 
 update-recovery-casper:
   cmd.run:
-    - onlyif: test "$(build-recovery.sh show imageurl)" != "$(cat /efi/.disk/download_url)"
-    - name: fixme: build-recovery.sh download, extract, move with old, sync efi
+    - onlyif: test "$(build-recovery.sh show recovery_version)" != "{{ recovery_version_old }}"
+    - name: |
+        /etc/recovery/build-recovery.sh download /var/tmp/build-recovery
+        /etc/recovery/build-recovery.sh extract /var/tmp/build-recovery /boot/casper
+        EFI_PART=$(find /dev/disk/by-partlabel/ -type l | \
+          sort | grep -E "EFI[12]?$" | tr "\n" " " | awk '{print $1;}')
+        EFI_NR=$(cat "/sys/class/block/${EFI_PART}/partition")
+        EFI_GRUB="hd0,gpt${EFI_NR}"
+        EFI_FS_UUID=$(dev_fs_uuid "$EFI_PART")
+        CASPER_LIVEMEDIA=""
+        mkdir -p /etc/grub.d
+        /etc/recovery/build-recovery.sh show grub.d/recovery \
+            "$EFI_GRUB" "$CASPER_LIVEMEDIA" "$EFI_FS_UUID" > /etc/grub.d/40_recovery
+        chmod +x /etc/grub.d/40_recovery
+        /etc/recovery/efi-sync.sh --yes
+        /etc/recovery/build-recovery.sh show recovery_version > /etc/recovery/recovery_version
     - require:
-      - sls: zfs
+      - sls: .efi-sync

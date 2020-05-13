@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+self_path=$(dirname "$(readlink -e "$0")")
+
 cat <<"EOF"
 storage-invalidate-mirror.sh --invalidate diskserial
 
@@ -13,5 +15,6 @@ storage-invalidate-mirror.sh --invalidate diskserial
 
 EOF
 
+. "$self_path/bootstrap-library.sh"
 
 exit 1

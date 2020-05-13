@@ -8,26 +8,29 @@ self_path=$(dirname "$(readlink -e "$0")")
 usage() {
 
     cat << EOF
-Usage:  $0 --host [--output <squashfsoutputfile>] [<hostname>]
-        $0 --custom <squashfsoutputfile> <hostname> <hostid>|-
-                    <netplan_file> <hostkeys_file> <authorized_keys_file>
-                    <scriptdir> <archivedir>|- <autologin(true|false)>
-                    "<packagelist(default|-|package+)>" [<http_proxy>]
+Usage: $(basename $0)  --host
+                        [--output <squashfsoutputfile>|--output-manifest] [<hostname>]
+       $(basename $0)  --custom
+                        <squashfsoutputfile> <hostname> <hostid>|-
+                        <netplan_file> <hostkeys_file> <authorized_keys_file>
+                        <scriptdir> <archivedir>|- <autologin(true|false)>
+                        "<packagelist(default|-|package+)>" [<http_proxy>]
 
---host              create a recovery squash file based on the hosts default parameter
-    --output        <squashfsoutputfile>
-                    write to different outputfile
-    [<hostname>]    set different hostname
+--host                  create a recovery squash file based on the hosts default parameter
+    [--output <file>]   write to other than default outputfile
+    [--output-manifest] do not create squashfs,
+                        but display list of generated files excluding archivedir
+    [<hostname>]        set different hostname, maybe required after hostname change in node.env
 
---custom            create a recovery squashfs file on custom parameter
-    hostid:         hostid in binary form, use "-" if no id
-    archivedir:     expects local apt-archive with "Release" and
-                    "Packages" files, use "-" if no archive
-    <packagelist>:  "default" for default list, "-" for no packages, else list of packages
+--custom                create a recovery squashfs file on custom parameter
+    hostid|-:           hostid in binary form, use "-" if no id
+    archivedir:         expects local apt-archive with "Release" and
+                        "Packages" files, use "-" if no archive
+    <packagelist>:      "default" for default list, "-" for no packages, else list of packages
 
 defaults:
-  squashfsoutputfile:   /efi/casper/recovery.squashfs
-  hostname:             if not set from commandline, from hostname -f
+  squashfsoutputfile:   $destfile
+  hostname:             if not set from commandline, hostname -f
   hostid:               if exists from /etc/hostid else "-"
   netplan_file:         if exists from /etc/recovery/netplan.yaml else from /etc/netplan/*
   hostkeys_file:        /etc/recovery/recovery_hostkeys
@@ -35,8 +38,10 @@ defaults:
   scriptdir:            /etc/recovery (will be copied to recovery:/usr/sbin/)
   archivedir:           if exists "$custom_archive" else "-"
   autologin:            "true" if exists /etc/recovery/feature.autologin else "false"
-  packagelist:          "default" for default list
-  http_proxy:           from default env
+  packagelist:          "default"
+  http_proxy:           from environment if http_proxy is set: $http_proxy
+
+  default package list: $default_packages
 
 EOF
     exit 1
@@ -46,19 +51,23 @@ EOF
 generate_recovery_squashfs() {
     local basedir cfgdir destfile hostname hostid netplan_data hostkeys_data
     local authorized_keys_data scriptdir archivedir autologin packages http_proxy
+    local prefixdir
     destfile=$1; hostname=$2; hostid=$3; netplan_data="$4"; hostkeys_data="$5";
     authorized_keys_data="$6"; scriptdir=$7; archivedir=$8; autologin=$9;
     packages="${10}"; http_proxy="${11}"
-    basedir=$(mktemp -d || (echo "error making temporary dir"; exit 1))
+
+    prefixdir=/run/user/$(id -u)
+    if test ! -e $prefixdir; then mkdir -p $prefixdir; fi
+    basedir=$(mktemp -d -p $prefixdir || (echo "error making temporary dir" 1>&2; exit 1))
     cfgdir="$basedir/etc/cloud/cloud.cfg.d"
 
-    echo "create recovery.squashfs"
+    echo "create recovery.squashfs" 1>&2
     mkdir -p "$cfgdir"
 
-    echo "write meta-data.cfg"
+    echo "write meta-data.cfg" 1>&2
     printf "instance-id: %s\nlocal-hostname: %s\n" $hostname $hostname > "$cfgdir/meta-data.cfg"
 
-    echo "write netplan as network-config.cfg"
+    echo "write netplan as network-config.cfg" 1>&2
     echo "$netplan_data" > "$cfgdir/network-config.cfg"
 
     ci_http_proxy=""
@@ -70,7 +79,7 @@ generate_recovery_squashfs() {
         no_ssh_genkeytypes="ssh_genkeytypes: []"
     fi
     if test "$packages" = "default"; then
-        packages="$(get_default_packages)"
+        packages="$default_packages"
     elif test "$packages" = "-"; then
         packages=""
     fi
@@ -113,10 +122,10 @@ $(printf "%s" "$authorized_keys_data" | sed -e 's/^/      - /')
 
 EOF
     if test "$hostkeys_data" != ""; then
-        echo "write recovery_hostkeys to user-data.cfg"
+        echo "write recovery_hostkeys to user-data.cfg" 1>&2
         printf "%s\n\n" "$hostkeys_data" >> "$cfgdir/user-data.cfg"
     fi
-    echo "disable subiquity"
+    echo "disable subiquity" 1>&2
     mkdir -p "$basedir/etc/systemd/system/systemd/system/snapd.core-fixup.service.d"
     cat >    "$basedir/etc/systemd/system/systemd/system/snapd.core-fixup.service.d/override.conf" <<"EOF"
 [Service]
@@ -128,7 +137,7 @@ ExecStart=/usr/bin/mkdir -p /run/subiquity
 ExecStart=/usr/bin/touch /run/subiquity/complete
 EOF
     if test "$autologin" = "true"; then
-        echo "modify tty4 for autologin"
+        echo "modify tty4 for autologin" 1>&2
         mkdir -p "$basedir/etc/systemd/system/getty@tty4.service.d"
         cat > "$basedir/etc/systemd/system/getty@tty4.service.d/override.conf" <<"EOF"
 [Service]
@@ -138,66 +147,91 @@ EOF
     fi
 
     if test "$hostid" != "-"; then
-        echo "add /etc/hostid"
+        echo "add /etc/hostid" 1>&2
         printf "%s" "$hostid" > $basedir/etc/hostid
     fi
 
-    echo "include helper scripts in squashfs"
+    echo "include helper scripts in squashfs" 1>&2
     mkdir -p $basedir/usr/sbin
     cp $scriptdir/*.sh $basedir/usr/sbin/
 
+    cd $basedir
+    echo "make sha256sum of current files as hash"  1>&2
+    find .  -type f -print0 | xargs -0 sha256sum -b > "${destfile}.files.sha256sum"
+
     if test "$archivedir" != "" -a "$archivedir" != "-"; then
-        echo "include custom archive in squashfs"
+        echo "include custom archive in squashfs" 1>&2
         mkdir -p "$basedir$archivedir"
         cp -t "$basedir$archivedir" $archivedir/*
         mkdir -p "$basedir$(dirname $custom_sources_list)"
         cat > "$basedir$custom_sources_list" << EOF
 deb [ trusted=yes ] file:$archivedir ./
 EOF
+        echo "make sha256sum of custom archive file Package as hash"  1>&2
+        sha256sum -b .$archivedir/Packages >> "${destfile}.files.sha256sum"
     fi
 
-    echo "create squashfs"
-    cd $basedir
-    mksquashfs . "$destfile" -no-progress -root-owned
+    echo "create squashfs" 1>&2
+    mksquashfs . "$destfile" -no-progress -root-owned -quiet 1>&2
     cd /
-    echo "remote workdir $basedir"
+    # echo "workdir was $basedir" 1>&2
     if test -d $basedir; then rm -r $basedir; fi
 }
 
 
 # ###
 # main
+
+# defaults
 custom_archive=/usr/local/lib/bootstrap-custom-archive
 custom_sources_list=/etc/apt/sources.list.d/local-bootstrap-custom.list
+destfile="/efi/casper/recovery.squashfs"
+dryrun=false
+# get default_packages either from bootstrap-library.sh if existing, else hardcode
+library_path=""
+for i in "$self_path" "$self_path/.."; do
+    if test -e "$i/bootstrap-library.sh"; then library_path="$i"; break; fi
+done
+if test "$library_path" = ""; then
+    # XXX keep in sync with get_default_packages from bootstrap-library.sh
+    default_packages="cryptsetup gdisk mdadm lvm2 grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools openssh-server curl gnupg gpgv ca-certificates bzip2 libc-bin rsync tmux haveged debootstrap"
+else
+    . "$library_path/bootstrap-library.sh"
+    default_packages="$(get_default_packages)"
+fi
 
 if test "$1" != "--host" -a "$1" != "--custom"; then usage; fi
-
-for i in . ..; do
-    if test -e "$self_path/$i/bootstrap-library.sh"; then
-        . "$self_path/$i/bootstrap-library.sh"
-    fi
-done
 
 if test "$1" = "--host"; then
     shift
     if test "$1" = "--output"; then
-        destfile="$2"
+        destfile="$(readlink -f $2)"
         shift 2
-    else
-        destfile="/efi/casper/recovery.squashfs"
+    elif test "$1" = "--output-manifest"; then
+        shift
+        prefixdir=/run/user/$(id -u)
+        if test ! -e $prefixdir; then mkdir -p $prefixdir; fi
+        basedir=$(mktemp -d -p $prefixdir || (echo "error making temporary dir" 1>&2; exit 1))
+        destfile=$basedir/recovery.squashfs
+        dryrun=true
     fi
     $0 --custom \
-    $destfile \
-    $(test "$1" != "" && echo "$1" || echo $(hostname -f)) \
-    "$(test -e /etc/hostid && echo "/etc/hostid" || printf '%s' '-')" \
-    "$(test -e /etc/recovery/netplan.yaml && echo '/etc/recovery/netplan.yaml' || echo '/etc/netplan/*')" \
-    /etc/recovery/recovery_hostkeys \
-    /root/.ssh/authorized_keys \
-    /etc/recovery \
-    $(test -e $custom_archive && echo "$custom_archive" || printf '%s' '-') \
-    $(test -e /etc/recovery/feature.autologin && echo "true" || echo "false") \
-    default \
-    $http_proxy
+        $destfile \
+        $(test "$1" != "" && echo "$1" || echo $(hostname -f)) \
+        "$(test -e /etc/hostid && echo "/etc/hostid" || printf '%s' '-')" \
+        "$(test -e /etc/recovery/netplan.yaml && echo '/etc/recovery/netplan.yaml' || echo '/etc/netplan/*')" \
+        /etc/recovery/recovery_hostkeys \
+        /root/.ssh/authorized_keys \
+        /etc/recovery \
+        $(test -e $custom_archive && echo "$custom_archive" || printf '%s' '-') \
+        $(test -e /etc/recovery/feature.autologin && echo "true" || echo "false") \
+        default \
+        $http_proxy
+    if test "$dryrun" = "true"; then
+        cat ${destfile}.files.sha256sum
+        # echo "workdir was $basedir" 1>&2
+        if test -d $basedir; then rm -r $basedir; fi
+    fi
 else
     shift
     if test "${10}" = ""; then usage; fi
@@ -234,7 +268,7 @@ else
     hostkeys_data=$(cat "$hostkeys_file")
     authorized_keys_data=$(cat "$authorized_keys_file")
     if test -e "$destfile"; then
-        echo "Warning: destination file already exists, renaming to ${destfile}.old"
+        echo "Warning: destination file already exists, renaming to ${destfile}.old" 1>&2
         mv "$destfile" "${destfile}.old"
     fi
     generate_recovery_squashfs "$destfile" "$hostname" "$hostid_data" \
