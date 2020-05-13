@@ -7,9 +7,12 @@
 /usr/lib/dracut/modules.d/46sshd/{{ f }}:
   file.managed:
     - source: salt://machine-bootstrap/initrd/{{ f }}
+    - makedirs: true
   {%- if f.endswith('.sh') %}
     - mode: "755"
   {%- endif %}
+    - require_in:
+      - cmd: update_dracut
     - onchanges_in:
       - cmd: update_dracut
 {% endfor %}
