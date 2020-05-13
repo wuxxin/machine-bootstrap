@@ -52,7 +52,8 @@ update-recovery-squashfs:
 
 update-recovery-casper:
   cmd.run:
-    - onlyif: test "$(build-recovery.sh show recovery_version)" != "{{ recovery_version_old }}"
+    - onlyif: false
+    # test "$(build-recovery.sh show recovery_version)" != "{{ recovery_version_old }}"
     - name: |
         /etc/recovery/build-recovery.sh download /var/tmp/build-recovery
         /etc/recovery/build-recovery.sh extract /var/tmp/build-recovery /boot/casper
