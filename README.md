@@ -116,6 +116,7 @@ cp salt/salt-shared/gitops/pillar.template.sls config/custom.sls
 cp salt/salt-shared/gitops/state.template.sls salt/custom/top.sls
 printf "  '*':\n    - machine-bootstrap\n\n" >> salt/custom/top.sls
 touch salt/custom/custom.sls
+ln -s "../../machine-bootstrap" salt/custom/machine-bootstrap
 git add .
 git commit -v -m "add saltstack skeleton"
 ```
