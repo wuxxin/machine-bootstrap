@@ -141,16 +141,18 @@ with_proxy() {
 
 DEFAULT_netplan_data=$(cat <<"EOF"
 network:
-    version: 2
-    ethernets:
-        all-en:
-            match:
-                name: "en*"
-            dhcp4: true
-        all-eth:
-            match:
-                name: "eth*"
-            dhcp4: true
+  version: 2
+  ethernets:
+    all-en:
+      match:
+        name: "en*"
+      dhcp4: true
+      optional: true
+    all-eth:
+      match:
+        name: "eth*"
+      dhcp4: true
+      optional: true
 EOF
 )
 
@@ -167,6 +169,9 @@ authorized_keys_file=$config_path/authorized_keys
 nixos_configuration_file=$config_path/configuration.nix
 netplan_file=$config_path/netplan.yaml
 recovery_hostkeys_file=$config_path/recovery_hostkeys
+ssh_id_file=$config_path/gitops.id_ed25519
+ssh_known_hosts_file=$config_path/gitops.known_hosts
+gpg_id_file=$config_path/gitops@node-secret-key.gpg
 log_path=$(readlink -m "$config_path/../log")
 run_path=$(readlink -m "$config_path/../run")
 base_path=$(readlink -m "$self_path/..")
@@ -290,11 +295,26 @@ else
     echo "$netplan_data" > "$netplan_file"
 fi
 
+# load ssh_id, ssh_known_hosts, gpg_id
+ssh_id=""; ssh_known_hosts=""; gpg_id=""
+if test -e "$ssh_id_file"; then
+    ssh_id=$(cat "$ssh_id_file")
+fi
+if test -e "$ssh_known_hosts_file"; then
+    ssh_known_hosts=$(printf \
+        "# ---BEGIN OPENSSH KNOWN HOSTS---\n%s\n# ---END OPENSSH KNOWN HOSTS---\n"
+        $(cat "$ssh_known_hosts_file"))
+fi
+if test -e "$gpg_id_file"; then
+    gpg_id=$(cat "$gpg_id_file")
+fi
+
 
 #
 # create-liveimage
 if test "$command" = "create-liveimage"; then
     echo "creating liveimage"
+
     download_path="$run_path/liveimage"
     mkdir -p "$download_path"
     # optional but with a http proxy setting it will get downloaded from cache
@@ -325,6 +345,7 @@ fi
 if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"; then
     echo "Step: recovery"
     sshopts="-o UserKnownHostsFile=$config_path/temporary.known_hosts"
+
     echo "copy ssh_authorized_keys, ssh_hostkeys, netplan, install script to target"
     scp $sshopts "$authorized_keys_file" \
         "$(ssh_uri ${sshlogin} scp)/tmp/authorized_keys"
@@ -378,6 +399,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
     waitfor_ssh "$sshlogin"
     echo "Step: install"
     sshopts="-o UserKnownHostsFile=$config_path/recovery.known_hosts"
+
     echo "copy ssh_authorized_keys, netplan, install script to target"
     scp $sshopts "$authorized_keys_file" \
         "$(ssh_uri ${sshlogin} scp)/tmp/authorized_keys"
@@ -440,6 +462,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "gitops"; then
     # initramfs luks open
     waitfor_ssh "$sshlogin"
     echo "Step: gitops"
+
     if (ssh-keyscan -p "$(ssh_uri ${sshlogin} port)" -H "$(ssh_uri ${sshlogin} host)" \
         | sed -r 's/.+(ssh-[^ ]+) (.+)$/\1 \2/g' \
         | grep -q -F -f - "$config_path/initrd.known_hosts") ; then
@@ -454,31 +477,32 @@ if test "$do_phase" = "all" -o "$do_phase" = "gitops"; then
 
     sshopts="-o UserKnownHostsFile=$config_path/system.known_hosts"
     ssh $sshopts "$(ssh_uri ${sshlogin})" "mkdir -p $gitops_target/$base_name"
+    echo "transfering source to target"
 
-    if test "$1" = "--rsync-git"; then
-        shift
-        echo "rsync setup repository to target"
-        echo "only good for testing or real movement of the repository to the calling computer, eg. desktop setup"
+    if test "$gitops_source" = ""; then
+        echo "Warning: gitops_source is unset. Fallback to rsync repository to target instead cloning via from-git.sh"
+        echo "only good for testing, or movement of the repository to the calling computer, eg. desktop setup"
         rsync -az -e "ssh $sshopts -p $(ssh_uri ${sshlogin} port)" \
             --delete --exclude "./run" --exclude "./log" \
             "$base_path" "$(ssh_uri ${sshlogin} rsync):$gitops_target"
     else
+        echo "call from-git.sh with keys from stdin"
         scp $sshopts \
             "$self_path/../salt/salt-shared/gitops/from-git.sh" \
             "$(ssh_uri ${sshlogin} scp)/tmp"
-        echo "call from-git.sh with keys from stdin"
-        fixme keys from stdin, and check them before hand
-        ssh $sshopts "$(ssh_uri ${sshlogin})" \
-            "http_proxy=\"$http_proxy\"; export http_proxy; \
-            chmod +x /tmp/from-git.sh;
-            /tmp/from-git.sh \
-            bootstrap
-            --url {{ gitops.git.source }}
-            --branch {{ gitops.git.branch }}
-            --user {{ gitops.user }}
-            --home {{ gitops.home_dir }}
-            --git-dir {{ gitops.home_dir }}/k3s.goof
-            --keys-from-stdin"
+
+        printf "%s\n%s\n%s\n" "$ssh_id" "$gpg_id" "$ssh_known_hosts" | \
+            ssh $sshopts "$(ssh_uri ${sshlogin})" "
+                http_proxy=\"$http_proxy\"; export http_proxy;
+                chmod +x /tmp/from-git.sh;
+                /tmp/from-git.sh bootstrap \
+                    --url \"$gitops_source\" \
+                    --branch \"${gitops_branch:-master}\" \
+                    --user \"$gitops_user\" \
+                    --home \"$gitops_target\" \
+                    --git-dir \"${gitops_target}/${base_name}\" \
+                    --keys-from-stdin
+                "
     fi
 
     gitops_args="$@"
