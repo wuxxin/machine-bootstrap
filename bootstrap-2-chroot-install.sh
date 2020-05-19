@@ -113,7 +113,7 @@ EOF
     chmod +x /usr/bin/plymouth-set-default-theme
 fi
 
-echo "configure dracut; warning: dracut-network pulls in nfs-common which pulls in rpcbind"
+echo "configure dracut; warning: dracut-network pulls in nfs-kernel-server, nfs-common and rpcbind"
 configure_dracut
 
 if $option_restore_backup; then
@@ -121,7 +121,7 @@ if $option_restore_backup; then
     restore_warning "not overwriting /etc/modprobe.d/zfs.conf"
     restore_warning "not overwriting /etc/modprobe.d/overlay.conf"
 else
-    configure_nfs_common
+    configure_nfs
     configure_module_zfs
     configure_module_overlay
 fi

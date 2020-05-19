@@ -82,7 +82,7 @@ EOF
     done
 }
 
-configure_nfs_common() {
+configure_nfs() {
     # dracut-network pulls in nfs-common which pulls in rpcbind
     echo "restricted nfs to version 4, disable rpcbind"
     echo "overwriting /etc/default/rpcbind"

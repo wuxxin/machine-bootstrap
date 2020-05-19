@@ -139,6 +139,9 @@ EOF
     fi
 fi
 
+echo "configuring nfs (which get pulled in by zfsutils) to be restricted to localhost"
+configure_nfs
+
 echo "install needed packages"
 packages="$(get_default_packages)"
 packages="$packages $(get_zfs_packages)"

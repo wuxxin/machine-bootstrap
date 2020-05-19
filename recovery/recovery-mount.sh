@@ -28,6 +28,8 @@ if which cloud-init > /dev/null; then
 fi
 
 if test "$what" != "after_crypt"; then
+    echo "configuring nfs (which get pulled in by zfsutils) to be restricted to localhost"
+    configure_nfs
     zfs_packages="$(get_zfs_packages)"
     echo "update sources, install $zfs_packages"
     DEBIAN_FRONTEND=noninteractive apt-get update --yes
