@@ -100,14 +100,12 @@ EOF
 # nfs4 only configuration (-N 2 -N 3, NEED_STATD=no,NEED_IDMAPD=yes)
 # Options for rpc.statd, see rpc.statd(8) or http://wiki.debian.org/SecuringNFS
 STATDOPTS="--port 32765 --outgoing-port 32766 --name 127.0.0.1 --name ::1"
-
 # If you do not set values for the NEED_ options, they will be attempted
 # autodetected; Valid alternatives for the NEED_ options are "yes" and "no".
 # Do you want to start the gssd daemon? It is required for Kerberos mounts.
 NEED_GSSD=
 NEED_STATD="no"
 NEED_IDMAPD="yes"
-
 EOF
     echo "overwriting /etc/default/nfs-kernel-server"
     cat > /etc/default/nfs-kernel-server << EOF
@@ -116,19 +114,15 @@ EOF
 RPCNFSDCOUNT=8
 # Runtime priority of server (see nice(1))
 RPCNFSDPRIORITY=0
-
 # Options for rpc.mountd.
 RPCMOUNTDOPTS="-N 2 -N 3 --no-udp --manage-gids --port 32767"
-
 # Options for rpc.nfsd.
 RPCNFSDOPTS="-N 2 -N 3 --no-udp --host 127.0.0.1 --host ::1"
-
 # Do you want to start the svcgssd daemon? It is only required for Kerberos
 # exports. Valid alternatives are "yes" and "no"; the default is "no".
 NEED_SVCGSSD=""
 # Options for rpc.svcgssd.
 RPCSVCGSSDOPTS=""
-
 EOF
 }
 
