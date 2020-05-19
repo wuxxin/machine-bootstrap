@@ -45,6 +45,10 @@ Configuration:
     + File: "authorized_keys"
 + additional mandatory config file if distrib_id=Nixos:
     + File: "configuration.nix"
++ optional ssh config files for gitops step:
+    + File: gitops.id_ed25519
+    + File: gitops.known_hosts
+    + File: gitops@node-secret-key.gpg
 + optional config files:
     + "netplan.yaml" default created on step recovery install
     + "recovery_hostkeys" created automatically on step recovery install
@@ -262,6 +266,7 @@ if test -z "$distrib_codename"; then distrib_codename="focal"; fi
 if test -z "$gitops_target"; then gitops_target="/home/$firstuser"; fi
 if test -z "$gitops_user"; then gitops_user="$firstuser"; fi
 if test "$recovery_autologin" != "true"; then recovery_autologin="false"; fi
+
 # function frankenstein is disabled
 frankenstein=false
 select_frankenstein=""
@@ -310,8 +315,7 @@ if test -e "$gpg_id_file"; then
 fi
 
 
-#
-# create-liveimage
+# ### create-liveimage
 if test "$command" = "create-liveimage"; then
     echo "creating liveimage"
 
@@ -340,8 +344,7 @@ if test "$command" = "create-liveimage"; then
 fi
 
 
-# execute
-# STEP recovery
+# ### STEP recovery
 if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"; then
     echo "Step: recovery"
     sshopts="-o UserKnownHostsFile=$config_path/temporary.known_hosts"
@@ -394,7 +397,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"
 fi
 
 
-# STEP install
+# ### STEP install
 if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install"; then
     waitfor_ssh "$sshlogin"
     echo "Step: install"
@@ -457,7 +460,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
 fi
 
 
-# STEP gitops
+# ### STEP gitops
 if test "$do_phase" = "all" -o "$do_phase" = "gitops"; then
     # initramfs luks open
     waitfor_ssh "$sshlogin"
