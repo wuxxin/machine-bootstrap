@@ -514,6 +514,6 @@ if test "$do_phase" = "all" -o "$do_phase" = "gitops"; then
     ssh $sshopts "$(ssh_uri ${sshlogin})" \
         "http_proxy=\"$http_proxy\"; export http_proxy; \
         chown -R $gitops_user:$gitops_user $gitops_target/$base_name; \
-        $gitops_target/$base_name/$(basename $self_path)/salt/salt-shared/gitops/execute-saltstack.sh \
+        $gitops_target/$base_name/salt/salt-shared/gitops/execute-saltstack.sh \
             $gitops_target/$base_name $gitops_args" 2>&1 | tee "$log_path/bootstrap-gitops.log"
 fi
