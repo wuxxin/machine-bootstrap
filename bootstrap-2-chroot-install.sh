@@ -113,8 +113,7 @@ EOF
     chmod +x /usr/bin/plymouth-set-default-theme
 fi
 
-echo "configure dracut"
-echo "warning: dracut-network pulls in nfs-common which pulls in rpcbind"
+echo "configure dracut; warning: dracut-network pulls in nfs-common which pulls in rpcbind"
 configure_dracut
 
 if $option_restore_backup; then
