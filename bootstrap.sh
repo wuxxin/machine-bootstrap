@@ -308,7 +308,7 @@ fi
 if test -e "$ssh_known_hosts_file"; then
     ssh_known_hosts=$(printf \
         "# ---BEGIN OPENSSH KNOWN HOSTS---\n%s\n# ---END OPENSSH KNOWN HOSTS---\n" \
-        $(cat "$ssh_known_hosts_file"))
+        "$(cat $ssh_known_hosts_file)")
 fi
 if test -e "$gpg_id_file"; then
     gpg_id=$(cat "$gpg_id_file")
