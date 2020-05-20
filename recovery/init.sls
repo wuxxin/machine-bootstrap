@@ -54,18 +54,20 @@ update-recovery-casper:
   cmd.run:
     - onlyif: test "$(build-recovery.sh show recovery_version)" != "{{ recovery_version_old }}"
     - name: |
+        set -e
         /etc/recovery/build-recovery.sh download /var/tmp/build-recovery
         /etc/recovery/build-recovery.sh extract /var/tmp/build-recovery /boot/casper
         EFI_PART=$(find /dev/disk/by-partlabel/ -type l | \
           sort | grep -E "EFI[12]?$" | tr "\n" " " | awk '{print $1;}')
-        EFI_NR=$(cat "/sys/class/block/${EFI_PART}/partition")
+        EFI_NR=$(cat "/sys/class/block/$(lsblk -no kname ${EFI_PART})/partition")
         EFI_GRUB="hd0,gpt${EFI_NR}"
-        EFI_FS_UUID=$(dev_fs_uuid "$EFI_PART")
+        EFI_FS_UUID=$(blkid -s UUID -o value "$EFI_PART")
         CASPER_LIVEMEDIA=""
         mkdir -p /etc/grub.d
         /etc/recovery/build-recovery.sh show grub.d/recovery \
             "$EFI_GRUB" "$CASPER_LIVEMEDIA" "$EFI_FS_UUID" > /etc/grub.d/40_recovery
         chmod +x /etc/grub.d/40_recovery
+        update-grub
         /etc/recovery/efi-sync.sh --yes
         /etc/recovery/build-recovery.sh show recovery_version > /etc/recovery/recovery_version
     - require:
