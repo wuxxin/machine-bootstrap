@@ -416,9 +416,9 @@ create_data() { # diskpassword data_lvm_vol_size
             echo "setup lvm pv $actlist and vg $vgname"
             lvm pvcreate -f -y $actlist
             lvm vgcreate -y "$vgname" $actlist
-            echo "format lv lvm-data"
-            lvm lvcreate -y --size "${data_lvm_vol_size}" "$vgname" --name lvm-data
-            "mkfs.$(substr_fstype "$devlist")" -q -L data "/dev/$vgname/lvm-data"
+            echo "format lv lvm_data"
+            lvm lvcreate -y --size "${data_lvm_vol_size}" "$vgname" --name lvm_data
+            "mkfs.$(substr_fstype "$devlist")" -q -L data "/dev/$vgname/lvm_data"
         elif is_zfs "$devlist"; then
             echo "create data zpool $actlist"
             create_data_zpool "$basedir" \
@@ -733,7 +733,7 @@ EOF
             if is_raid "$devlist"; then devtarget="/dev/md/$(hostname):mdadm-data"; fi
             if is_crypt "$devlist"; then devtarget="/dev/mapper/luks-data"; fi
             if is_lvm "$devlist"; then
-                devtarget="/dev/$(substr_vgname "$devlist")/lvm-data"
+                devtarget="/dev/$(substr_vgname "$devlist")/lvm_data"
             fi
             cat >> /etc/fstab << EOF
 UUID=$(dev_fs_uuid "$devtarget")    /mnt/data   $(substr_fstype "$devlist")   defaults 0 1
