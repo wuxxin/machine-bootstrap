@@ -160,7 +160,7 @@ if test "$hosttype" = "initrdluks" -o \
     if test "$hosttype" = "recoverymount" -o "$hosttype" = "recoveryluks"; then
         sshopts="-o UserKnownHostsFile=$config_path/recovery.known_hosts"
         waitfor_ssh "$sshlogin"
-        remote_attestation_ssh $sshopts $(ssh_uri ${sshlogin}) $allowunsafe
+        remote_attestation_ssh "$sshopts" "$(ssh_uri ${sshlogin})" $allowunsafe
         echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
             'recovery-mount.sh --yes --only-raid-crypt --luks-from-stdin'
         if test "$hosttype" = "recoverymount"; then
@@ -171,7 +171,7 @@ if test "$hosttype" = "initrdluks" -o \
     else
         sshopts="-o UserKnownHostsFile=$config_path/initrd.known_hosts"
         waitfor_ssh "$sshlogin"
-        remote_attestation_ssh $sshopts $(ssh_uri ${sshlogin}) $allowunsafe
+        remote_attestation_ssh "$sshopts" "$(ssh_uri ${sshlogin})" $allowunsafe
         echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
             'phrase=$(cat -); for s in /var/run/systemd/ask-password/sck.*; do echo -n "$phrase" | /lib/systemd/systemd-reply-password 1 $s; done'
     fi
