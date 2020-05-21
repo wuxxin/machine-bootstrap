@@ -2,12 +2,12 @@ include:
   - machine-bootstrap.initrd
   - machine-bootstrap.recovery.efi-sync
 
-{% set squashfs_path= '/efi/casper/recovery.squashfs' %}
-{% set squashfs_files_path= squashfs_path+ '.files.sha256sum' %}
+{% set squashfs_path = '/efi/casper/recovery.squashfs' %}
+{% set squashfs_files_path = squashfs_path+ '.files.sha256sum' %}
 {% set hash_new = '/etc/recovery/update-recovery-squashfs.sh --host --output-manifest | sha256sum | cut -d " " -f 1' %}
 {% set hash_old = 'if test -e '+ squashfs_files_path+ '; then cat '+ squashfs_files_path+ '| sha256sum | cut -d " " -f 1; else echo "unknown"; fi' %}
-{% set recovery_version_old =  salt['cmd.run_stdout']('if test -e /etc/recovery/recovery_version; then cat /etc/recovery/recovery_version; else echo "none"; fi', python_shell=true) %}
-{% set recovery_netplan_path= grains['project_basepath']+ '/config/netplan.yaml' %}
+{% set recovery_version_old = salt['cmd.run_stdout']('if test -e /etc/recovery/recovery_version; then cat /etc/recovery/recovery_version; else echo "none"; fi', python_shell=true) %}
+{% set recovery_netplan_path = grains['project_basepath']+ '/config/netplan.yaml' %}
 
 {% if salt['file.file_exists'](recovery_netplan_path) %}
 /etc/recovery/netplan.yaml:
@@ -52,7 +52,7 @@ update-recovery-squashfs:
 
 update-recovery-casper:
   cmd.run:
-    - onlyif: test "$(build-recovery.sh show recovery_version)" != "{{ recovery_version_old }}"
+    - onlyif: test "$(/etc/recovery/build-recovery.sh show recovery_version)" != "{{ recovery_version_old }}"
     - name: |
         set -e
         /etc/recovery/build-recovery.sh download /var/tmp/build-recovery
