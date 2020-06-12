@@ -9,13 +9,11 @@ Unattended ssh based operating system installer for Ubuntu 20.04 LTS (Focal)
 **Usage:** to be executed on an linux liveimage/recoveryimage system connected via ssh.
 
 It serves three use cases:
-+ as an experimental Desktop/Laptop for getting experience with the setup
++ as a Desktop/Laptop for getting experience with the setup
 + as a typical Rootserver (2xHD, headless)
 + as a home-nas/home-io headless server with one ssd and two attached spindle disks
 
-**Current Status:** Experimental
-
-Some setups may work, most break under certain conditions.
+**Current Status:** some setups work, some break under certain conditions.
 
 ## Features
 
@@ -210,7 +208,7 @@ echo $(printf 'storage_ids="'; for i in \
 
 # create disk.passphrase.gpg
 # example: create a random diskphrase and encrypted with user gpg key
-(x=$(openssl rand -base64 12); echo -n "$x" | \
+(x=$(openssl rand -base64 16); echo -n "$x" | \
     gpg --encrypt -r username@email.address) \
     > config/disk.passphrase.gpg
 
