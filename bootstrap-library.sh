@@ -5,7 +5,7 @@ get_default_packages() {
 }
 
 get_zfs_packages() {
-    echo "zfsutils-linux zfs-dkms"
+    echo "zfsutils-linux"
 }
 
 configure_module_zfs() {
