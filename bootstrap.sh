@@ -279,6 +279,20 @@ if test "$distrib_id" = "Nixos"; then
     fi
 fi
 
+# display all options
+cat << EOF
+Configuration:
+hostname: $hostname, http_proxy: $http_proxy
+storage_ids: $storage_ids
+storage_opts: $storage_opts
+recovery_autologin: $recovery_autologin
+select_frankenstein: $select_frankenstein
+select_root_lvm_vol_size: $select_root_lvm_vol_size
+select_data_lvm_vol_size: $select_data_lvm_vol_size
+distrib_id: $distrib_id , distrib_codename: $distrib_codename
+gitops_user: $gitops_user , gitops_target: $gitops_target
+EOF
+
 # all verified, exit if test was requested
 if test "$command" = "test"; then exit 0; fi
 
