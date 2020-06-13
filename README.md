@@ -176,9 +176,9 @@ firstuser=$(id -u -n)
 # storage_opts=""
 # [--reuse]
 # [--log=        true|*false|<logsizemb,   default if true: 1024 mb>]
-# [--cache=      true|*false|<cachesizemb, default if true: 59392 mb>]
+# [--cache=      true|*false|<cachesizemb, default if true: 59918 mb (eq. 1gb RAM)>]
 # [--swap=       true|*false|<swapsizemb,  default if true: 1.25xRAM mb>]
-# [--efi-size=   <efisizemb, default: 1600 mb>]
+# [--efi-size=   <efisizemb, default: 2200 mb>]
 # [--boot=       true|*false|<bootsizemb,  default if true: 400 mb>]
 # [--boot-fs=    *zfs|ext4|xfs]
 # [--root-fs=    *zfs|ext4|xfs]

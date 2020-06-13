@@ -114,14 +114,14 @@ generate_hostkeys() {
     echo "generate rsa hostkey"
     rsa_private=$( \
         t="$(mktemp -d -p /run/user/$(id -u))" && \
-        ssh-keygen -q -t rsa -N '' -f "$t/id_rsa" && \
+        ssh-keygen -q -t rsa -C "$base_name" -N '' -f "$t/id_rsa" && \
         cat "$t/id_rsa" && rm -r "$t" \
     )
     rsa_public=$(echo "$rsa_private" | ssh-keygen -q -y -P '' -f /dev/stdin)
     echo "generate ed25519 hostkey"
     ed25519_private=$( \
         t="$(mktemp -d -p /run/user/$(id -u))" && \
-        ssh-keygen -q -t ed25519 -N '' -f "$t/id_ed25519" && \
+        ssh-keygen -q -t ed25519 -C "$base_name" -N '' -f "$t/id_ed25519" && \
         cat "$t/id_ed25519" && rm -r "$t" \
     )
     ed25519_public=$(echo "$ed25519_private" | ssh-keygen -q -y -P '' -f /dev/stdin)
@@ -324,7 +324,6 @@ if test "$command" = "create-liveimage"; then
     # optional but with a http proxy setting it will get downloaded from cache
     with_proxy "$self_path/recovery/build-recovery.sh" download "$download_path"
     # write recovery.squashfs with new hostkeys for bootstrap-0
-    generate_hostkeys
     if test -e "$download_path/scripts"; then rm -r "$download_path/scripts"; fi
     mkdir -p "$download_path/scripts"
     cp -a $self_path/recovery/* "$download_path/scripts"
