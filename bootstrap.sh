@@ -265,7 +265,11 @@ if test -z "$distrib_id"; then distrib_id="Ubuntu"; fi
 if test -z "$distrib_codename"; then distrib_codename="focal"; fi
 if test -z "$gitops_target"; then gitops_target="/home/$firstuser"; fi
 if test -z "$gitops_user"; then gitops_user="$firstuser"; fi
-if test "$recovery_autologin" != "true"; then recovery_autologin="false"; fi
+if test "$recovery_autologin" != "true"; then
+    recovery_autologin="false"; select_autologin=""
+else
+    select_autologin="--recovery-autologin"
+fi
 
 # function frankenstein is disabled
 frankenstein=false
@@ -286,6 +290,7 @@ hostname: $hostname, http_proxy: $http_proxy
 storage_ids: $storage_ids
 storage_opts: $storage_opts
 recovery_autologin: $recovery_autologin
+select_autologin: $select_autologin
 select_frankenstein: $select_frankenstein
 select_root_lvm_vol_size: $select_root_lvm_vol_size
 select_data_lvm_vol_size: $select_data_lvm_vol_size
@@ -401,7 +406,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"
 
     echo "call bootstrap-0, wipe disks, install tools, create partitions write recovery"
     ssh $sshopts "$(ssh_uri ${sshlogin})" \
-        "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-0-recovery.sh $hostname \"$storage_ids\" --yes $storage_opts" 2>&1 | tee "$log_path/bootstrap-recovery.log"
+        "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-0-recovery.sh $hostname \"$storage_ids\" --yes $storage_opts $select_autologin" 2>&1 | tee "$log_path/bootstrap-recovery.log"
 
     echo "reboot into recovery"
     ssh $sshopts "$(ssh_uri ${sshlogin})" '{ sleep 1; reboot; } >/dev/null &' || true
