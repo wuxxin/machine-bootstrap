@@ -16,7 +16,7 @@ optional parameter (must be ordered as listed):
 --data-lvm-vol-size <volsizemb>
     if lvm is used, define the capacity of the lvm data volume, defaults to 20480 (20gb)
 --frankenstein
-    backport and patch zfs-linux with no-d-revalidate.patch
+    patch zfs-linux
 --distrib_id <name>
     select a different distribution (default=$distrib_id)
 --distrib_codename <name>

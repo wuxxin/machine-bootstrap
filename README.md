@@ -175,18 +175,20 @@ firstuser=$(id -u -n)
 
 # storage_opts=""
 # [--reuse]
-# [--log=        true|*false|<logsizemb,   default if true: 1024 mb>]
-# [--cache=      true|*false|<cachesizemb, default if true: 59918 mb (eq. 1gb RAM)>]
-# [--swap=       true|*false|<swapsizemb,  default if true: 1.25xRAM mb>]
 # [--efi-size=   <efisizemb, default: 2200 mb>]
 # [--boot=       true|*false|<bootsizemb,  default if true: 400 mb>]
 # [--boot-fs=    *zfs|ext4|xfs]
+# [--swap=       true|*false|<swapsizemb,  default if true: 1.25xRAM mb>]
+# [--log=        true|*false|<logsizemb,   default if true: 1024 mb>]
+# [--cache=      true|*false|<cachesizemb, default if true: 59918 mb (eq. 1gb RAM)>]
+
 # [--root-fs=    *zfs|ext4|xfs]
+# [--root-size=  *all|<rootsizemb>]
+# [--root-crypt= *true|false]
 # [--root-lvm=   *""|<vgname>]
 # [--root-lvm-vol-size= <volsizemb, default if lvm is true: 20480 mb>]
-# [--root-crypt= *true|false]
-# [--root-size=  *all|<rootsizemb>]
-# [--data-fs=    *""|zfs|ext4|xfs|other]
+
+# [--data-fs=    *""|zfs|ext4|xfs|other, if not empty: --root-size must be set]
 # [--data-crypt= *true|false]
 # [--data-lvm=   *""|<vgname>]
 # [--data-lvm-vol-size= <volsizemb, default if lvm is true: 20480 mb>]
@@ -375,7 +377,7 @@ Nr |Name(max 36 x UTF16)|Description|
 5  | `EFI,1,2`   | EFI vfat partition, unencrypted
 .  | .           | dual efi & bios grub installation
 .  | .           | recovery system: kernel,initrd,fs
-.  | .           | /boot for system- kernel,initrd
+.  | .           | /boot for system: kernel,initrd
 4  | `LOG,1,2`   | **optional** ZFS Log or other usages
 3  | `CACHE,1,2` | **optional** ZFS Cache or other usages
 2  | `[raid_]luks_SWAP,1,2`  | **optional** encrypted hibernation compatible swap
