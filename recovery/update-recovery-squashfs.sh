@@ -125,17 +125,17 @@ EOF
         echo "write recovery_hostkeys to user-data.cfg" 1>&2
         printf "%s\n\n" "$hostkeys_data" >> "$cfgdir/user-data.cfg"
     fi
-    echo "disable subiquity" 1>&2
-    mkdir -p "$basedir/etc/systemd/system/systemd/system/snapd.core-fixup.service.d"
-    cat >    "$basedir/etc/systemd/system/systemd/system/snapd.core-fixup.service.d/override.conf" <<"EOF"
-[Service]
-ExecStart=/usr/bin/bash -c "\
-    snapver=$(find /var/lib/snapd/seed/snaps/ -name "core_*.snap" -print  -quit | \
-        sed -r "s/.+core_([^.]+)\.snap/\1/g"); \
-    printf 'snaps:\n  -\n    name: core\n    channel: stable\n    file: core_%s.snap\n' $snapver > /var/lib/snapd/seed/seed.yaml"
-ExecStart=/usr/bin/mkdir -p /run/subiquity
-ExecStart=/usr/bin/touch /run/subiquity/complete
-EOF
+
+    echo "disable snapd and subiquity" 1>&2
+    mkdir -p "$basedir/etc/systemd/system"
+    for i in snapd.apparmor.service snapd.recovery-chooser-trigger.service \
+        snapd.snap-repair.timer snapd.autoimport.service snapd.seeded.service \
+        snapd.socket snapd.core-fixup.service snapd.service \
+        snapd.system-shutdown.service snapd.failure.service snapd.snap-repair.service \
+        serial-subiquity@.service; do
+        ln -s /dev/null "$basedir/etc/systemd/system/$i"
+    done
+
     if test "$autologin" = "true"; then
         echo "modify tty4 for autologin" 1>&2
         mkdir -p "$basedir/etc/systemd/system/getty@tty4.service.d"
