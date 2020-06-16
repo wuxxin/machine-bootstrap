@@ -375,6 +375,7 @@ create_swap() { # diskpassword
                 "$targetdev"
         echo "$diskpassword" \
             | cryptsetup open --type luks "$targetdev" luks-swap
+        udevadm settle --exit-if-exists=/dev/mapper/luks-swap
         echo "format swap"
         mkswap -L swap /dev/mapper/luks-swap
     fi
@@ -407,9 +408,10 @@ create_data() { # diskpassword data_lvm_vol_size
                 echo "$diskpassword" \
                     | cryptsetup open --type luks ${i} "$devtarget"
                 actlist="$actlist /dev/mapper/$devtarget"
+                udevadm settle --exit-if-exists=/dev/mapper/$devtarget
                 devindex=$((devindex+1))
             done
-            sleep 1
+            sleep 2
         fi
         if is_lvm "$devlist"; then
             vgname="$(substr_vgname "$devlist")"
@@ -464,9 +466,10 @@ create_and_mount_root() { # basedir diskpassword root_lvm_vol_size
             echo "$diskpassword" \
                 | cryptsetup open --type luks ${i} "$devtarget"
             actlist="$actlist /dev/mapper/$devtarget"
+            udevadm settle --exit-if-exists=/dev/mapper/$devtarget
             devindex=$((devindex+1))
         done
-        sleep 1
+        sleep 2
     fi
     if is_lvm "$devlist"; then
         vgname="$(substr_vgname "$devlist")"
@@ -997,6 +1000,7 @@ create_data_zpool() { # basedir zpool-create-args* (eg. mirror sda1 sda2)
 create_root_zpool() { # basedir zpool-create-args* (eg. mirror sda1 sda2)
     local basedir=$1
     shift
+    echo "zpool create -R $basedir rpool $@"
     # XXX ashift 12 or 13 (4096/8192 byte sectors) depending disk
     zpool create \
         -o ashift=12 \
