@@ -468,13 +468,13 @@ create_and_mount_root() { # basedir diskpassword root_lvm_vol_size
                 | cryptsetup luksFormat -c aes-xts-plain64 -s 256 -h sha256 ${i}
             echo "$diskpassword" \
                 | cryptsetup open --type luks ${i} "$devtarget"
-            actlist="$actlist /dev/mapper/$devtarget"
+            actlist="$(if test -n $actlist; then echo "$actlist "; fi)/dev/mapper/$devtarget"
             dmsetup info
             dmsetup mknodes
             flock -s /dev/mapper/$devtarget partprobe /dev/mapper/$devtarget
             devindex=$((devindex+1))
         done
-        sleep 2
+        sleep 5
         dmsetup info
     fi
     if is_lvm "$devlist"; then
