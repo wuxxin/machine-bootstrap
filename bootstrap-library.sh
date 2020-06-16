@@ -469,13 +469,13 @@ create_and_mount_root() { # basedir diskpassword root_lvm_vol_size
             echo "$diskpassword" \
                 | cryptsetup open --type luks ${i} "$devtarget"
             actlist="$actlist /dev/mapper/$devtarget"
-            while test ! -L /dev/mapper/$devtarget; do
-                udevadm settle --exit-if-exists=/dev/mapper/$devtarget
-                sleep 1
-            done
+            dmsetup info
+            dmsetup mknodes
+            flock -s /dev/mapper/$devtarget partprobe /dev/mapper/$devtarget
             devindex=$((devindex+1))
         done
         sleep 2
+        dmsetup info
     fi
     if is_lvm "$devlist"; then
         vgname="$(substr_vgname "$devlist")"
