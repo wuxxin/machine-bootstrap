@@ -408,7 +408,10 @@ create_data() { # diskpassword data_lvm_vol_size
                 echo "$diskpassword" \
                     | cryptsetup open --type luks ${i} "$devtarget"
                 actlist="$actlist /dev/mapper/$devtarget"
-                udevadm settle --exit-if-exists=/dev/mapper/$devtarget
+                while test ! -L /dev/mapper/$devtarget; do
+                    udevadm settle --exit-if-exists=/dev/mapper/$devtarget
+                    sleep 1
+                done
                 devindex=$((devindex+1))
             done
             sleep 2
@@ -466,7 +469,10 @@ create_and_mount_root() { # basedir diskpassword root_lvm_vol_size
             echo "$diskpassword" \
                 | cryptsetup open --type luks ${i} "$devtarget"
             actlist="$actlist /dev/mapper/$devtarget"
-            udevadm settle --exit-if-exists=/dev/mapper/$devtarget
+            while test ! -L /dev/mapper/$devtarget; do
+                udevadm settle --exit-if-exists=/dev/mapper/$devtarget
+                sleep 1
+            done
             devindex=$((devindex+1))
         done
         sleep 2
