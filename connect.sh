@@ -37,7 +37,7 @@ use ssh keys and config taken from $config_path to connect to system via ssh
     and exits if any of these tests are failing.
     to ignore these attestation errors, use --unsafe
 
-    currently only the storageid's configured in
+    **currently this does not much**, only the storageid's configured in
     config/node.env:storage_ids are checked to be available
 
 --show-ssh: only displays the parameters for ssh

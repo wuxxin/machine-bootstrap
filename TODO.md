@@ -1,32 +1,22 @@
-# machine-bootstrap work list
-
-## tested combinations
-### virtual, 2 x 10g disks
-+ distrib_codename=bionic,  recovery_autologin=true, storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --swap=1024 --reuse"
-+ http_proxy set, distrib_codename=focal, recovery_autologin=true, storage_opts="--boot=false --root-size=6000 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --log=128 --cache=384 --swap=512"
-### virtual, 2 x 15g disks
-+ http_proxy="http://192.168.122.1:8123", distrib_id=Ubuntu, distrib_codename=focal, recovery_autologin=true, gitops_target="/home/wuxxin", gitops_user="wuxxin", storage_opts="--boot=false --efi-size=2048 --log=128 --cache=128 --root-fs=zfs --root-size=10240 --data-lvm=vgdata --data-fs=ext4 --data-lvm-vol-size=2048 --reuse"
+# Todo list
 
 ## done
 
 ## testing
-+ ubuntu: keep EFI synced start once on boot in addition to path change
 
 ## next
-+ make saltstackstates for initrd|recovery work
-+ gitops: make target system honor http_proxy on gitops install
 
 ### bugs
-+ fixme: resident: Could not generate persistent MAC: No data available
-+ fixme: disable subiquity on recovery some how, maybe disable snapd
 + fixme: ubuntu: after hardreset, recovery is not selected as fallback
-+ fixme: lvm-root busy (Logical volume vg0/lvm-root contains a filesystem in use)
-+ fixme: rpool busy (can not export rpool)
++ fixme: non-blocking: phase install: reboot
+    + lvm-root busy (Logical volume vg0/lvm-root contains a filesystem in use)
+    + fixme: rpool busy (can not export rpool)
 
 ### features
-+ add: connect.sh initrdluks|recoverymount --allow-virtual
++ extend: connect.sh initrdluks|recoverymount --unsafe for extra safety for encryption key
     + checks after connecting if gatewaydev is emulated, aborts if emulated
-    + use --allow-virtual if you know you're connecting to a vm
+    + use --unsafe if you know you're connecting to a vm
++ gitops: make target system also honor http_proxy on gitops install
 + recovery scripts to replace a faulty disk, to invalidate a disk
     + all: add script to replace a changed faulty disk: recovery-replace-mirror.sh
     + all: add script to deactivate (invalidate) one of two disks: storage-invalidate-mirror.sh
@@ -37,6 +27,14 @@
     + make minimal configuration.nix on project create
 + desaster recovery from backup storage to new machine
     + install: make restore from backup: script bootstrap-1-restore and bootstrap-2-chroot-restore
+
+## tested combinations
+
+### virtual, 2 x 10g disks
++ distrib_codename=bionic,  recovery_autologin=true, storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --swap=1024 --reuse"
++ http_proxy set, distrib_codename=focal, recovery_autologin=true, storage_opts="--boot=false --root-size=6000 --root-fs=ext4 --root-lvm=vg0 --root-lvm-vol-size=4096 --root-crypt=true --log=128 --cache=384 --swap=512"
+### virtual, 2 x 15g disks
++ http_proxy="http://192.168.122.1:8123", distrib_id=Ubuntu, distrib_codename=focal, recovery_autologin=true, gitops_target="/home/wuxxin", gitops_user="wuxxin", storage_opts="--boot=false --efi-size=2048 --log=128 --cache=128 --root-fs=zfs --root-size=10240 --data-lvm=vgdata --data-fs=ext4 --data-lvm-vol-size=2048 --reuse"
 
 ## reasons for overlayfs on zfs for presentation in zfs-linux mailinglist
 

@@ -48,10 +48,12 @@ install a recovery system and overwrite all existing data of all disks matching 
 
   --boot=       true|*false|<bootsizemb, if true: default=$boot_size mb>
   --boot-fs=    *zfs|ext4|xfs
-    # legacy boot partition filesystem, most boot related files in this setup are on efi
+    # legacy boot partition filesystem, usually not needed,
+    # most boot related files in this setup are on efi
 
   --swap=       true|*false|<swapsizemb, if true: default= 1.25 x RAM mb>
     # enable swap usable for hibernation (suspend to disk)
+
   --log=        true|*false|<logsizemb, if true: logsizemb=$log_size mb>
   --cache=      true|*false|<cachesizemb, if true: cachesizemb=$cache_size mb>
     # zfs cache system will use (<cachesizemb>/58)mb of RAM to hold L2ARC references

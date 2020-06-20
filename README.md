@@ -8,12 +8,12 @@ Unattended ssh based operating system installer for Ubuntu 20.04 LTS (Focal)
 
 **Usage:** to be executed on an linux liveimage/recoveryimage system connected via ssh.
 
-It serves three use cases:
-+ as a Desktop/Laptop for getting experience with the setup
+It can be configured to fit different use cases, eg.
++ as a Desktop/Laptop
 + as a typical Rootserver (2xHD, headless)
 + as a home-nas/home-io headless server with one ssd and two attached spindle disks
 
-**Current Status:** some setups work, some break under certain conditions.
+**Status:** most combinations work, some break under certain conditions.
 
 ## Features
 
@@ -21,7 +21,7 @@ It serves three use cases:
 + **one or two disks** (will be automatically setup as mdadm &/ zfs mirror if two disks)
 + **root on luks encrypted zfs** / zfs mirror pool (encrypted storage at rest)
     + and **other common and less common**, easy to configure **storage setups**
-+ ubuntu: modern initial ramdisk based on **dracut with ssh for remote unlock luks** on startup
++ ubuntu: modern initial ramdisk based on **dracut with ssh for remote unlock luks** on startup, disabled reporting packages
 + **recovery system installation** (based on ubuntu 20.04 casper) on EFI partition
     + unattended cloud-init boot via custom squashfs with ssh ready to login
     + buildin scripts to mount/unmount root and update recovery boot parameter
@@ -29,13 +29,11 @@ It serves three use cases:
 
 ### optional Features
 + luks encrypted **hibernate compatible swap** for eg. a desktop installation
-+ ubuntu: **gitops stage using saltstack**  with states from salt-shared (eg. desktop)
-+ ubuntu, at gitops state: **overlay fs and namespace uid/guid support on zfs** by building patched zfs-linux
++ ubuntu/debian: **gitops stage using saltstack** with states from salt-shared (eg. desktop)
 + **build a preconfigured livesystem image** usable for headless physical installation
     + resulting image is compatible as CD or USB-Stick with BIOS and EFI support
     + optional netplan for static or other non dhcp based ip configurations
-    + execute `./machine-bootstrap/bootstrap.sh create-liveimage` to build image
-    + copy `run/liveimage/bootstrap-0-liveimage.iso` to usbstick
+    + execute `./machine-bootstrap/bootstrap.sh create-liveimage` to build image and copy to stick
     + use ssh with preconfigured key or physical terminal/console of livesystem for interaction
 + **encrypt sensitive data** in setup repository with git-crypt
     + git & git-crypt repository setup to store machine configuration inside a git repository
@@ -50,27 +48,26 @@ It serves three use cases:
     + add `http_proxy="http://proxyip:port"`to `node.env`
 + install ubuntu eoan instead of focal:
     + add `distrib_codename=eoan` to `node.env`
-+ install nixos instead of ubuntu:
-    + add `distrib_id=Nixos` and `distrib_codename=19.09` to `node.env`
 
 ##### Storage Examples
 
 + virtual machine with root on ext4
-    + storage_opts="--boot=false --root-fs=ext4 --root-crypt=false"
+    + `storage_opts="--boot=false --root-fs=ext4 --root-crypt=false"`
 + virtual machine with encrypted root on ext4
-    + storage_opts="--boot-fs=ext4 --root-fs=ext4"
+    + `storage_opts="--root-fs=ext4"`
 + virtual machine with encrypted lvm and root lv (30gb) on ext4
-    + storage_opts="--boot-fs=ext4 --root-fs=ext4 --root-lvm=vgroot --root-lvm-vol-size=30720"
-+ desktop: encrypted root and swap, boot and root on zfs
-    + storage_opts="--swap=true"
-+ server: one or two encrypted disks, boot and root on zfs
-    + storage_opts=""
-+ server: one or two encrypted disks with lvm storage (100gb) with root (25gb) and zfs on data (rest)
-    + storage_opts="--root-fs=ext4 --root-size=102400 --root-lvm=vgroot --root-lvm-vol-size=25600" --data-fs=zfs"
+    + `storage_opts="--root-fs=ext4 --root-lvm=vgroot --root-lvm-vol-size=30720"`
++ desktop: encrypted root and swap, root on zfs
+    + `storage_opts="--swap=true"`
++ server: one or two disks, encrypted root on zfs
+    + `storage_opts=""`
++ server: one or two disks, encrypted
+    with lvm storage (100gb) where root (25gb) is placed and zfs is used on data (rest of disk)
+    + `storage_opts="--root-fs=ext4 --root-size=102400 --root-lvm=vgroot --root-lvm-vol-size=25600" --data-fs=zfs"`
 + server: one or two encrypted disks, root on zfs (100g), with data lvm storage vgdata
-    + storage_opts="--root-size=102400 --data-lvm=vgdata --data-lvm-vol-size=25600" --data-fs=ext4"
+    + `storage_opts="--root-size=102400 --data-lvm=vgdata --data-lvm-vol-size=25600" --data-fs=ext4"`
 
-## Preparation
+## Setup
 
 Requirements:
 
@@ -330,12 +327,12 @@ git push -u origin master
 
 + connect to initrd, open luks disks, exit, machine will continue to boot
 ```bash
-./machine-bootstrap/connect.sh initrdluks [--allow-virtual]
+./machine-bootstrap/connect.sh initrdluks
 ```
 
 + connect to recovery, open luks disks, mount storage, prepare chroot, shell
 ```bash
-./machine-bootstrap/connect.sh recoverymount [--allow-virtual]
+./machine-bootstrap/connect.sh recoverymount
 ```
 
 ### switch next boot to boot into recovery (from running target system)
@@ -346,30 +343,30 @@ reboot
 
 ## Notes
 
-### Limits, Contraints, Automatics
+### Limits, Automatics, Contraints, Safety, Security
 
 + one or two disks only, if machine has more disks they have to be setup later
+
++ ZFS on two disks will get two seperate devices to let zfs manage the mirroring,
+    any other filesystem combination will get an mdadm-mirror device.
 
 + SWAP
     if using a SWAP partition, the swap partition will always be encrypted.
     Also ROOT should be encrypted in this case.
-    This is because suspend to disk has all memory secrets written to disk,
-    so any suspend would store all secrets in plaintext to disk.
-    Any other usages of swap beside suspend to disk where encryption may not
-    be desired, can be created as swap file using create_file_swap()
+    Suspend to disk has all memory secrets written to disk,
+    so a suspend would store these secrets in plaintext to disk.
+    if encryption of swap is not desired, a swap file can be created using
+    create_file_swap() which is feature equal to the swap partition
+    beside the suspend to disk functionality.
 
 + ZFS or LVM but not both on one partition
     on partittions ROOT and DATA, currently only either zfs or lvm can be used.
     if both are specified at the same time, the script will fail.
 
-+ if ZFS is specified and two disks are available, partition will be used as zfs mirror instead of mdadm raid mirror, to let zfs manage the mirroring.
-
-### GPT Layout
-
-+ information leakage
++ GPT Name Scheme information leakage
     be aware that, the way gpt labels are setup in this script, they leak metadata of encrypted data, eg. raid_luks_lvm.vg0_ext4_ROOT leaks the information that behind the luks encrypted data is a lvm partition with a volume group named vg0 and the root file system is ext4 (but not how to read this data). if this is an issue, rename the volume labels after bootstrap completed, mounts will still work because they are pointing to the uuid
 
-+ Partition Layout
+### Partition (GPT) Layout
 
 Nr |Name(max 36 x UTF16)|Description|
 ---|---|---
