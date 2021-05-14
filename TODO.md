@@ -10,7 +10,7 @@
 + fixme: ubuntu: after hardreset, recovery is not selected as fallback
 + fixme: non-blocking: phase install: reboot
     + lvm-root busy (Logical volume vg0/lvm-root contains a filesystem in use)
-    + fixme: rpool busy (can not export rpool)
+    + rpool busy (can not export rpool)
 
 ### features
 + extend: connect.sh initrdluks|recoverymount --unsafe for extra safety for encryption key
@@ -36,31 +36,7 @@
 ### virtual, 2 x 15g disks
 + http_proxy="http://192.168.122.1:8123", distrib_id=Ubuntu, distrib_codename=focal, recovery_autologin=true, gitops_target="/home/wuxxin", gitops_user="wuxxin", storage_opts="--boot=false --efi-size=2048 --log=128 --cache=128 --root-fs=zfs --root-size=10240 --data-lvm=vgdata --data-fs=ext4 --data-lvm-vol-size=2048 --reuse"
 
-## reasons for overlayfs on zfs for presentation in zfs-linux mailinglist
-
-after integration of overlayfs in the kernel,
-    adoption of overlayfs based solutions has been rapidly growing.
-in 2020 many software projects assume to be able
-    to use overlayfs on any underlying storage fs.
-overlayfs runs on ext3/4,xfs,ramfs and even btrfs,
-    you dont assume it doesn't on zfs.
-overlayfs is the first and will probably keep beeing one of the few solutions
-    that have or will have user namespace mount support, either eg.
-    via ubuntu overlayfs that is patched for user ns,
-    or via a fuseoverlayfs driver (developed by redhat),
-    overlayfs in user ns has been adopted by eg. podman, k3s
-
-examples of underlying storage expected to support overlayfs:
-+ systemd.volatile https://github.com/systemd/systemd/blob/adca059d55fe0a126dbdd62911b0705ddf8e9b8a/NEWS#L119
-+ ubuntu build script (find url again) which obviously uses anything but zfs as underlying storage for their build script by assuming the underlying storage layer has overlayfs support
-+ http://bazaar.launchpad.net/~ubuntu-cdimage/ubuntu-cdimage/mainline/
-    + https://git.launchpad.net/ubuntu/+source/casper/tree/debian/tests/prep-image?h=ubuntu/eoan
-
 ## snippets
-
-+ vm on a xenial host
-    + kvm qxl does not work (kernel faults) on suspend and hibernate, use virtio vga instead
-    + virtio vga does not work in X11, use qxl instead
 
 + find and count lines,words
 ```
