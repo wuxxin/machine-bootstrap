@@ -49,7 +49,7 @@ Unfinished:
         + File: backup.passphrase.gpg
         + Base Configuration File: node.env
             + mandatory settings
-            + backup_repository=/volatile/restic-backup
+            + backup_repository=/var/lib/restic-backup
 
 + 1-restore:
     + restore config
