@@ -19,4 +19,8 @@
 
 update_dracut:
   cmd.run:
-    - name: for v in $(find /boot -maxdepth 1 -name "vmlinuz*" | sed -r "s#^/boot/vmlinuz-(.+)#\\1#g"); do if test -e /lib/modules/$; then dracut --force /boot/initrd.img-${v} "${v}"; fi; done
+    - name: |
+        for v in $(find /boot -maxdepth 1 -name "vmlinuz*" | \
+          sed -r "s#^/boot/vmlinuz-(.+)#\\1#g"); do \
+            if test -e /lib/modules/$; then \
+              dracut --force /boot/initrd.img-${v} "${v}"; fi; done
