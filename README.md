@@ -21,7 +21,7 @@ It can be configured to fit different use cases, eg.
 + **one or two disks** (will be automatically setup as mdadm &/ zfs mirror if two disks)
 + **root on luks encrypted zfs** / zfs mirror pool (encrypted storage at rest)
     + and **other common and less common**, easy to configure **storage setups**
-+ ubuntu: modern initial ramdisk based on **dracut with ssh for remote unlock luks** on startup, disabled reporting packages
++ ubuntu: initial ramdisk based on **dracut with ssh for remote unlock luks**
 + **recovery system installation** (based on ubuntu 20.04 casper) on EFI partition
     + unattended cloud-init boot via custom squashfs with ssh ready to login
     + buildin scripts to mount/unmount root and update recovery boot parameter
