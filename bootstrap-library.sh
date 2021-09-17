@@ -18,20 +18,6 @@ configure_module_zfs() {
     echo "options zfs zfs_arc_max=${arc_max_bytes}" >> /etc/modprobe.d/zfs.conf
 }
 
-configure_module_overlay() {
-    mkdir -p /etc/modprobe.d
-    echo "configure overlay fs options"
-    cat > /etc/modprobe.d/overlay.conf << EOF
-options overlay redirect_dir=on
-options overlay xino_auto=on
-options overlay metacopy=off
-EOF
-    mkdir -p /etc/modules-load.d
-    cat > /etc/modules-load.d/overlay.conf << EOF
-overlay
-EOF
-}
-
 configure_sshd() {
     echo "setup sshd, config taken at 2019-02-26 (but without ecsda) from https://infosec.mozilla.org/guidelines/openssh.html "
     echo "only use >= 3072-bit-long moduli"

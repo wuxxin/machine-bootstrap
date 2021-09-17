@@ -115,15 +115,12 @@ fi
 
 echo "configure dracut; warning: dracut-network pulls in nfs-kernel-server, nfs-common and rpcbind"
 configure_dracut
-
 if $option_restore_backup; then
     restore_warning "not overwriting /etc/default/rpcbind and /etc/systemd/system/rpcbind.socket"
     restore_warning "not overwriting /etc/modprobe.d/zfs.conf"
-    restore_warning "not overwriting /etc/modprobe.d/overlay.conf"
 else
     configure_nfs
     configure_module_zfs
-    configure_module_overlay
 fi
 
 echo "update installation"
@@ -131,7 +128,8 @@ apt-get update --yes
 if $option_restore_backup; then
     restore_warning "not installing base packages"
 else
-    dpkg-divert --local --rename --divert /usr/sbin/update-initramfs.dpkg-divert \
+    dpkg-divert --local --rename \
+        --divert /usr/sbin/update-initramfs.dpkg-divert \
         --add /usr/sbin/update-initramfs
     cat > /usr/sbin/update-initramfs << EOF
 #!/bin/sh
