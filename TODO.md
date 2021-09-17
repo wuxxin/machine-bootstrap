@@ -8,9 +8,8 @@
 
 ### bugs
 + fixme: ubuntu: after hardreset, recovery is not selected as fallback
-+ fixme: non-blocking: phase install: reboot
++ fixme: non-blocking: phase install: reboot: rpool busy (can not export rpool)
     + lvm-root busy (Logical volume vg0/lvm-root contains a filesystem in use)
-    + rpool busy (can not export rpool)
 
 ### features
 + extend: connect.sh initrdluks|recoverymount --unsafe for extra safety for encryption key
