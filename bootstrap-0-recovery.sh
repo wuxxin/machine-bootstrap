@@ -9,7 +9,7 @@ usage() {
     cat << EOF
 Usage: $0 hostname 'diskid+' --yes [optional parameter]
 
-install a recovery system and overwrite all existing data of all disks matching 'diskid+'
+**overwrites** all existing data of all disks matching 'diskid+' and install a recovery system
 
 + <diskid+> can be one or two diskids (serialnr), will setup mirroring if two disks
 
