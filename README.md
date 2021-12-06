@@ -21,11 +21,11 @@ It can be configured to fit different use cases, eg.
 + **one or two disks** (will be automatically setup as mdadm &/ zfs mirror if two disks)
 + **root on luks encrypted zfs** / zfs mirror pool (encrypted storage at rest)
     + and **other common and less common**, easy to configure **storage setups**
-+ ubuntu: initial ramdisk based on **dracut with ssh for remote unlock luks**
++ initial ramdisk based on **dracut with ssh and clevis/tang luks remote unlock**
 + **recovery system installation** (based on ubuntu 20.04 casper) on EFI partition
     + unattended cloud-init boot via custom squashfs with ssh ready to login
     + buildin scripts to mount/unmount root and update recovery boot parameter
-+ **logging** of recovery and target system installation on the calling machine in directory ./log
++ **logging** of recovery and target system installation on the calling machine in directory ./run/log
 
 ### optional Features
 + luks encrypted **hibernate compatible swap** for eg. a desktop installation
@@ -82,8 +82,8 @@ Requirements:
 mkdir box
 cd box
 git init
-mkdir -p config log run
-printf "# machine-bootstrap ignores\n/log\n/run\n" > .gitignore
+mkdir -p config doc run/log
+printf "# machine-bootstrap ignores\n\n/run\n" > .gitignore
 git submodule add https://github.com/wuxxin/machine-bootstrap.git
 git add .
 git commit -v -m "initial config"
@@ -97,7 +97,7 @@ git push -u origin master
 
 ### optional: add files for a gitops run (only ubuntu/debian)
 ```bash
-mkdir -p salt/custom
+mkdir -p salt/local
 pushd salt
 git submodule add https://github.com/wuxxin/salt-shared.git
 popd
@@ -108,10 +108,10 @@ base:
 EOF
 cp salt/salt-shared/gitops/config.template.sls config/config.sls
 cp salt/salt-shared/gitops/pillar.template.sls config/main.sls
-cp salt/salt-shared/gitops/state.template.sls salt/custom/top.sls
-printf "  '*':\n    - machine-bootstrap\n\n" >> salt/custom/top.sls
-touch salt/custom/main.sls
-ln -s "../../machine-bootstrap" salt/custom/machine-bootstrap
+cp salt/salt-shared/gitops/state.template.sls salt/local/top.sls
+printf "  '*':\n    - machine-bootstrap\n\n" >> salt/local/top.sls
+touch salt/local/main.sls
+ln -s "../../machine-bootstrap" salt/local/machine-bootstrap
 git add .
 git commit -v -m "add saltstack skeleton"
 ```
@@ -217,7 +217,7 @@ echo $(printf 'storage_ids="'; for i in \
 
 + if gitops_source is empty, rsync will be used to transfer the files to the target
 + if gitops_source is set, the script will clone the repository files on target
-+ if gitops_source is a ssh git url, additional files are needed in config dir
++ if gitops_source is a ssh git url, the following additional files are needed in config dir
     + gitops.id_ed25519, gitops.id_ed25519.pub, gitops_known_hosts
 ```bash
 ssh-keygen -q -t ed25519 -N '' -C 'gitops@box' -f config/gitops.id_ed25519
@@ -229,7 +229,8 @@ ssh-keyscan -H -p 10023 git.server.domain > config/gitops.known_hosts
 + if git-crypt is used on repository files, additional files are needed in config dir
     + gitops@node-secret-key.gpg gitops@node-public-key.gpg
 ```bash
-gpgutils.py gen_keypair gitops@node "box" config/gitops@node-secret-key.gpg config/gitops@node-public-key.gpg
+gpgutils.py gen_keypair gitops@node "box" \
+    config/gitops@node-secret-key.gpg config/gitops@node-public-key.gpg
 ```
 
 ### optional: create a custom netplan.yaml file
