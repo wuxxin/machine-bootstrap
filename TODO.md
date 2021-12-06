@@ -5,6 +5,7 @@
 ## testing
 
 ## next
++ clevis integration
 
 ### bugs
 + fixme: ubuntu: after hardreset, recovery is not selected as fallback
