@@ -53,8 +53,8 @@ Configuration:
     + "netplan.yaml" default created on step recovery install
     + "recovery_hostkeys" created automatically on step recovery install
     + "[temporary|recovery|initrd|system].known_hosts": created on the fly
-+ log directory path: $log_path
 + run directory path: $run_path
+    + log directory path: $log_path
 
 EOF
     exit 1
@@ -176,8 +176,8 @@ recovery_hostkeys_file=$config_path/recovery_hostkeys
 ssh_id_file=$config_path/gitops.id_ed25519
 ssh_known_hosts_file=$config_path/gitops.known_hosts
 gpg_id_file=$config_path/gitops@node-secret-key.gpg
-log_path=$(readlink -m "$config_path/../log")
 run_path=$(readlink -m "$config_path/../run")
+log_path=$(readlink -m "$config_path/../run/log")
 base_path=$(readlink -m "$self_path/..")
 base_name=$(basename "$base_path")
 bootstrap0liveimage="bootstrap-0-liveimage.iso"
