@@ -173,7 +173,7 @@ EOF
     apt install --yes \
         ubuntu-minimal- initramfs-tools- ubuntu-advantage-tools- \
         popularity-contest- friendly-recovery- \
-        dracut dracut-network nfs-common rpcbind zfs-dracut
+        dracut dracut-network nfs-common rpcbind zfs-dracut clevis clevis-dracut
     rm /etc/apt/apt.conf.d/90bootstrap-force-existing
     apt-get --yes clean
 fi
