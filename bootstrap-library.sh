@@ -11,8 +11,8 @@ get_zfs_packages() {
 configure_module_zfs() {
     mkdir -p /etc/modprobe.d
     echo "configure zfs fs options"
-    echo "use cfq i/o scheduler for cgroup i/o quota support"
-    echo "options zfs zfs_vdev_scheduler=cfq" > /etc/modprobe.d/zfs.conf
+    #echo "use cfq i/o scheduler for cgroup i/o quota support"
+    #echo "options zfs zfs_vdev_scheduler=cfq" > /etc/modprobe.d/zfs.conf
     arc_max_bytes=$(grep MemTotal /proc/meminfo | awk '{printf("%u",$2*25/100*1024)}')
     echo "use maximum of 25% of available memory for arc zfs_arc_max=$arc_max_bytes bytes"
     echo "options zfs zfs_arc_max=${arc_max_bytes}" >> /etc/modprobe.d/zfs.conf
@@ -47,7 +47,7 @@ hostonly=yes
 omit_drivers+=" crc32c "
 omit_dracutmodules+=" ifcfg "
 $(test -e "/dev/mapper/luks-swap" && echo 'add_device+=" /dev/mapper/luks-swap"')
-add_dracutmodules+=" kernel-network-modules systemd-networkd sshd rescue"
+add_dracutmodules+=" kernel-network-modules systemd-networkd sshd clevis-pin-tang clevis-pin-sss rescue"
 kernel_commandline=
 #rd.debug rd.break=pre-shutdown rd.break=shutdown rd.shell
 EOF
