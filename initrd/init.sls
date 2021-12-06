@@ -3,6 +3,14 @@
 + update dracut initrd if files have changed
 #}
 
+clevis:
+  pkg.installed:
+    - pkgs:
+      - clevis
+      - clevis-dracut
+    - require_in:
+      - cmd: update_dracut
+
 {% for f in ['initramfs-sshd.service', 'module-setup.sh', 'sshd_config', 'stop-initramfs-sshd.sh'] %}
 /usr/lib/dracut/modules.d/46sshd/{{ f }}:
   file.managed:
