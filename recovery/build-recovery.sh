@@ -6,14 +6,14 @@ self_path=$(dirname "$(readlink -e "$0")")
 
 # Install Image
 distroname=focal
-distroversion=20.04
+distroversion=20.04.3
 kernel_name="vmlinuz"
 initrd_name="initrd"
 baseurl="http://releases.ubuntu.com/releases/${distroname}"
 imagename="ubuntu-${distroversion}-live-server-amd64.iso"
 
 # recovery version
-recovery_version=${distroversion}-live-server-recovery-1.0
+recovery_version=${distroversion}-live-server-recovery-1.3
 
 # gpg keys allowed to sign images
 cdimage_keyids="0x46181433FBB75451 0xD94AA3F0EFE21092"
