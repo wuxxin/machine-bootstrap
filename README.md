@@ -1,42 +1,49 @@
 # Machine bootstrap
 
-Unattended ssh based operating system installer for Ubuntu 20.04 LTS (Focal)
+Unattended ssh based operating system installer for
+    + Ubuntu 20.04 LTS (Focal)
+    + WIP: Manjaro Stable, Nixos, Promox
 
-+ buildin recovery image based on casper of ubuntu 20.04
-+ root storage on luks encrypted zfs and other specialized storage layouts,
-+ dracut initrd with ssh support for remote luks open of encrypted data
+**Usage:**
 
-**Usage:** to be executed on an linux liveimage/recoveryimage system connected via ssh.
++ to be executed on an linux liveimage/recoveryimage system connected via ssh
++ can be configured to fit different use cases, eg.
+    + as a Desktop/Laptop
+    + as a typical Rootserver (2xHD, headless)
+    + as a home-nas/home-io headless server with one ssd and two attached spindle disks
 
-It can be configured to fit different use cases, eg.
-+ as a Desktop/Laptop
-+ as a typical Rootserver (2xHD, headless)
-+ as a home-nas/home-io headless server with one ssd and two attached spindle disks
+**Status:**
 
-**Status:** most combinations work, some break under certain conditions.
++ most combinations work, some break under certain conditions.
 
 ## Features
 
-+ **efi and legacy bios** boot compatible hybrid grub setup with grubenv support
 + **one or two disks** (will be automatically setup as mdadm &/ zfs mirror if two disks)
-+ **root on luks encrypted zfs** / zfs mirror pool (encrypted storage at rest)
++ **root storage on luks or native encrypted zfs** / zfs mirror pool (encrypted storage at rest)
     + and **other common and less common**, easy to configure **storage setups**
-+ initial ramdisk based on **dracut with ssh and clevis/tang luks remote unlock**
-+ **recovery system installation** (based on ubuntu 20.04 casper) on EFI partition
-    + unattended cloud-init boot via custom squashfs with ssh ready to login
-    + buildin scripts to mount/unmount root and update recovery boot parameter
 + **logging** of recovery and target system installation on the calling machine in directory ./run/log
+
++ ubuntu
+    + **efi and legacy bios** boot compatible hybrid grub setup with grubenv support
+    + initial ramdisk based on **dracut with ssh and clevis/tang luks remote unlock**
+    + buildin **recovery system installation** on EFI partition
+        + based on casper of ubuntu 20.04
+        + unattended cloud-init boot via custom squashfs with ssh ready to login
+        + buildin scripts to mount/unmount root and update recovery boot parameter
++ manjaro
+    + modern **amd64 uefi systemd-boot** setup
 
 ### optional Features
 + luks encrypted **hibernate compatible swap** for eg. a desktop installation
-+ ubuntu/debian: **gitops stage using saltstack** with states from salt-shared (eg. desktop)
-+ **build a preconfigured livesystem image** usable for headless physical installation
++ **gitops stage using saltstack** with states from salt-shared (eg. desktop)
++ **encrypt sensitive data** in setup repository with git-crypt
+    + git & git-crypt repository setup to store machine configuration inside a git repository
+
++ ubuntu: **build a preconfigured livesystem image** usable for headless physical installation
     + resulting image is compatible as CD or USB-Stick with BIOS and EFI support
     + optional netplan for static or other non dhcp based ip configurations
     + execute `./machine-bootstrap/bootstrap.sh create-liveimage` to build image and copy to stick
     + use ssh with preconfigured key or physical terminal/console of livesystem for interaction
-+ **encrypt sensitive data** in setup repository with git-crypt
-    + git & git-crypt repository setup to store machine configuration inside a git repository
 
 #### Example Configurations
 
@@ -48,6 +55,8 @@ It can be configured to fit different use cases, eg.
     + add `http_proxy="http://proxyip:port"`to `node.env`
 + install ubuntu eoan instead of focal:
     + add `distrib_codename=eoan` to `node.env`
++ install manjaro stable instead of ubuntu focal:
+    + add `distrib=manjaro; distrib_codename=stable` to `node.env`
 
 ##### Storage Examples
 
@@ -173,6 +182,7 @@ firstuser=$(id -u -n)
 # storage_opts=""
 # [--reuse]
 # [--efi-size=   <efisizemb, default: 2200 mb>]
+# [--boot-loader=*grub|systemd]
 # [--boot=       true|*false|<bootsizemb,  default if true: 400 mb>]
 # [--boot-fs=    *zfs|ext4|xfs]
 # [--swap=       true|*false|<swapsizemb,  default if true: 1.25xRAM mb>]
@@ -181,7 +191,7 @@ firstuser=$(id -u -n)
 
 # [--root-fs=    *zfs|ext4|xfs]
 # [--root-size=  *all|<rootsizemb>]
-# [--root-crypt= *true|false]
+# [--root-crypt= *true|false|native]
 # [--root-lvm=   *""|<vgname>]
 # [--root-lvm-vol-size= <volsizemb, default if lvm is true: 20480 mb>]
 
@@ -249,6 +259,16 @@ network:
         name: "eth*"
       dhcp4: true
 EOF
+```
+
+##### optional: create a custom systemd netdev and network file
+
+```bash
+cat > config/systemd.netdev << EOF
+EOF
+cat > config/systemd.network << EOF
+EOF
+
 ```
 
 ### optional: create a minimal Nixos configuration.nix
@@ -348,14 +368,17 @@ reboot
 
 + one or two disks only, if machine has more disks they have to be setup later
 
-+ ZFS on two disks will get two seperate devices to let zfs manage the mirroring,
-    any other filesystem combination will get an mdadm-mirror device.
++ ZFS on two disks will get two separate devices to let zfs manage the mirroring,
+    any other filesystem will get an mdadm-mirror device.
 
 + SWAP
     if using a SWAP partition, the swap partition will always be encrypted.
-    Also ROOT should be encrypted in this case.
     Suspend to disk has all memory secrets written to disk,
     so a suspend would store these secrets in plaintext to disk.
+
+    to make encrypted swap useful,
+    ROOT should also be encrypted, this can be set via --root-crypt
+
     if encryption of swap is not desired, a swap file can be created using
     create_file_swap() which is feature equal to the swap partition
     beside the suspend to disk functionality.
@@ -372,13 +395,15 @@ reboot
 Nr |Name(max 36 x UTF16)|Description|
 ---|---|---
 6  | `BIOS,1,2`  | GRUB-BIOS boot binary partition, used to host grub code on gpt for bios boot
-5  | `EFI,1,2`   | EFI vfat partition, unencrypted
-.  | .           | dual efi & bios grub installation
-.  | .           | recovery system: kernel,initrd,fs
-.  | .           | /boot for system: kernel,initrd
+5  | `EFI,1,2`   | EFI vfat partition, unencrypted, /boot if no boot partition
 4  | `LOG,1,2`   | **optional** ZFS Log or other usages
 3  | `CACHE,1,2` | **optional** ZFS Cache or other usages
 2  | `[raid_]luks_SWAP,1,2`  | **optional** encrypted hibernation compatible swap
 1  | `[raid_](zfs:ext4:xfs)_BOOT,1,2`  | **optional**,**legacy** boot partition, unencrypted, kernel,initrd
-0  | `[raid_][luks_][lvm.vg0_](zfs:ext4:xfs)_ROOT,1,2` | root partition
-7  | `[raid_][luks_][lvm.vgdata_](zfs:ext4:xfs:other)_DATA,1,2` | **optional** data partition
+0  | `[raid_][luks_][lvm.vg0_](enczfs:zfs:ext4:xfs)_ROOT,1,2` | root partition
+7  | `[raid_][luks_][lvm.vgdata_](enczfs:zfs:ext4:xfs:other)_DATA,1,2` | **optional** data partition
+
+Ubuntu/Debian:
++ dual efi & bios grub installation
++ EFI contains recovery system: kernel,initrd,fs
++ EFI contains /boot for system: kernel,initrd if no boot partition
