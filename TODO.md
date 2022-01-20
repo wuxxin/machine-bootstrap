@@ -5,21 +5,21 @@
 ## testing
 
 ## next
-+ clevis integration
 
 ### bugs
-+ fixme: ubuntu: after hardreset, recovery is not selected as fallback
-+ fixme: non-blocking: phase install: reboot: rpool busy (can not export rpool)
++ ubuntu: after hardreset, recovery is not selected as fallback
++ ubuntu: non-blocking: phase install: reboot: rpool busy (can not export rpool)
     + lvm-root busy (Logical volume vg0/lvm-root contains a filesystem in use)
 
 ### features
++ recovery scripts to replace a faulty disk, to invalidate a disk
+    + all: add script to replace a changed faulty disk: recovery-replace-mirror.sh
+    + all: add script to deactivate (invalidate) one of two disks: storage-invalidate-mirror.sh
 + extend: connect.sh initrdluks|recoverymount --unsafe for extra safety for encryption key
     + checks after connecting if gatewaydev is emulated, aborts if emulated
     + use --unsafe if you know you're connecting to a vm
 + gitops: make target system also honor http_proxy on gitops install
-+ recovery scripts to replace a faulty disk, to invalidate a disk
-    + all: add script to replace a changed faulty disk: recovery-replace-mirror.sh
-    + all: add script to deactivate (invalidate) one of two disks: storage-invalidate-mirror.sh
++ clevis integration
 + optional use of tmux for long running ssh connections of bootstrap.sh
 + make distrib_id=Nixos distrib_codename=19.09 working
     + make ./machine-bootstrap-configuration.nix in bootstrap-library
@@ -96,15 +96,4 @@ terminal_output gfxterm
 ```
 mkdir -p /run/initramfs/etc/cmdline.d
 echo "rd.debug rd.break=pre-shutdown rd.break=shutdown" > /run/initramfs/etc/cmdline.d/debug.conf
-```
-
-+ workaround zol<0.8 mount races: /var/log
-
-```
-mkdir -p /etc/systemd/system/systemd-journald.service.d
-cat > /etc/systemd/system/systemd-journald.service.d/override.conf << EOF
-[Unit]
-Requires=zfs-mount.service
-After=zfs-mount.service
-EOF
 ```
