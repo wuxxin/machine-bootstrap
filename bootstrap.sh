@@ -43,7 +43,7 @@ Configuration:
     + Base Configuration File: "node.env"
     + File: "disk.passphrase.gpg"
     + File: "authorized_keys"
-+ additional mandatory config file if distrib_id=Nixos:
++ additional mandatory config file if distrib_id=nixos
     + File: "configuration.nix"
 + optional ssh config files for gitops step:
     + File: gitops.id_ed25519
@@ -261,7 +261,7 @@ if test "$command" = "execute"; then
 fi
 
 # make defaults
-if test -z "$distrib_id"; then distrib_id="Ubuntu"; fi
+if test -z "$distrib_id"; then distrib_id="ubuntu"; fi
 if test -z "$distrib_codename"; then distrib_codename="focal"; fi
 if test -z "$gitops_target"; then gitops_target="/home/$firstuser"; fi
 if test -z "$gitops_user"; then gitops_user="$firstuser"; fi
@@ -276,9 +276,9 @@ frankenstein=false
 select_frankenstein=""
 
 # verify nix configuration file is present if distrib_id=Nixos
-if test "$distrib_id" = "Nixos"; then
+if test "$distrib_id" = "nixos"; then
     if test ! -e "$nixos_configuration_file"; then
-        echo "Error: distrib_id=Nixos but mandatory config file $nixos_configuration_file is missing"
+        echo "Error: distrib_id=nixos but mandatory config file $nixos_configuration_file is missing"
         exit 1
     fi
 fi
@@ -444,7 +444,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
         echo "recovery_autologin is true, touching /tmp/recovery/feature.autologin"
         ssh $sshopts ${sshlogin} "touch /tmp/recovery/feature.autologin"
     fi
-    if test "$distrib_id" = "Nixos"; then
+    if test "$distrib_id" = "nixos"; then
         echo "copy nix configuration files to remote"
         scp $sshopts "$config_path/*.nix" \
             "$(ssh_uri ${sshlogin} scp)/tmp/"
