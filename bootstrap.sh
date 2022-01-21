@@ -271,9 +271,6 @@ else
     select_autologin="--recovery-autologin"
 fi
 
-# function frankenstein is disabled
-frankenstein=false
-select_frankenstein=""
 
 # verify nix configuration file is present if distrib_id=Nixos
 if test "$distrib_id" = "nixos"; then
@@ -291,7 +288,6 @@ storage_ids: $storage_ids
 storage_opts: $storage_opts
 recovery_autologin: $recovery_autologin
 select_autologin: $select_autologin
-select_frankenstein: $select_frankenstein
 select_root_lvm_vol_size: $select_root_lvm_vol_size
 select_data_lvm_vol_size: $select_data_lvm_vol_size
 distrib_id: $distrib_id , distrib_codename: $distrib_codename
@@ -452,7 +448,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
     echo "call bootstrap-1, format storage, install system or restore from backup"
     echo -n "$diskphrase" \
         | ssh $sshopts ${sshlogin} \
-            "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1.sh $hostname $firstuser \"$storage_ids\" --yes $select_root_lvm_vol_size $select_data_lvm_vol_size $select_frankenstein --distrib-id $distrib_id --distrib-codename $distrib_codename  $@" 2>&1 | tee "$log_path/bootstrap-install.log"
+            "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1.sh $hostname $firstuser \"$storage_ids\" --yes $select_root_lvm_vol_size $select_data_lvm_vol_size --distrib-id $distrib_id --distrib-codename $distrib_codename  $@" 2>&1 | tee "$log_path/bootstrap-install.log"
 
     echo "copy initrd and system ssh hostkeys from target"
     printf "%s %s\n" "$(ssh_uri ${sshlogin} known)" \
