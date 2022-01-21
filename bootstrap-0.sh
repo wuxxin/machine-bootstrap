@@ -333,7 +333,7 @@ cp "$self_path/bootstrap-library.sh" /tmp/recovery
     - "$recovery_autologin" "default" "$http_proxy"
 cp /tmp/recovery.squashfs /mnt/efi/casper/
 
-# install on first disk only, 2-chroot-install will reinstall grub and sync if two disks
+# install on first disk only, bootstrap-2 will reinstall grub and sync if two disks
 echo "write /mnt/efi/grub/grub.cfg"
 efi_grub="hd0,gpt${EFI_NR}"
 efi_fs_uuid=$(dev_fs_uuid "$(by_partlabel EFI | first_of)")
