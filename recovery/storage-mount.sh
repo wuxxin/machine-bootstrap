@@ -4,20 +4,19 @@ set -e
 self_path=$(dirname "$(readlink -e "$0")")
 force=false
 what=all
-passphrase=""
+password=""
 
 if test "$1" != "--yes"; then
     cat <<EOF
 Usage:
-    $0 --yes --only-raid-crypt [--luks-from-stdin]
-    $0 --yes [--without-raid-crypt] [--force]
+    $0 --yes [--only-raid-luks|--without-raid-luks] [--password-from-stdin] [--force]
 EOF
     exit 1
 fi
 shift
-if test "$1" = "--only-raid-crypt"; then what=until_crypt; shift; fi
-if test "$1" = "--luks-from-stdin"; then passphrase=$(cat -); shift; fi
-if test "$1" = "--without-raid-crypt"; then what=after_crypt; shift; fi
+if test "$1" = "--only-raid-luks"; then what=until_luks; shift; fi
+if test "$1" = "--without-raid-luks"; then what=after_luks; shift; fi
+if test "$1" = "--password-from-stdin"; then password=$(cat -); shift; fi
 if test "$1" = "--force"; then force=true; shift; fi
 
 . "$self_path/bootstrap-library.sh"
@@ -27,18 +26,16 @@ if which cloud-init > /dev/null; then
     cloud-init status --wait || echo "warning, cloud init finished with error"
 fi
 
-if test "$what" != "after_crypt"; then
-    echo "configuring nfs (which get pulled in by zfsutils) to be restricted to localhost"
+if test "$what" != "after_luks"; then
     configure_nfs
     zfs_packages="$(get_zfs_packages)"
     echo "update sources, install $zfs_packages"
-    DEBIAN_FRONTEND=noninteractive apt-get update --yes
-    DEBIAN_FRONTEND=noninteractive apt-get install --yes $zfs_packages
-    activate_raid
+    install_packages --refresh $zfs_packages
+    activate_mdadm
     create_crypttab
-    activate_crypt "$passphrase"
+    activate_luks "$password"
 fi
-if test "$what" = "until_crypt"; then exit 0; fi
+if test "$what" = "until_luks"; then exit 0; fi
 
 activate_lvm
 mount_root /mnt $force

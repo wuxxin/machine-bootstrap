@@ -33,6 +33,8 @@ defaults:
   hostname:             if not set from commandline, hostname -f
   hostid:               if exists from /etc/hostid else "-"
   netplan_file:         if exists from /etc/recovery/netplan.yaml else from /etc/netplan/*
+  systemd_netdev_file   if exists from /etc/systemd/network/
+  systemd_network_file  if exists from /etc/systemd/network/
   hostkeys_file:        /etc/recovery/recovery_hostkeys
   authorized_keys_file: /root/.ssh/authorized_keys
   scriptdir:            /etc/recovery (will be copied to recovery:/usr/sbin/)
