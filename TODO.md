@@ -46,6 +46,8 @@ find . -name ".git" -prune -o -type f -print0 | wc --files0-from=- | sort -n
 + media mount
 ```
 /lib/systemd/system/media-filesystem.mount
+
+
 [Mount]
 What=/cdrom/casper/filesystem.squashfs
 Where=/media/filesystem
@@ -96,4 +98,49 @@ terminal_output gfxterm
 ```
 mkdir -p /run/initramfs/etc/cmdline.d
 echo "rd.debug rd.break=pre-shutdown rd.break=shutdown" > /run/initramfs/etc/cmdline.d/debug.conf
+```
+
++ compile custom zfs-linux if requested
+```
+if $option_frankenstein; then
+    if test ! -e /tmp/zfs/build-custom-zfs.sh; then
+        echo "error: could not find needed files for frankenstein zfs-linux build, continue without custom build"
+    else
+        echo "build-custom-zfs"
+        chmod +x /tmp/zfs/build-custom-zfs.sh
+        /tmp/zfs/build-custom-zfs.sh /tmp/zfs/basedir --source focal --dest $distrib_codename
+        if test -e $custom_archive; then rm -rf $custom_archive; fi
+        mkdir -p $custom_archive
+        mv -t $custom_archive /tmp/zfs/basedir/build/buildresult/*
+        rm -rf /tmp/zfs/basedir
+        cat > $custom_sources_list << EOF
+deb [ trusted=yes ] file:$custom_archive ./
+EOF
+        # needs additional apt-get update, done below
+    fi
+fi
+```
+
+```
+if $option_frankenstein; then
+    echo "copy custom archive files"
+    if test -e "/mnt$custom_archive"; then
+        if $option_restore_backup; then
+            echo "WARNING: --restore-from-backup: not deleting existing target dir $custom_archive"
+        else
+            echo "WARNING: removing existing $custom_archive"
+            rm -rf "/mnt$custom_archive"
+        fi
+    fi
+    echo "insert distrib_codename($distrib_codename) into /etc/pbuilderrc"
+    echo "DISTRIBUTION=$distrib_codename" >> /mnt/etc/pbuilderrc
+    mkdir -p "/mnt$custom_archive"
+    cp -t "/mnt$custom_archive" $custom_archive/*
+    cat > "/mnt$custom_sources_list" << EOF
+deb [ trusted=yes ] file:$custom_archive ./
+EOF
+    # remove archive from ramdisk, it is already installed in running system and copied to target
+    rm -r $custom_archive
+    rm $custom_sources_list
+fi
 ```
