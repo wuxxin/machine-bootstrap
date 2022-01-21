@@ -38,26 +38,18 @@ warn_rename() { # targetfile
 }
 
 
-# const
-custom_archive=/usr/local/lib/bootstrap-custom-archive
-custom_sources_list=/etc/apt/sources.list.d/local-bootstrap-custom.list
 # defaults
-option_frankenstein=false
-option_restore_backup=false
 distrib_id="ubuntu"
 distrib_codename="focal"
 root_lvm_vol_size="20480"
 data_lvm_vol_size="$root_lvm_vol_size"
+option_restore_backup=false
 
 # parse args
 if test "$4" != "--yes"; then usage; fi
-hostname=$1
-if test "$hostname" = "${hostname%%.*}"; then
-    hostname="${hostname}.local"
-fi
-firstuser=$2
-disklist=$3
+hostname=$1; firstuser=$2; disklist=$3
 shift 4
+if test "$hostname" = "${hostname%%.*}"; then hostname="${hostname}.local"; fi
 fulldisklist=$(for i in $disklist; do echo "/dev/disk/by-id/${i} "; done)
 diskcount=$(echo "$disklist" | wc -w)
 if test "$diskcount" -gt "2"; then
@@ -71,7 +63,6 @@ if test "$diskpassword" = ""; then
 fi
 if test "$1" = "--root-lvm-vol-size"; then root_lvm_vol_size="$2"; shift 2; fi
 if test "$1" = "--data-lvm-vol-size"; then data_lvm_vol_size="$2"; shift 2; fi
-if test "$1" = "--frankenstein"; then option_frankenstein=true; shift; fi
 if test "$1" = "--distrib-id"; then distrib_id=$2; shift 2; fi
 if test "$1" = "--distrib-codename"; then distrib_codename=$2; shift 2; fi
 if test "$1" = "--restore-from-backup"; then option_restore_backup=true; shift; fi
@@ -107,7 +98,6 @@ fulldisklist: $(for i in $fulldisklist; do echo -n " $i"; done)
 http_proxy: $http_proxy
 distrib_id: $distrib_id
 distrib_codename: $distrib_codename
-option_frankenstein: $option_frankenstein
 option_restore_backup: $option_restore_backup
 root_lvm_vol_size: $root_lvm_vol_size
 data_lvm_vol_size: $data_lvm_vol_size
@@ -128,24 +118,6 @@ if test -e /etc/machine-id; then
     echo "fixme machine-id"
 fi
 
-# compile custom zfs-linux if requested
-if $option_frankenstein; then
-    if test ! -e /tmp/zfs/build-custom-zfs.sh; then
-        echo "error: could not find needed files for frankenstein zfs-linux build, continue without custom build"
-    else
-        echo "build-custom-zfs"
-        chmod +x /tmp/zfs/build-custom-zfs.sh
-        /tmp/zfs/build-custom-zfs.sh /tmp/zfs/basedir --source focal --dest $distrib_codename
-        if test -e $custom_archive; then rm -rf $custom_archive; fi
-        mkdir -p $custom_archive
-        mv -t $custom_archive /tmp/zfs/basedir/build/buildresult/*
-        rm -rf /tmp/zfs/basedir
-        cat > $custom_sources_list << EOF
-deb [ trusted=yes ] file:$custom_archive ./
-EOF
-        # needs additional apt-get update, done below
-    fi
-fi
 echo "configuring nfs (which get pulled in by zfsutils) to be restricted to localhost"
 configure_nfs
 
@@ -217,32 +189,11 @@ echo "copy network netplan config to 50-default.yaml"
 warn_rename /mnt/etc/netplan/50-default.yaml
 cp -a /tmp/netplan.yaml /mnt/etc/netplan/50-default.yaml
 
-if $option_frankenstein; then
-    echo "copy custom archive files"
-    if test -e "/mnt$custom_archive"; then
-        if $option_restore_backup; then
-            echo "WARNING: --restore-from-backup: not deleting existing target dir $custom_archive"
-        else
-            echo "WARNING: removing existing $custom_archive"
-            rm -rf "/mnt$custom_archive"
-        fi
-    fi
-    echo "insert distrib_codename($distrib_codename) into /etc/pbuilderrc"
-    echo "DISTRIBUTION=$distrib_codename" >> /mnt/etc/pbuilderrc
-    mkdir -p "/mnt$custom_archive"
-    cp -t "/mnt$custom_archive" $custom_archive/*
-    cat > "/mnt$custom_sources_list" << EOF
-deb [ trusted=yes ] file:$custom_archive ./
-EOF
-    # remove archive from ramdisk, it is already installed in running system and copied to target
-    rm -r $custom_archive
-    rm $custom_sources_list
-fi
-
 echo "copy bootstrap files for chroot install"
 echo "copying dracut files to /usr/lib/dracut/modules.d/46sshd"
 mkdir -p /mnt/usr/lib/dracut/modules.d/46sshd
 cp -a -t /mnt/usr/lib/dracut/modules.d/46sshd /tmp/dracut/*
+
 echo "copying recovery files to /etc/recovery"
 mkdir -p /mnt/etc/recovery/zfs
 cp -a -t /mnt/etc/recovery /tmp/recovery/*
@@ -250,11 +201,14 @@ if test -d /tmp/recovery/zfs; then
     echo "copying files to /etc/recovery/zfs"
     cp -a -t /mnt/etc/recovery/zfs /tmp/zfs/*
 fi
+
 echo "copy bootstrap-library.sh to /tmp and /etc/recovery"
 cp /tmp/bootstrap-library.sh /mnt/etc/recovery
+
 echo "copy ssh hostkeys to /etc/recovery"
 cp /tmp/recovery_hostkeys /mnt/etc/recovery
 chmod 0600 /mnt/etc/recovery/recovery_hostkeys
+
 echo "copy bootstrap-2.sh and bootstrap-library.sh to /tmp"
 cp /tmp/bootstrap-library.sh /mnt/tmp
 cp /tmp/bootstrap-2.sh /mnt/tmp
