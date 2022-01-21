@@ -2,7 +2,7 @@
 
 Unattended ssh based operating system installer for
     + Ubuntu 20.04 LTS (Focal)
-    + WIP: Manjaro Stable, Nixos, Promox
+    + Manjaro Stable
 
 **Usage:**
 
@@ -55,8 +55,8 @@ Unattended ssh based operating system installer for
     + add `http_proxy="http://proxyip:port"`to `node.env`
 + install ubuntu eoan instead of focal:
     + add `distrib_codename=eoan` to `node.env`
-+ install manjaro stable instead of ubuntu focal:
-    + add `distrib=manjaro; distrib_codename=stable` to `node.env`
++ install manjaro stable:
+    + add `distrib_id=manjaro; distrib_codename=stable` to `node.env`
 
 ##### Storage Examples
 
@@ -66,7 +66,7 @@ Unattended ssh based operating system installer for
     + `storage_opts="--root-fs=ext4"`
 + virtual machine with encrypted lvm and root lv (30gb) on ext4
     + `storage_opts="--root-fs=ext4 --root-lvm=vgroot --root-lvm-vol-size=30720"`
-+ desktop: encrypted root and swap, root on zfs
++ laptop: encrypted root and swap, root on zfs
     + `storage_opts="--swap=true"`
 + server: one or two disks, encrypted root on zfs
     + `storage_opts=""`
@@ -75,6 +75,8 @@ Unattended ssh based operating system installer for
     + `storage_opts="--root-fs=ext4 --root-size=102400 --root-lvm=vgroot --root-lvm-vol-size=25600" --data-fs=zfs"`
 + server: one or two encrypted disks, root on zfs (100g), with data lvm storage vgdata
     + `storage_opts="--root-size=102400 --data-lvm=vgdata --data-lvm-vol-size=25600" --data-fs=ext4"`
++ manjaro, desktop: systemd-boot and native zfs encryption, no swap
+    + `distrib_id=manjaro; storage_opts="root_crypt=native"`
 
 ## Setup
 
@@ -182,12 +184,14 @@ firstuser=$(id -u -n)
 # storage_opts=""
 # [--reuse]
 # [--efi-size=   <efisizemb, default: 2200 mb>]
-# [--boot-loader=*grub|systemd]
 # [--boot=       true|*false|<bootsizemb,  default if true: 400 mb>]
 # [--boot-fs=    *zfs|ext4|xfs]
 # [--swap=       true|*false|<swapsizemb,  default if true: 1.25xRAM mb>]
 # [--log=        true|*false|<logsizemb,   default if true: 1024 mb>]
+# # default zil log_size ~= 5seconds io-write , eg. 200mb per sec *5 = 1024
 # [--cache=      true|*false|<cachesizemb, default if true: 59918 mb (eq. 1gb RAM)>]
+# # zfs cache system will use (<cachesizemb>/58)mb of RAM to hold L2ARC references
+# # eg. 58GB on disk L2ARC uses 1GB of ARC space in memory
 
 # [--root-fs=    *zfs|ext4|xfs]
 # [--root-size=  *all|<rootsizemb>]
@@ -390,20 +394,27 @@ reboot
 + GPT Name Scheme information leakage
     be aware that, the way gpt labels are setup in this script, they leak metadata of encrypted data, eg. raid_luks_lvm.vg0_ext4_ROOT leaks the information that behind the luks encrypted data is a lvm partition with a volume group named vg0 and the root file system is ext4 (but not how to read this data). if this is an issue, rename the volume labels after bootstrap completed, mounts will still work because they are pointing to the uuid
 
++ ZFS SLOG and L2ARC (for pools outside the two primary storage devices) store
+    its data corresponding to the target pool, meaning, if the target pool is
+    encrypted, so will be the SLOG and the L2ARC
+
 ### Partition (GPT) Layout
 
 Nr |Name(max 36 x UTF16)|Description|
 ---|---|---
 6  | `BIOS,1,2`  | GRUB-BIOS boot binary partition, used to host grub code on gpt for bios boot
 5  | `EFI,1,2`   | EFI vfat partition, unencrypted, /boot if no boot partition
-4  | `LOG,1,2`   | **optional** ZFS Log or other usages
-3  | `CACHE,1,2` | **optional** ZFS Cache or other usages
+4  | `LOG,1,2`   | **optional** ZFS Log (SLOG) for pools of other storage devices
+3  | `CACHE,1,2` | **optional** ZFS Cache (L2ARC) for pools of other storage devices
 2  | `[raid_]luks_SWAP,1,2`  | **optional** encrypted hibernation compatible swap
 1  | `[raid_](zfs:ext4:xfs)_BOOT,1,2`  | **optional**,**legacy** boot partition, unencrypted, kernel,initrd
 0  | `[raid_][luks_][lvm.vg0_](enczfs:zfs:ext4:xfs)_ROOT,1,2` | root partition
 7  | `[raid_][luks_][lvm.vgdata_](enczfs:zfs:ext4:xfs:other)_DATA,1,2` | **optional** data partition
 
 Ubuntu/Debian:
-+ dual efi & bios grub installation
-+ EFI contains recovery system: kernel,initrd,fs
-+ EFI contains /boot for system: kernel,initrd if no boot partition
+    + hybrid efi & bios grub installation
+    + EFI contains recovery system: kernel,initrd,fs
+    + EFI contains /boot for system: kernel,initrd if no boot partition
+Manjaro:
+    + efi only systemd-boot installation
+    + EFI contains /boot for system, kernel,initrd if no boot partition
