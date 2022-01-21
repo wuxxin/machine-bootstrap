@@ -68,7 +68,7 @@ if test ! -e /etc/mtab; then
     echo "symlink /etc/mtab to /proc/self/mounts"
     ln -s /proc/self/mounts /etc/mtab
 fi
-create_fstab
+create_fstab "ubuntu"
 create_crypttab
 
 echo "make grub accessable on /boot/grub"

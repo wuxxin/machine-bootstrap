@@ -15,8 +15,6 @@ optional parameter (must be ordered as listed):
     if lvm is used, define the capacity of the lvm root volume, defaults to 20480 (20gb)
 --data-lvm-vol-size <volsizemb>
     if lvm is used, define the capacity of the lvm data volume, defaults to 20480 (20gb)
---frankenstein
-    patch zfs-linux
 --distrib_id <name>
     select a different distribution (default=$distrib_id)
 --distrib_codename <name>
@@ -46,9 +44,7 @@ custom_sources_list=/etc/apt/sources.list.d/local-bootstrap-custom.list
 # defaults
 option_frankenstein=false
 option_restore_backup=false
-# distrib_id can be one of "Ubuntu", "Debian", "Nixos"
-distrib_id="Ubuntu"
-# distrib_codename is nixos channel (eg. 19.09) in case of distrib_id=Nixos
+distrib_id="ubuntu"
 distrib_codename="focal"
 root_lvm_vol_size="20480"
 data_lvm_vol_size="$root_lvm_vol_size"
@@ -80,14 +76,21 @@ if test "$1" = "--distrib-id"; then distrib_id=$2; shift 2; fi
 if test "$1" = "--distrib-codename"; then distrib_codename=$2; shift 2; fi
 if test "$1" = "--restore-from-backup"; then option_restore_backup=true; shift; fi
 
-# check for valid distrib_id and set default distrib_codename if not Ubuntu
-if test "$distrib_id" != "Ubuntu" -a "$distrib_id" != "Debian" -a "$distrib_id" != "Nixos"; then
+# distrib_id can be one of "ubuntu", "debian", "nixos", "manjaro"
+# check for valid distrib_id and set default distrib_codename if not ubuntu
+# distrib_codename is nixos channel (eg. 19.09) in case of distrib_id=nixos
+distrib_id=$(echo "$distrib_id" |  tr '[:upper:]' '[:lower:]')
+if test "$distrib_id" != "ubuntu" -a \
+        "$distrib_id" != "debian" -a \
+        "$distrib_id" != "nixos"  -a \
+        "$distrib_id" != "manjaro" ; then
     echo "Error: Unknown distrib_id($distrib_id)"
     exit 1
 fi
-if test "$distrib_id" != "Ubuntu" -a "distrib_codename" = "focal"; then
-    if test "$distrib_id" = "Debian"; then distrib_codename="buster"; fi
-    if test "$distrib_id" = "Nixos"; then distrib_codename="19.09"; fi
+if test "$distrib_id" != "ubuntu" -a "distrib_codename" = "focal"; then
+    if test "$distrib_id" = "debian"; then distrib_codename="buster"; fi
+    if test "$distrib_id" = "nixos"; then distrib_codename="19.09"; fi
+    if test "$distrib_id" = "manjaro"; then distrib_codename="stable"; fi
 fi
 
 # if http_proxy is set, reexport for sub-processes
@@ -117,8 +120,13 @@ if which cloud-init > /dev/null; then
     cloud-init status --wait || true
 fi
 
-echo "set target hostname in recovery system"
+echo "set target hostname in current system"
 setup_hostname "$hostname"
+
+echo "FIXME: generate new systemd machineid (/etc/machine-id) in active system"
+if test -e /etc/machine-id; then
+    echo "fixme machine-id"
+fi
 
 # compile custom zfs-linux if requested
 if $option_frankenstein; then
@@ -138,61 +146,64 @@ EOF
         # needs additional apt-get update, done below
     fi
 fi
-
 echo "configuring nfs (which get pulled in by zfsutils) to be restricted to localhost"
 configure_nfs
 
 echo "install needed packages"
-packages="$(get_default_packages)"
-packages="$packages $(get_zfs_packages)"
-packages="$packages lvm2"
-DEBIAN_FRONTEND=noninteractive apt-get update --yes
-DEBIAN_FRONTEND=noninteractive apt-get install --yes $packages
+packages="$(get_default_packages) $(get_zfs_packages)"
+install_packages --refresh $packages
 
 echo "generate new zfs hostid (/etc/hostid) in active system"
 if test -e /etc/hostid; then rm /etc/hostid; fi
 zgenhostid
 
 # create & mount target filesystems
-create_and_mount_root /mnt $diskpassword $root_lvm_vol_size
+create_and_mount_root /mnt "$diskpassword" $root_lvm_vol_size
 create_boot
-create_data $diskpassword $data_lvm_vol_size
-create_swap $diskpassword
+create_data "$diskpassword" $data_lvm_vol_size
+create_swap "$diskpassword"
 create_homedir home $firstuser
 mount_boot /mnt
 mount_efi /mnt
 mount_data /mnt/mnt
 
-if test "$option_restore_backup" != "true"; then
+if test "$option_restore_backup" = "true"; then
+    echo "call bootstrap-1-restore"
+    chmod +x /tmp/bootstrap-1-restore.sh
+    /tmp/bootstrap-1-restore.sh "$hostname" "$firstuser" --yes && err=$? || err=$?
+    if test "$err" != "0"; then echo "Backup - Restore Error $err"; exit $err; fi
+else
     # install base system
-    if test "$distrib_id" = "Ubuntu" -o "$distrib_id" = "Debian"; then
+    if test "$distrib_id" = "ubuntu" -o "$distrib_id" = "debian"; then
         echo "install minimal base $distrib_codename system"
         debootstrap --verbose "$distrib_codename" /mnt
-    elif test "$distrib_id" = "Nixos"; then
+    elif test "$distrib_id" = "manjaro"; then
+        install_manjaro /mnt $distrib_codename
+    elif test "$distrib_id" = "nixos"; then
         install_nixos /mnt $distrib_codename
-        unmount_data /mnt/mnt
-        unmount_efi /mnt
-        unmount_boot /mnt
-        unmount_root /mnt
-        deactivate_lvm
-        deactivate_crypt
-        deactivate_raid
-        exit 0
     else
         echo "Error: Unknown distrib_id($distrib_id)"
         exit 1
     fi
 fi
-
-if $option_restore_backup; then
-    echo "call bootstrap-1-restore"
-    chmod +x /tmp/bootstrap-1-restore.sh
-    /tmp/bootstrap-1-restore.sh "$hostname" "$firstuser" --yes && err=$? || err=$?
-    if test "$err" != "0"; then echo "Backup - Restore Error $err"; exit $err; fi
-fi
 create_root_finished
 
+if test "$distrib_id" != "ubuntu" -a "$distrib_id" != "debian"; then
+    echo "swap off"; swapoff -a || true
+    unmount_data /mnt/mnt
+    unmount_efi /mnt
+    unmount_boot /mnt
+    unmount_root /mnt
+    deactivate_lvm
+    deactivate_luks
+    deactivate_mdadm
+    exit 0
+fi
+
 # chroot preperations
+echo "copy/overwrite machine-id (/etc/machine-id)"
+cp -a /etc/machine-id /mnt/etc/machine-id
+
 echo "copy/overwrite hostid (/etc/hostid)"
 cp -a /etc/hostid /mnt/etc/hostid
 
@@ -229,10 +240,10 @@ EOF
 fi
 
 echo "copy bootstrap files for chroot install"
-echo "copying files to /usr/lib/dracut/modules.d/46sshd"
+echo "copying dracut files to /usr/lib/dracut/modules.d/46sshd"
 mkdir -p /mnt/usr/lib/dracut/modules.d/46sshd
-cp -a -t /mnt/usr/lib/dracut/modules.d/46sshd /tmp/initrd/*
-echo "copying files to /etc/recovery"
+cp -a -t /mnt/usr/lib/dracut/modules.d/46sshd /tmp/dracut/*
+echo "copying recovery files to /etc/recovery"
 mkdir -p /mnt/etc/recovery/zfs
 cp -a -t /mnt/etc/recovery /tmp/recovery/*
 if test -d /tmp/recovery/zfs; then
@@ -244,10 +255,10 @@ cp /tmp/bootstrap-library.sh /mnt/etc/recovery
 echo "copy ssh hostkeys to /etc/recovery"
 cp /tmp/recovery_hostkeys /mnt/etc/recovery
 chmod 0600 /mnt/etc/recovery/recovery_hostkeys
-echo "copy bootstrap-2-chroot-install.sh and bootstrap-library.sh to /tmp"
+echo "copy bootstrap-2.sh and bootstrap-library.sh to /tmp"
 cp /tmp/bootstrap-library.sh /mnt/tmp
-cp /tmp/bootstrap-2-chroot-install.sh /mnt/tmp
-chmod +x /mnt/tmp/bootstrap-2-chroot-install.sh
+cp /tmp/bootstrap-2.sh /mnt/tmp
+chmod +x /mnt/tmp/bootstrap-2.sh
 
 mount_bind_mounts /mnt
 
@@ -255,16 +266,16 @@ bootstrap2_postfix=""
 if test "$option_restore_backup" = "true"; then
     bootstrap2_postfix="--restore-from-backup"
 fi
-echo "call bootstrap-2-chroot $bootstrap2_postfix in chroot"
-chroot /mnt /tmp/bootstrap-2-chroot-install.sh \
+echo "call bootstrap-2 $bootstrap2_postfix in chroot"
+chroot /mnt /tmp/bootstrap-2.sh \
     "$hostname" "$firstuser" --yes $bootstrap2_postfix
 echo "back in bootstrap-1-install"
 
 if test "$option_restore_backup" = "true"; then
-    echo "call bootstrap-2-chroot-restore"
-    cp -a /tmp/bootstrap-2-chroot-restore.sh /mnt/tmp
-    chmod +x /mnt/tmp/bootstrap-2-chroot-restore.sh
-    chroot /mnt /tmp/bootstrap-2-chroot-restore.sh \
+    echo "call bootstrap-2-restore"
+    cp -a /tmp/bootstrap-2-restore.sh /mnt/tmp
+    chmod +x /mnt/tmp/bootstrap-2-restore.sh
+    chroot /mnt /tmp/bootstrap-2-restore.sh \
         "$hostname" "$firstuser" --yes && err=$? || err=$?
     echo "back in bootstrap-1-install"
     if test "$err" != "0"; then echo "Backup - Restore Error $err"; exit $err; fi
@@ -283,5 +294,5 @@ unmount_efi /mnt
 unmount_boot /mnt
 unmount_root /mnt
 deactivate_lvm
-deactivate_crypt
-deactivate_raid
+deactivate_luks
+deactivate_mdadm
