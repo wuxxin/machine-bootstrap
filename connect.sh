@@ -26,7 +26,7 @@ use ssh keys and config taken from $config_path to connect to system via ssh
 
 + recoveryluks [--unsafe]
     uses the recovery host key for connection,
-    and transfers the luks diskphrase keys to recovery-mount.sh
+    and transfers the luks diskphrase keys to storage-mount.sh
 
 + recoverymount [--unsafe]
     equal to recoveryluks but also mount all partitions and prepare a chroot at /mnt
@@ -162,10 +162,10 @@ if test "$hosttype" = "initrdluks" -o \
         waitfor_ssh "$sshlogin"
         remote_attestation_ssh "$sshopts" "$(ssh_uri ${sshlogin})" $allowunsafe
         echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
-            'recovery-mount.sh --yes --only-raid-crypt --luks-from-stdin'
+            'storage-mount.sh --yes --only-raid-luks --password-from-stdin'
         if test "$hosttype" = "recoverymount"; then
             ssh $sshopts $(ssh_uri ${sshlogin}) \
-                "recovery-mount.sh --yes --without-raid-crypt $@"
+                "storage-mount.sh --yes --without-raid-luks $@"
         fi
         ssh $sshopts $(ssh_uri ${sshlogin})
     else
