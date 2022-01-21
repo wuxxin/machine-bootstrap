@@ -13,7 +13,7 @@ $0 execute recovery|install|gitops|all|plain <hostname> [optional parameter]
         host is displayed on screen and captured to "log" dir
 
     + recovery
-        execute partitioning and recovery install (expects debianish live system)
+        execute partitioning and recovery install (expects debian or archlinux like live system)
 
     + install [--restore-from-backup]
         execute format and install system (expects running recovery image)
@@ -213,7 +213,7 @@ for i in nc ssh gpg scp; do
     fi
 done
 if test "$command" = "create-liveimage"; then
-    "$self_path/recovery/build-recovery.sh" --check-req
+    "$self_path/recovery/recovery-build-ubuntu.sh" --check-req
 fi
 
 # parse config file
@@ -341,19 +341,19 @@ if test "$command" = "create-liveimage"; then
     download_path="$run_path/liveimage"
     mkdir -p "$download_path"
     # optional but with a http proxy setting it will get downloaded from cache
-    with_proxy "$self_path/recovery/build-recovery.sh" download "$download_path"
+    with_proxy "$self_path/recovery/recovery-build-ubuntu.sh" download "$download_path"
     # write recovery.squashfs with new hostkeys for bootstrap-0
     if test -e "$download_path/scripts"; then rm -r "$download_path/scripts"; fi
     mkdir -p "$download_path/scripts"
     cp -a $self_path/recovery/* "$download_path/scripts"
     cp $self_path/bootstrap-library.sh "$download_path/scripts/"
     echo "$generated_hostkeys" > "$download_path/bootstrap-0.hostkeys"
-    "$self_path/recovery/update-recovery-squashfs.sh" --custom \
+    "$self_path/recovery/recovery-config-ubuntu.sh" --custom \
         "$download_path/recovery.squashfs" "$hostname" "-" "$netplan_file" \
         "$download_path/bootstrap-0.hostkeys" "$authorized_keys_file" \
         "$download_path/scripts" - "$recovery_autologin" "default" "$http_proxy"
     # create liveimage
-    with_proxy "$self_path/recovery/build-recovery.sh" create liveimage \
+    with_proxy "$self_path/recovery/recovery-build-ubuntu.sh" create liveimage \
             "$download_path" \
             "$download_path/$bootstrap0liveimage" \
             "$download_path/recovery.squashfs" \
@@ -375,12 +375,12 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"
     echo "$netplan_data" \
         | ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/netplan.yaml"
     scp $sshopts \
-        "$self_path/bootstrap-0-recovery.sh" \
+        "$self_path/bootstrap-0.sh" \
         "$self_path/bootstrap-library.sh" \
         "$(ssh_uri ${sshlogin} scp)/tmp"
     scp $sshopts -rp "$self_path/recovery" "$(ssh_uri ${sshlogin} scp)/tmp"
-    baseimage=$($self_path/recovery/build-recovery.sh show imagename)
-    keyfile=$($self_path/recovery/build-recovery.sh show keyfile)
+    baseimage=$($self_path/recovery/recovery-build-ubuntu.sh show imagename)
+    keyfile=$($self_path/recovery/recovery-build-ubuntu.sh show keyfile)
     if test -e "$run_path/liveimage/$baseimage"; then
         echo "copy $baseimage to target (assuming it is a physical install without http proxy)"
         ssh $sshopts "$(ssh_uri ${sshlogin})" "mkdir -p /tmp/liveimage"
@@ -406,7 +406,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"
 
     echo "call bootstrap-0, wipe disks, install tools, create partitions write recovery"
     ssh $sshopts "$(ssh_uri ${sshlogin})" \
-        "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-0-recovery.sh $hostname \"$storage_ids\" --yes $storage_opts $select_autologin" 2>&1 | tee "$log_path/bootstrap-recovery.log"
+        "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-0.sh $hostname \"$storage_ids\" --yes $storage_opts $select_autologin" 2>&1 | tee "$log_path/bootstrap-recovery.log"
 
     echo "reboot into recovery"
     ssh $sshopts "$(ssh_uri ${sshlogin})" '{ sleep 1; reboot; } >/dev/null &' || true
@@ -428,16 +428,16 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
     scp $sshopts "$config_path/recovery_hostkeys" \
         "$(ssh_uri ${sshlogin} scp)/tmp/recovery_hostkeys"
     scp $sshopts \
-        "$self_path/bootstrap-1-install.sh" \
+        "$self_path/bootstrap-1.sh" \
         "$self_path/bootstrap-1-restore.sh" \
-        "$self_path/bootstrap-2-chroot-install.sh" \
-        "$self_path/bootstrap-2-chroot-restore.sh" \
+        "$self_path/bootstrap-2.sh" \
+        "$self_path/bootstrap-2-restore.sh" \
         "$self_path/bootstrap-library.sh" \
         "$config_path/recovery_hostkeys" \
         "$(ssh_uri ${sshlogin} scp)/tmp"
     scp $sshopts -rp \
         "$self_path/recovery" \
-        "$self_path/initrd" \
+        "$self_path/dracut" \
         "$(ssh_uri ${sshlogin} scp)/tmp"
 
     if test "$recovery_autologin" = "true"; then
@@ -452,7 +452,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
     echo "call bootstrap-1, format storage, install system or restore from backup"
     echo -n "$diskphrase" \
         | ssh $sshopts ${sshlogin} \
-            "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1-install.sh $hostname $firstuser \"$storage_ids\" --yes $select_root_lvm_vol_size $select_data_lvm_vol_size $select_frankenstein --distrib-id $distrib_id --distrib-codename $distrib_codename  $@" 2>&1 | tee "$log_path/bootstrap-install.log"
+            "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1.sh $hostname $firstuser \"$storage_ids\" --yes $select_root_lvm_vol_size $select_data_lvm_vol_size $select_frankenstein --distrib-id $distrib_id --distrib-codename $distrib_codename  $@" 2>&1 | tee "$log_path/bootstrap-install.log"
 
     echo "copy initrd and system ssh hostkeys from target"
     printf "%s %s\n" "$(ssh_uri ${sshlogin} known)" \
