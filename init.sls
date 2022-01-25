@@ -1,3 +1,3 @@
 include:
-  - machine-bootstrap.initrd
+  - machine-bootstrap.dracut
   - machine-bootstrap.recovery
