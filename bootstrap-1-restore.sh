@@ -2,24 +2,33 @@
 set -eo pipefail
 set -x
 
-install_restic() {
+install_packages() {
+    if which apt-get > /dev/null; then
+        DEBIAN_FRONTEND=noninteractive apt-get install --yes $@
+    elif which pamac > /dev/null; then
+        pamac install --no-confirm --no-upgrade $@
+    else
+        echo "Error: unknown platform, add cmds for other platforms"; exit 1
+    fi
+}
 
-    restic_version="0.9.6"
+install_restic() {
+    restic_version="0.12.1"
     restic_download_name="restic_${restic_version}_linux_amd64.bz2"
     restic_download_url="https://github.com/restic/restic/releases/download/v${restic_version}/${restic_download_name}"
-    restic_download_hash="a88ca09d1dd051d470965667a224a2b81930c6628a0566b7b17868be40207dc8"
+    restic_download_hash="11d6ee35ec73058dae73d31d9cd17fe79661090abeb034ec6e13e3c69a4e7088"
     restic_local_download="/usr/local/lib/${restic_download_name}"
     restic_local_binary="/usr/local/bin/restic"
 
-    rclone_version="1.50.2"
+    rclone_version="1.57.0"
     rclone_download_name="rclone-v${rclone_version}-linux-amd64.zip"
     rclone_download_url="https://github.com/rclone/rclone/releases/download/v${rclone_version}/${rclone_download_name}"
-    rclone_download_hash="2112883164f1f341b246a275936e7c3019d68135002098d84637839dec9526c8"
+    rclone_download_hash="49191e1156cf0c41d9e6af35bd31cf2a2884107483823e17671323717905e771"
     rclone_local_download="/usr/local/lib/${rclone_download_name}"
     rclone_local_extract="rclone-v${rclone_version}-linux-amd64/rclone"
     rclone_local_binary="/usr/local/bin/rclone"
 
-    DEBIAN_FRONTEND=noninteractive apt-get install --yes bzip2 unzip fuse curl
+    install_packages bzip2 unzip fuse curl
     mkdir -p $(dirname $restic_local_download) $(dirname $rclone_local_download)
 
     curl -L -s -o "$rclone_local_download" "$rclone_download_url"
