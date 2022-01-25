@@ -58,11 +58,8 @@ install_packages() { # --refresh package*
             DEBIAN_FRONTEND=noninteractive apt-get install --yes $@
         fi
     elif which pamac > /dev/null; then
-        if test "$refresh" = "true"; then
-            pamac update --yes
-        fi
         if test "$@" != ""; then
-            pamac install --yes $@
+            pamac install --no-confirm --no-upgrade $@
         fi
     else
         echo "Error: unknown platform, add cmds for other platforms in install_packages"
@@ -1227,23 +1224,26 @@ create_root_zpool() { # [--password password] [--distrib_id distrib_id] basedir 
 }
 
 
-install_manjaro() { # basedir distrib_codename
-    local basedir distrib_codename
-    basedir=$1; distrib_codename=$2
-    systemctl enable --now systemd-timesyncd
-    pacman-mirrors --api --set-branch "$distrib_codename" --url https://manjaro.moson.eu
-    pacman -Syy archlinux-keyring manjaro-keyring
-    pacman-key --init
-    pacman-key --populate archlinux manjaro
-    pacman-key --refresh-keys
+bootstrap_manjaro() { # basedir distrib_codename distrib_profile
+    local basedir distrib_codename distrib_profile
+    basedir=$1; distrib_codename=$2; $distrib_profile=$3
+    if test "$distrib_codename" = ""; then $distrib_codename="stable"; fi
+    if test "$distrib_profile" = ""; then $distrib_profile="manjaro/gnome"; fi
+
+    # systemctl enable --now systemd-timesyncd
+    # pacman-mirrors --api --set-branch "$distrib_codename" --url https://manjaro.moson.eu
+    # pacman -Syy archlinux-keyring manjaro-keyring
+    # pacman-key --init
+    # pacman-key --populate archlinux manjaro
+    # pacman-key --refresh-keys
 
     git clone https://gitlab.manjaro.org/profiles-and-settings/iso-profiles.git ~/iso-profiles
     cd ~/iso-profiles
-    basestrap /mnt
+    basestrap -C $distrib_profile/profile.conf /mnt
 }
 
 
-install_nixos() { # basedir distrib_codename
+bootstrap_nixos() { # basedir distrib_codename
     local basedir distrib_codename
     basedir=$1; distrib_codename=$2
     # add nix build group and user
