@@ -1,20 +1,24 @@
-# Todo list
+# Notes
 
-## done
+## TODO
 
-## testing
+### done
 
-## next
+### testing
 
-### bugs
-+ ubuntu: after hardreset, recovery is not selected as fallback
+### next
++ native zfs encryption
++ manjaro installation with systemd-boot instead of grub
+
+#### bugs
 + ubuntu: non-blocking: phase install: reboot: rpool busy (can not export rpool)
     + lvm-root busy (Logical volume vg0/lvm-root contains a filesystem in use)
++ ubuntu: after hardreset, recovery is not selected as fallback
 
-### features
-+ recovery scripts to replace a faulty disk, to invalidate a disk
-    + all: add script to replace a changed faulty disk: recovery-replace-mirror.sh
-    + all: add script to deactivate (invalidate) one of two disks: storage-invalidate-mirror.sh
+#### features
++ recovery scripts to replace a faulty disk and to invalidate a disk
+    + write script to replace a changed faulty disk: recovery-replace-mirror.sh
+    + write cript to deactivate (invalidate) one of two disks: storage-invalidate-mirror.sh
 + extend: connect.sh initrdluks|recoverymount --unsafe for extra safety for encryption key
     + checks after connecting if gatewaydev is emulated, aborts if emulated
     + use --unsafe if you know you're connecting to a vm
