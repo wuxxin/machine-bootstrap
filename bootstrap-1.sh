@@ -15,10 +15,15 @@ optional parameter (must be ordered as listed):
     if lvm is used, define the capacity of the lvm root volume, defaults to 20480 (20gb)
 --data-lvm-vol-size <volsizemb>
     if lvm is used, define the capacity of the lvm data volume, defaults to 20480 (20gb)
+
 --distrib_id <name>
     select a different distribution (default=$distrib_id)
 --distrib_codename <name>
     select a different distribution version (default=$distrib_codename)
+--distrib_profile <name>
+    select a different distribution profile
+    (default=$distrib_profile, only applicable to distrib_id=manjaro)
+
 --restore-from-backup
     partition and format system, restore from backup, adapt to new storage
 
@@ -41,6 +46,7 @@ warn_rename() { # targetfile
 # defaults
 distrib_id="ubuntu"
 distrib_codename="focal"
+distrib_profile="manjaro/gnome"
 root_lvm_vol_size="20480"
 data_lvm_vol_size="$root_lvm_vol_size"
 option_restore_backup=false
@@ -65,6 +71,7 @@ if test "$1" = "--root-lvm-vol-size"; then root_lvm_vol_size="$2"; shift 2; fi
 if test "$1" = "--data-lvm-vol-size"; then data_lvm_vol_size="$2"; shift 2; fi
 if test "$1" = "--distrib-id"; then distrib_id=$2; shift 2; fi
 if test "$1" = "--distrib-codename"; then distrib_codename=$2; shift 2; fi
+if test "$1" = "--distrib-profile"; then distrib_profile=$2; shift 2; fi
 if test "$1" = "--restore-from-backup"; then option_restore_backup=true; shift; fi
 
 # distrib_id can be one of "ubuntu", "debian", "nixos", "manjaro"
@@ -98,6 +105,7 @@ fulldisklist: $(for i in $fulldisklist; do echo -n " $i"; done)
 http_proxy: $http_proxy
 distrib_id: $distrib_id
 distrib_codename: $distrib_codename
+$(if test "$distrib_id" = "manjaro"; then echo "distrib_profile: $distrib_profile"; fi)
 option_restore_backup: $option_restore_backup
 root_lvm_vol_size: $root_lvm_vol_size
 data_lvm_vol_size: $data_lvm_vol_size
@@ -145,16 +153,16 @@ if test "$option_restore_backup" = "true"; then
     /tmp/bootstrap-1-restore.sh "$hostname" "$firstuser" --yes && err=$? || err=$?
     if test "$err" != "0"; then echo "Backup - Restore Error $err"; exit $err; fi
 else
-    # install base system
+    echo "install base system $distrib_id:$distrib_codename"
     if test "$distrib_id" = "ubuntu" -o "$distrib_id" = "debian"; then
         echo "install minimal base $distrib_codename system"
-        debootstrap --verbose "$distrib_codename" /mnt
+        debootstrap "$distrib_codename" /mnt
     elif test "$distrib_id" = "manjaro"; then
-        install_manjaro /mnt $distrib_codename
+        bootstrap_manjaro /mnt $distrib_codename $distrib_profile
     elif test "$distrib_id" = "nixos"; then
-        install_nixos /mnt $distrib_codename
+        bootstrap_nixos /mnt $distrib_codename
     else
-        echo "Error: Unknown distrib_id($distrib_id)"
+        echo "Error: Unknown distrib_id: $distrib_id"
         exit 1
     fi
 fi
@@ -201,10 +209,8 @@ if test -d /tmp/recovery/zfs; then
     echo "copying files to /etc/recovery/zfs"
     cp -a -t /mnt/etc/recovery/zfs /tmp/zfs/*
 fi
-
-echo "copy bootstrap-library.sh to /tmp and /etc/recovery"
+echo "copy bootstrap-library.sh to /etc/recovery"
 cp /tmp/bootstrap-library.sh /mnt/etc/recovery
-
 echo "copy ssh hostkeys to /etc/recovery"
 cp /tmp/recovery_hostkeys /mnt/etc/recovery
 chmod 0600 /mnt/etc/recovery/recovery_hostkeys
@@ -214,6 +220,7 @@ cp /tmp/bootstrap-library.sh /mnt/tmp
 cp /tmp/bootstrap-2.sh /mnt/tmp
 chmod +x /mnt/tmp/bootstrap-2.sh
 
+echo "mount bind mounts"
 mount_bind_mounts /mnt
 
 bootstrap2_postfix=""
