@@ -1,6 +1,6 @@
 # Machine bootstrap
 
-Unattended ssh based linux operating system installer
+Unattended ssh based linux operating system installer with customizable storage layout and remote unlock
 
 + Ubuntu 20.04 LTS (Focal)
 + Manjaro Stable
