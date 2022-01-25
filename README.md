@@ -1,8 +1,9 @@
 # Machine bootstrap
 
-Unattended ssh based operating system installer for
-    + Ubuntu 20.04 LTS (Focal)
-    + Manjaro Stable
+Unattended ssh based linux operating system installer
+
++ Ubuntu 20.04 LTS (Focal)
++ Manjaro Stable
 
 **Usage:**
 
@@ -10,40 +11,41 @@ Unattended ssh based operating system installer for
 + can be configured to fit different use cases, eg.
     + as a Desktop/Laptop
     + as a typical Rootserver (2xHD, headless)
-    + as a home-nas/home-io headless server with one ssd and two attached spindle disks
+    + as a home-nas/home-io headless server
+        + with one or two ssd and two ore more attached big spindle disks
 
 **Status:**
 
-+ most combinations work, some break under certain conditions.
++ currently under rewrite, probably fails
 
 ## Features
 
-+ **one or two disks** (will be automatically setup as mdadm &/ zfs mirror if two disks)
-+ **root storage on luks or native encrypted zfs** / zfs mirror pool (encrypted storage at rest)
++ **one or two disks** (will be automatically setup as mdadm \&/ zfs mirror if two disks)
++ **root and other on luks or native encrypted zfs** / zfs mirror pool (encrypted storage at rest)
     + and **other common and less common**, easy to configure **storage setups**
 + **logging** of recovery and target system installation on the calling machine in directory ./run/log
-
-+ ubuntu
++ **ubuntu**
     + **efi and legacy bios** boot compatible hybrid grub setup with grubenv support
-    + initial ramdisk based on **dracut with ssh and clevis/tang luks remote unlock**
+    + initial ramdisk based on **dracut with openssh and crypt remote unlock**
     + buildin **recovery system installation** on EFI partition
         + based on casper of ubuntu 20.04
         + unattended cloud-init boot via custom squashfs with ssh ready to login
         + buildin scripts to mount/unmount root and update recovery boot parameter
-+ manjaro
++ **manjaro**
     + modern **amd64 uefi systemd-boot** setup
 
 ### optional Features
+
 + luks encrypted **hibernate compatible swap** for eg. a desktop installation
 + **gitops stage using saltstack** with states from salt-shared (eg. desktop)
 + **encrypt sensitive data** in setup repository with git-crypt
     + git & git-crypt repository setup to store machine configuration inside a git repository
-
-+ ubuntu: **build a preconfigured livesystem image** usable for headless physical installation
-    + resulting image is compatible as CD or USB-Stick with BIOS and EFI support
-    + optional netplan for static or other non dhcp based ip configurations
-    + execute `./machine-bootstrap/bootstrap.sh create-liveimage` to build image and copy to stick
-    + use ssh with preconfigured key or physical terminal/console of livesystem for interaction
++ **ubuntu**
+    + **build a preconfigured livesystem image** usable for headless physical installation
+        + resulting image is compatible as CD or USB-Stick with BIOS and EFI support
+        + optional netplan for static or other non dhcp based ip configurations
+        + execute `./machine-bootstrap/bootstrap.sh create-liveimage` to build image and copy to stick
+        + use ssh with preconfigured key or physical terminal/console of livesystem for interaction
 
 #### Example Configurations
 
@@ -172,8 +174,11 @@ firstuser=$(id -u -n)
 # optional
 
 # http_proxy="http://192.168.122.1:8123" # default ""
-# distrib_id="Nixos" # default "Ubuntu"
+# distrib_id="Nixos" # default "ubuntu"
 # distrib_codename="19.09-small" # default "focal"
+# distrib_profile="manjaro/kde" # default "manjaro/gnome" on manjaro, else empty
+# recovery_id="manjaro" # default "ubuntu" if not manjaro, else "manjaro"
+# recovery_install="false" # default "true"
 # recovery_autologin="true" # default "false"
 
 # gitops_user="$firstuser" # default $firstuser
@@ -376,27 +381,28 @@ reboot
     any other filesystem will get an mdadm-mirror device.
 
 + SWAP
-    if using a SWAP partition, the swap partition will always be encrypted.
-    Suspend to disk has all memory secrets written to disk,
-    so a suspend would store these secrets in plaintext to disk.
+    + if using a SWAP partition, the swap partition will always be encrypted.
+        Suspend to disk has all memory secrets written to disk,
+        so a suspend would store these secrets in plaintext to disk.
 
-    to make encrypted swap useful,
-    ROOT should also be encrypted, this can be set via --root-crypt
+    + to make encrypted swap useful,
+        ROOT should also be encrypted, this can be set via --root-crypt
 
-    if encryption of swap is not desired, a swap file can be created using
-    create_file_swap() which is feature equal to the swap partition
-    beside the suspend to disk functionality.
+    + if encryption of swap is not desired, a swap file can be created using
+        create_file_swap() which is feature equal to the swap partition
+        beside the suspend to disk functionality.
 
 + ZFS or LVM but not both on one partition
-    on partittions ROOT and DATA, currently only either zfs or lvm can be used.
-    if both are specified at the same time, the script will fail.
+    + on partittions ROOT and DATA, currently only either zfs or lvm can be used.
+        if both are specified at the same time, the script will fail.
 
 + GPT Name Scheme information leakage
-    be aware that, the way gpt labels are setup in this script, they leak metadata of encrypted data, eg. raid_luks_lvm.vg0_ext4_ROOT leaks the information that behind the luks encrypted data is a lvm partition with a volume group named vg0 and the root file system is ext4 (but not how to read this data). if this is an issue, rename the volume labels after bootstrap completed, mounts will still work because they are pointing to the uuid
+    + be aware that, the way gpt labels are setup in this script, they leak metadata of encrypted data, eg. raid_luks_lvm.vg0_ext4_ROOT leaks the information that behind the luks encrypted data is a lvm partition with a volume group named vg0 and the root file system is ext4 (but not how to read this data). if this is an issue, rename the volume labels after bootstrap completed, mounts will still work because they are pointing to the uuid
 
-+ ZFS SLOG and L2ARC (for pools outside the two primary storage devices) store
-    its data corresponding to the target pool, meaning, if the target pool is
-    encrypted, so will be the SLOG and the L2ARC
++ ZFS SLOG and L2ARC encryption
+    + a Log and a Cache Partition can be created for pools outside the two
+    primary storage devices. its data encryption state is corresponding to
+    the target pool, meaning, if the target pool is encrypted, so will be the SLOG and the L2ARC
 
 ### Partition (GPT) Layout
 
@@ -411,10 +417,10 @@ Nr |Name(max 36 x UTF16)|Description|
 0  | `[raid_][luks_][lvm.vg0_](enczfs:zfs:ext4:xfs)_ROOT,1,2` | root partition
 7  | `[raid_][luks_][lvm.vgdata_](enczfs:zfs:ext4:xfs:other)_DATA,1,2` | **optional** data partition
 
-Ubuntu/Debian:
++ Ubuntu/Debian
     + hybrid efi & bios grub installation
     + EFI contains recovery system: kernel,initrd,fs
     + EFI contains /boot for system: kernel,initrd if no boot partition
-Manjaro:
++ Manjaro
     + efi only systemd-boot installation
     + EFI contains /boot for system, kernel,initrd if no boot partition
