@@ -1,5 +1,5 @@
 include:
-  - machine-bootstrap.initrd
+  - machine-bootstrap.dracut
   - machine-bootstrap.recovery.efi-sync
 
 {% set squashfs_path = '/efi/casper/recovery.squashfs' %}
