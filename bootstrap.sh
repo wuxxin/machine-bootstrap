@@ -9,24 +9,29 @@ usage() {
     cat << EOF
 
 $0 execute recovery|install|gitops|all|plain <hostname> [optional parameter]
-    execute the requested stages of install on hostname, all output from target
-        host is displayed on screen and captured to "log" dir
 
-    + recovery
-        execute partitioning and recovery install (expects debian or archlinux like live system)
+execute the requested stages of install on host <hostname>,
+output from target host is displayed on screen and captured to "run/log"
+for safety, <hostname>  must be the same value as in the config file config/hostname
 
-    + install [--restore-from-backup]
-        execute format and install system (expects running recovery image)
-        --restore-from-backup: partition & format system, then restore from backup
++ recovery
+    execute partitioning and recovery install
+        expects debian (apt-get) or manjaro (pamac) like live system
 
-    + gitops
-        execute step gitops (expects installed and running base machine,
-        will first try to connect to initrd and unlock storage)
++ install [--restore-from-backup]
+    execute format and install system
+        expects running recovery image, or target distribution live image
 
-    + all:      executes steps recovery,install,gitops
-    + plain:    executes steps recovery,install
+    --restore-from-backup
+        partition & format system, then restore from backup
 
-    <hostname>  must be the same value as in the config file config/hostname
++ gitops
+    execute step gitops
+        expects installed and running base machine,
+        will first try to connect to initrd and unlock storage
+
++ plain:    executes steps recovery, install
++ all:      executes steps recovery, install, gitops
 
 $0 test
     + test the setup for mandatory files and settings, exits 0 if successful
@@ -43,14 +48,14 @@ Configuration:
     + Base Configuration File: "node.env"
     + File: "disk.passphrase.gpg"
     + File: "authorized_keys"
-+ additional mandatory config file if distrib_id=nixos
-    + File: "configuration.nix"
+    + if distrib_id=nixos File: "configuration.nix"
 + optional ssh config files for gitops step:
     + File: gitops.id_ed25519
     + File: gitops.known_hosts
     + File: gitops@node-secret-key.gpg
 + optional config files:
     + "netplan.yaml" default created on step recovery install
+    + "systemd.network" , "systemd.netdev"
     + "recovery_hostkeys" created automatically on step recovery install
     + "[temporary|recovery|initrd|system].known_hosts": created on the fly
 + run directory path: $run_path
@@ -262,17 +267,25 @@ fi
 
 # make defaults
 if test -z "$distrib_id"; then distrib_id="ubuntu"; fi
+if test -z "$recovery_id"; then recovery_id="ubuntu"; fi
 if test -z "$distrib_codename"; then distrib_codename="focal"; fi
 if test -z "$gitops_target"; then gitops_target="/home/$firstuser"; fi
 if test -z "$gitops_user"; then gitops_user="$firstuser"; fi
+if test -z "$recovery_install"; then recovery_install="true"; fi
+if test "$recovery_install" != "true"; then
+    recovery_install="false"; select_no_recovery="--no-recovery"
+else
+    select_no_recovery=""
+fi
 if test "$recovery_autologin" != "true"; then
     recovery_autologin="false"; select_autologin=""
 else
     select_autologin="--recovery-autologin"
 fi
-
-
-# verify nix configuration file is present if distrib_id=Nixos
+if test "$distrib_id" = "manjaro"; then
+    recovery_id="manjaro"
+    if test -z "$distrib_profile"; then distrib_profile="manjaro/gnome"; fi
+fi
 if test "$distrib_id" = "nixos"; then
     if test ! -e "$nixos_configuration_file"; then
         echo "Error: distrib_id=nixos but mandatory config file $nixos_configuration_file is missing"
@@ -286,11 +299,9 @@ Configuration:
 hostname: $hostname, http_proxy: $http_proxy
 storage_ids: $storage_ids
 storage_opts: $storage_opts
-recovery_autologin: $recovery_autologin
-select_autologin: $select_autologin
-select_root_lvm_vol_size: $select_root_lvm_vol_size
-select_data_lvm_vol_size: $select_data_lvm_vol_size
-distrib_id: $distrib_id , distrib_codename: $distrib_codename
+select_root_lvm_vol_size: $select_root_lvm_vol_size , select_data_lvm_vol_size: $select_data_lvm_vol_size
+recovery_install: $recovery_install , recovery_id: $recovery_id , recovery_autologin: $recovery_autologin
+distrib_id: $distrib_id , distrib_codename: $distrib_codename $(if test "$distrib_id" = "manjaro"; then echo " , distrib_profile: $distrib_profile"; fi)
 gitops_user: $gitops_user , gitops_target: $gitops_target
 EOF
 
@@ -363,7 +374,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"
     echo "Step: recovery"
     sshopts="-o UserKnownHostsFile=$config_path/temporary.known_hosts"
 
-    echo "copy ssh_authorized_keys, ssh_hostkeys, netplan, install script to target"
+    echo "copy ssh_authorized_keys, ssh_hostkeys, network config and install script to target"
     scp $sshopts "$authorized_keys_file" \
         "$(ssh_uri ${sshlogin} scp)/tmp/authorized_keys"
     echo "$recovery_hostkeys" \
@@ -374,35 +385,38 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"
         "$self_path/bootstrap-0.sh" \
         "$self_path/bootstrap-library.sh" \
         "$(ssh_uri ${sshlogin} scp)/tmp"
-    scp $sshopts -rp "$self_path/recovery" "$(ssh_uri ${sshlogin} scp)/tmp"
-    baseimage=$($self_path/recovery/recovery-build-ubuntu.sh show imagename)
-    keyfile=$($self_path/recovery/recovery-build-ubuntu.sh show keyfile)
-    if test -e "$run_path/liveimage/$baseimage"; then
-        echo "copy $baseimage to target (assuming it is a physical install without http proxy)"
-        ssh $sshopts "$(ssh_uri ${sshlogin})" "mkdir -p /tmp/liveimage"
-        if test -e "$run_path/liveimage/$keyfile"; then
-            scp $sshopts "$run_path/liveimage/$keyfile" \
-                "$(ssh_uri ${sshlogin} scp)/tmp/liveimage/$keyfile"
+
+    if test "$recovery_install" = "true"; then
+        scp $sshopts -rp "$self_path/recovery" "$(ssh_uri ${sshlogin} scp)/tmp"
+        baseimage=$($self_path/recovery/recovery-build-ubuntu.sh show imagename)
+        keyfile=$($self_path/recovery/recovery-build-ubuntu.sh show keyfile)
+        if test -e "$run_path/liveimage/$baseimage"; then
+            echo "copy $baseimage to target (assuming it is a physical install without http proxy)"
+            ssh $sshopts "$(ssh_uri ${sshlogin})" "mkdir -p /tmp/liveimage"
+            if test -e "$run_path/liveimage/$keyfile"; then
+                scp $sshopts "$run_path/liveimage/$keyfile" \
+                    "$(ssh_uri ${sshlogin} scp)/tmp/liveimage/$keyfile"
+            fi
+            scp $sshopts "$run_path/liveimage/$baseimage" \
+                "$(ssh_uri ${sshlogin} scp)/tmp/liveimage/$baseimage"
         fi
-        scp $sshopts "$run_path/liveimage/$baseimage" \
-            "$(ssh_uri ${sshlogin} scp)/tmp/liveimage/$baseimage"
-    fi
-    echo "write out recovery hostkeys to local config"
-    echo "$recovery_hostkeys" | grep "rsa_public:" \
-        | sed -r "s/[^:]+: +(.+)/$(ssh_uri ${sshlogin} known) \1/" \
-        > "$config_path/recovery.known_hosts"
-    echo "$recovery_hostkeys" | grep "ed25519_public:" \
-        | sed -r "s/[^:]+: +(.+)/$(ssh_uri ${sshlogin} known) \1/" \
-        >> "$config_path/recovery.known_hosts"
-    echo "$recovery_hostkeys" > "$config_path/recovery_hostkeys"
-    ssh-keygen -H -f "$config_path/recovery.known_hosts"
-    if test -e "$config_path/recovery.known_hosts.old"; then
-        rm "$config_path/recovery.known_hosts.old"
+        echo "write out recovery hostkeys to local config"
+        echo "$recovery_hostkeys" | grep "rsa_public:" \
+            | sed -r "s/[^:]+: +(.+)/$(ssh_uri ${sshlogin} known) \1/" \
+            > "$config_path/recovery.known_hosts"
+        echo "$recovery_hostkeys" | grep "ed25519_public:" \
+            | sed -r "s/[^:]+: +(.+)/$(ssh_uri ${sshlogin} known) \1/" \
+            >> "$config_path/recovery.known_hosts"
+        echo "$recovery_hostkeys" > "$config_path/recovery_hostkeys"
+        ssh-keygen -H -f "$config_path/recovery.known_hosts"
+        if test -e "$config_path/recovery.known_hosts.old"; then
+            rm "$config_path/recovery.known_hosts.old"
+        fi
     fi
 
-    echo "call bootstrap-0, wipe disks, install tools, create partitions write recovery"
+    echo "call bootstrap-0, wipe disks, install tools, create partitions, optional write recovery"
     ssh $sshopts "$(ssh_uri ${sshlogin})" \
-        "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-0.sh $hostname \"$storage_ids\" --yes $storage_opts $select_autologin" 2>&1 | tee "$log_path/bootstrap-recovery.log"
+        "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-0.sh $hostname \"$storage_ids\" --yes $storage_opts $select_no_recovery $select_autologin" 2>&1 | tee "$log_path/bootstrap-recovery.log"
 
     echo "reboot into recovery"
     ssh $sshopts "$(ssh_uri ${sshlogin})" '{ sleep 1; reboot; } >/dev/null &' || true
@@ -426,7 +440,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
     scp $sshopts \
         "$self_path/bootstrap-1.sh" \
         "$self_path/bootstrap-1-restore.sh" \
-        "$self_path/bootstrap-2.sh" \
+        "$self_path/bootstrap-2-$distrib_id.sh" \
         "$self_path/bootstrap-2-restore.sh" \
         "$self_path/bootstrap-library.sh" \
         "$config_path/recovery_hostkeys" \

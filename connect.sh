@@ -13,18 +13,19 @@ diskpassphrase_file=$config_path/disk.passphrase.gpg
 usage() {
     cat <<EOF
 Usage: $0 [--show-ssh|--show-scp]
-    temporary|recovery|recoveryluks|recoverymount|initrd|initrdluks|system [\$@]
+    temporary|recovery|initrd|system|
+    recoverycrypt|recoverymount|initrdcrypt [\$@]
 
 use ssh keys and config taken from $config_path to connect to system via ssh
 
 + temporary, recovery, initrd, system
     connect to system with the expected the ssh hostkey
 
-+ initrdluks [--unsafe]
++ initrdcrypt [--unsafe]
     uses the initrd host key for connection,
     and transfers the luks diskphrase keys to /lib/systemd/systemd-reply-password
 
-+ recoveryluks [--unsafe]
++ recoverycrypt [--unsafe]
     uses the recovery host key for connection,
     and transfers the luks diskphrase keys to storage-mount.sh
 
@@ -164,8 +165,8 @@ if test "$hosttype" = "initrdluks" -o \
         echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
             'storage-mount.sh --yes --only-raid-luks --password-from-stdin'
         if test "$hosttype" = "recoverymount"; then
-            ssh $sshopts $(ssh_uri ${sshlogin}) \
-                "storage-mount.sh --yes --without-raid-luks $@"
+            echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
+                "storage-mount.sh --yes --without-raid-luks --password-from-stdin $@"
         fi
         ssh $sshopts $(ssh_uri ${sshlogin})
     else
