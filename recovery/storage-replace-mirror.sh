@@ -14,10 +14,10 @@ recovery-replace-mirror.sh --valid-data sourceserial --new-mirror targetserial
   + luksformat luks-swap${disk} if existing
   + luksformat luks-root${disk}
 + reassamble mdadm-swap if existing
-+ reassamble rpool
++ reassamble rpool, dpool
   + add spare to zfs mirror
 + update initramfs ?
-+ grub-install newdisk
++ grub/systemd-boot install newdisk
 
 EOF
 
