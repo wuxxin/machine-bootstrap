@@ -62,6 +62,8 @@ Usage: $0 hostname 'diskid+' --yes [optional parameter]
 
   --no-recovery
     # only partition the disks, but do not install a recovery system
+  --recovery-id *ubuntu|manjaro
+    # which live recovery system to be installed
   --recovery-autologin
     # will set the tty4 of the recovery boot process to autologin for physical recovery
   --reuse
@@ -80,6 +82,7 @@ option_cache="false"
 option_swap="false"
 option_boot="false"
 recovery_install="true"
+recovery_id="ubuntu"
 recovery_autologin="false"
 # default hibernation swap_size = ram-mem*1.25
 swap_size=$(grep MemTotal /proc/meminfo \
@@ -145,6 +148,7 @@ while true; do
     --reuse)        option_reuse="true" ;;
     --no-recovery)  recovery_install="false" ;;
     --recovery-autologin) recovery_autologin="true" ;;
+    --recovery-id)  recovery_id="$2"; shift ;;
     --boot-loader)  boot_loader="$2"; shift ;;
     --efi-size)     efi_size="$2";    shift ;;
     --boot-fs)      boot_fs="$2";     shift ;;
@@ -166,6 +170,12 @@ while true; do
     shift
 done
 
+# check params
+if test "$recovery_id" != "ubuntu" -a "$recovery_id" != "manjaro"; then
+    echo "error: recovery_id $recover_id unknown"
+    exit 1
+fi
+
 # include library
 . "$self_path/bootstrap-library.sh"
 
@@ -177,7 +187,8 @@ cat << EOF
 Configuration:
 hostname: $hostname, http_proxy: $http_proxy
 fulldisklist=$(for i in $fulldisklist; do echo -n " $i"; done)
-reuse=$option_reuse, autologin=$recovery_autologin, efi-size=$efi_size
+reuse=$option_reuse, efi-size=$efi_size
+recovery_install=$recovery_install , recovery_id=$recovery_id , recovery autologin=$recovery_autologin
 swap=$option_swap ($swap_size), log=$option_log ($log_size), cache=$option_cache ($cache_size)
 boot_loader=$boot_loader, boot=$option_boot ($boot_size), boot_fs: $boot_fs
 root_fs: $root_fs, root_crypt: $root_crypt, root_lvm: $root_lvm, root_size: $root_size
@@ -194,7 +205,7 @@ cd /tmp
 
 packages="$(get_default_packages)"
 if test "$recovery_install" = "true"; then
-    packages="$packages $(/tmp/recovery/recovery-build-ubuntu.sh --check-req list)"
+    packages="$packages $(/tmp/recovery/recovery-build-$recovery_id.sh --check-req list)"
 fi
 echo "install required utils ($packages)"
 install_packages --refresh $packages
@@ -247,6 +258,7 @@ if test "$from_download" != "true"; then
     if test "$boot_fs" = "zfs"; then BOOT_TYPE="$ZFS_TYPE"; fi
     if test "$root_fs" = "zfs"; then ROOT_TYPE="$ZFS_TYPE"; fi
     if test "$data_fs" = "zfs"; then DATA_TYPE="$ZFS_TYPE"; fi
+    if test -z "$data_fs"; then      DATA_TYPE="$RESERVED_TYPE"; fi
     if test "$root_size" = "all"; then root_size="0"; else root_size="+${root_size}M"; fi
     disknr=1
     if test "$diskcount" = "1"; then
@@ -320,18 +332,20 @@ if test "$recovery_install" != "true"; then
     exit 0
 fi
 
-echo "build ubuntu recovery to /mnt/efi"
+echo "build $recovery_id recovery to /mnt/efi"
 mkdir -p /tmp/liveimage
-/tmp/recovery/recovery-build-ubuntu.sh download /tmp/liveimage
-/tmp/recovery/recovery-build-ubuntu.sh extract /tmp/liveimage /mnt/efi
+/tmp/recovery/recovery-build-$recovery_id.sh download /tmp/liveimage
+/tmp/recovery/recovery-build-$recovery_id.sh extract /tmp/liveimage /mnt/efi
 
-echo "create ubuntu recovery config to /mnt/efi/casper"
-cp "$self_path/bootstrap-library.sh" /tmp/recovery
-/tmp/recovery/recovery-config-ubuntu.sh --custom \
-    /tmp/recovery.squashfs "$hostname" "-" /tmp/netplan.yaml \
-    /tmp/recovery_hostkeys /tmp/authorized_keys /tmp/recovery \
-    - "$recovery_autologin" "default" "$http_proxy"
-cp /tmp/recovery.squashfs /mnt/efi/casper/
+if test "$recovery_id" = "ubuntu"; then
+    echo "create $recovery_id recovery config to /mnt/efi/casper"
+    cp "$self_path/bootstrap-library.sh" /tmp/recovery
+    /tmp/recovery/recovery-config-$recovery_id.sh --custom \
+        /tmp/recovery.squashfs "$hostname" "-" /tmp/netplan.yaml \
+        /tmp/recovery_hostkeys /tmp/authorized_keys /tmp/recovery \
+        - "$recovery_autologin" "default" "$http_proxy"
+    cp /tmp/recovery.squashfs /mnt/efi/casper/
+fi
 
 # install on first disk only, bootstrap-2 will reinstall grub and sync if two disks
 echo "write /mnt/efi/grub/grub.cfg"
@@ -339,7 +353,7 @@ efi_grub="hd0,gpt${EFI_NR}"
 efi_fs_uuid=$(dev_fs_uuid "$(by_partlabel EFI | first_of)")
 casper_livemedia=""
 mkdir -p /mnt/efi/grub
-/tmp/recovery/recovery-build-ubuntu.sh show grub.cfg \
+/tmp/recovery/recovery-build-$recovery_id.sh show grub.cfg \
     "$efi_grub" "$casper_livemedia" "$efi_fs_uuid" > /mnt/efi/grub/grub.cfg
 
 echo "install grub"
