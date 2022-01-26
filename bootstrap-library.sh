@@ -1176,8 +1176,7 @@ create_root_zpool() { # [--password password] [--distrib_id distrib_id] basedir 
         -o logbias=throughput \
         rpool/var
 
-    # comfort: create unmountable container,
-    #           so /var/lib subcontainer dont need a mountpoint specification
+    # make /var/lib an unmountable container, so subcontainer have automatic mountpoint
     zfs create \
         -o canmount=off \
         rpool/var/lib
@@ -1200,22 +1199,37 @@ create_root_zpool() { # [--password password] [--distrib_id distrib_id] basedir 
     # keep in sync with salt-shared/zfs/defaults.jinja/zfs_rpool_defaults, see README.md for snippet
     zfs create -o "mountpoint=/home" -o "setuid=off" -o "exec=on" rpool/data/home
     zfs create -o "mountpoint=/root" rpool/data/home/root
-    zfs create -o "recordsize=16K" -o "logbias=throughput" -o "primarycache=metadata" rpool/data/postgresql
-    zfs create -o "mountpoint=/var/lib/postgresql" rpool/data/postgresql/localhost
-    zfs create -o "mountpoint=/var/lib/mail" rpool/data/mail
     zfs create -o "mountpoint=/tmp" rpool/var/basedir-tmp
     zfs create rpool/var/tmp
     zfs create rpool/var/spool
     zfs create -o "exec=off" rpool/var/log
     zfs create -o "exec=off" rpool/var/cache
 
+    zfs create -o "recordsize=16K" -o "logbias=throughput" -o "primarycache=metadata" rpool/data/postgresql
+    zfs create -o "mountpoint=/var/lib/postgresql" rpool/data/postgresql/localhost
+    zfs create -o "mountpoint=/var/lib/mail" rpool/data/mail
+
     if test "$distrib_id" = "ubuntu"; then
+        # for apt based systems
         zfs create rpool/var/backups
         mkdir -p "$basedir/var/lib/apt"
         zfs create -o "exec=off" -o "mountpoint=/var/lib/apt/lists" rpool/var/lib/apt-lists
+        # for pbuilder
         zfs create -o "exec=on" -o "devices=on" rpool/var/cache/pbuilder
+        # for snaps
         zfs create rpool/var/lib/snapd
     fi
+    # for GNOME
+    #- name: var/lib/AccountsService
+    # for Docker
+    # - name: var/lib/docker
+    # for NFS
+    # - name: var/lib/nfs
+    # for LXC
+    # - name: var/lib/lxc
+    # for LibVirt
+    # - name: var/lib/libvirt
+
     # keep in sync end
 
     # correct filepermission for temp directories
