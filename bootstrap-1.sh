@@ -9,12 +9,7 @@ usage() {
     cat <<EOF
 Usage: cat diskkey | $0 hostname firstuser disklist --yes [optional parameter]
 
-optional parameter (must be ordered as listed):
-
---root-lvm-vol-size <volsizemb>
-    if lvm is used, define the capacity of the lvm root volume, defaults to 20480 (20gb)
---data-lvm-vol-size <volsizemb>
-    if lvm is used, define the capacity of the lvm data volume, defaults to 20480 (20gb)
++ optional parameter
 
 --distrib_id <name>
     select a different distribution (default=$distrib_id)
@@ -23,6 +18,11 @@ optional parameter (must be ordered as listed):
 --distrib_profile <name>
     select a different distribution profile
     (default=$distrib_profile, only applicable to distrib_id=manjaro)
+
+--root-lvm-vol-size <volsizemb>
+    if lvm is used, define the capacity of the lvm root volume, defaults to 20480 (20gb)
+--data-lvm-vol-size <volsizemb>
+    if lvm is used, define the capacity of the lvm data volume, defaults to 20480 (20gb)
 
 --restore-from-backup
     partition and format system, restore from backup, adapt to new storage
@@ -51,7 +51,7 @@ root_lvm_vol_size="20480"
 data_lvm_vol_size="$root_lvm_vol_size"
 option_restore_backup=false
 
-# parse args
+# parse mandatory args
 if test "$4" != "--yes"; then usage; fi
 hostname=$1; firstuser=$2; disklist=$3
 shift 4
@@ -67,12 +67,24 @@ if test "$diskpassword" = ""; then
     echo "ERROR: script needs diskpassword from stdin, abort"
     exit 1
 fi
-if test "$1" = "--root-lvm-vol-size"; then root_lvm_vol_size="$2"; shift 2; fi
-if test "$1" = "--data-lvm-vol-size"; then data_lvm_vol_size="$2"; shift 2; fi
-if test "$1" = "--distrib-id"; then distrib_id=$2; shift 2; fi
-if test "$1" = "--distrib-codename"; then distrib_codename=$2; shift 2; fi
-if test "$1" = "--distrib-profile"; then distrib_profile=$2; shift 2; fi
-if test "$1" = "--restore-from-backup"; then option_restore_backup=true; shift; fi
+
+# parse optional args
+OPTS=$(getopt -o "" -l restore-from-backup,root-lvm-vol-size:,data-lvm-vol-size:,distrib-id:,distrib-codename:,distrib-profile: -- "$@")
+[[ $? -eq 0 ]] || usage
+eval set -- "${OPTS}"
+while true; do
+    case $1 in
+        --restore-from-backup)  option_restore_backup="true"; ;;
+        --root-lvm-vol-size)    root_lvm_vol_size="$2"; shift ;;
+        --data-lvm-vol-size)    data_lvm_vol_size="$2"; shift ;;
+        --distrib-id)           distrib_id="$2";        shift ;;
+        --distrib-codename)     distrib_codename="$2";  shift ;;
+        --distrib-profile)      distrib_profile="$2";   shift ;;
+        --) shift; break ;;
+        *)  echo "error in params: $@"; usage ;;
+    esac
+    shift
+done
 
 # distrib_id can be one of "ubuntu", "debian", "nixos", "manjaro"
 # check for valid distrib_id and set default distrib_codename if not ubuntu
@@ -114,8 +126,9 @@ EOF
 # ## main
 cd /tmp
 if which cloud-init > /dev/null; then
-    echo -n "waiting for cloud-init finish..."
-    cloud-init status --wait || true
+    printf "waiting for cloud-init finish..."
+    cloud-init status --wait || printf "exited with error: $?"
+    printf "\n"
 fi
 
 echo "set target hostname in current system"
