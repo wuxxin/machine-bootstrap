@@ -9,7 +9,7 @@ usage() {
     cat << EOF
 Usage: $0 hostname 'diskid+' --yes [optional parameter]
 
-**overwrites** all existing data of all disks matching 'diskid+'
+**overwrites** all existing data of all disks matching 'diskid+',
     repartition disks and optionally install a recovery system
 
 + <diskid+> can be one or two diskids (serialnr), will setup mirroring if two disks
@@ -155,6 +155,7 @@ while true; do
     --root-fs)      root_fs="$2";     shift ;;
     --root-lvm)     root_lvm="$2";    shift ;;
     --root-lvm-vol-size)              shift ;;
+    --from-download) from_download="true"; ;;
     # accept but ignored in bootstrap-0, because only needed in bootstrap-1
     --root-crypt)   root_crypt="$2";  shift ;;
     --root-size)    root_size="$2";   shift ;;
@@ -162,8 +163,6 @@ while true; do
     --data-lvm)     data_lvm="$2";    shift ;;
     --data-crypt)   data_crypt="$2";  shift ;;
     --data-lvm-vol-size)              shift ;;
-    # accepted but ignored in bootstrap-0, because only needed in bootstrap-1
-    --from-download) from_download="true"; ;;
     --)             shift; break ;;
     *)              echo "error in params: $@"; usage ;;
     esac
@@ -187,17 +186,18 @@ cat << EOF
 Configuration:
 hostname: $hostname, http_proxy: $http_proxy
 fulldisklist=$(for i in $fulldisklist; do echo -n " $i"; done)
-reuse=$option_reuse, efi-size=$efi_size
-recovery_install=$recovery_install , recovery_id=$recovery_id , recovery autologin=$recovery_autologin
-swap=$option_swap ($swap_size), log=$option_log ($log_size), cache=$option_cache ($cache_size)
-boot_loader=$boot_loader, boot=$option_boot ($boot_size), boot_fs: $boot_fs
+reuse: $option_reuse, efi-size: $efi_size
+recovery_install: $recovery_install , recovery_id: $recovery_id , recovery autologin: $recovery_autologin
+swap: $option_swap ($swap_size), log: $option_log ($log_size), cache: $option_cache ($cache_size)
+boot_loader: $boot_loader, boot: $option_boot ($boot_size), boot_fs: $boot_fs
 root_fs: $root_fs, root_crypt: $root_crypt, root_lvm: $root_lvm, root_size: $root_size
 data_fs: $data_fs, data_crypt: $data_crypt, data_lvm: $data_lvm
 EOF
 
 if which cloud-init > /dev/null; then
-    echo -n "waiting for cloud-init finish..."
-    cloud-init status --wait || true
+    printf "waiting for cloud-init finish..."
+    cloud-init status --wait || printf "exited with error: $?"
+    printf "\n"
 fi
 
 # go to an existing directory
