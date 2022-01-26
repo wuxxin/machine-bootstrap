@@ -16,7 +16,7 @@ Unattended ssh based linux operating system installer with customizable storage 
 
 **Status:**
 
-+ currently under rewrite, probably fails
++ currently under rewrite, most probably fails
 
 ## Features
 
@@ -92,82 +92,31 @@ Requirements:
 
 ### make a new project repository (eg. box)
 ```bash
-mkdir box
-cd box
+targethostname=box
+mkdir ${targethostname}
+cd ${targethostname}
 git init
 mkdir -p config doc run/log
 printf "# machine-bootstrap ignores\n\n/run\n" > .gitignore
 git submodule add https://github.com/wuxxin/machine-bootstrap.git
 git add .
-git commit -v -m "initial config"
+git commit -v -m "initial commit for host ${targethostname}"
 ```
 
 ### optional: add an upstream
+
 ```bash
-git remote add origin ssh://git@some.where.net/path/box.git
+git remote add origin ssh://git@some.where.net/path/${targethostname}.git
 git push -u origin master
-```
-
-### optional: add files for a gitops run (only ubuntu/debian)
-```bash
-mkdir -p salt/local
-pushd salt
-git submodule add https://github.com/wuxxin/salt-shared.git
-popd
-cat > config/top.sls << EOF
-base:
-  '*':
-    - main
-EOF
-cp salt/salt-shared/gitops/config.template.sls config/config.sls
-cp salt/salt-shared/gitops/pillar.template.sls config/main.sls
-cp salt/salt-shared/gitops/state.template.sls salt/local/top.sls
-printf "  '*':\n    - machine-bootstrap\n\n" >> salt/local/top.sls
-touch salt/local/main.sls
-ln -s "../../machine-bootstrap" salt/local/machine-bootstrap
-git add .
-git commit -v -m "add saltstack skeleton"
-```
-
-### optional: git-crypt config
-
-```bash
-git-crypt init
-cat > .gitattributes <<EOF
-**/secret/** filter=git-crypt diff=git-crypt
-**/secrets/** filter=git-crypt diff=git-crypt
-*secrets* filter=git-crypt diff=git-crypt
-*secret* filter=git-crypt diff=git-crypt
-*key filter=git-crypt diff=git-crypt
-*keys filter=git-crypt diff=git-crypt
-*id_rsa* filter=git-crypt diff=git-crypt
-*id_ecdsa* filter=git-crypt diff=git-crypt
-*id_ed25519* filter=git-crypt diff=git-crypt
-*.sec* filter=git-crypt diff=git-crypt
-*.key* filter=git-crypt diff=git-crypt
-*.pem* filter=git-crypt diff=git-crypt
-*.p12 filter=git-crypt diff=git-crypt
-credentials* filter=git-crypt diff=git-crypt
-csrftokens* filter=git-crypt diff=git-crypt
-random_seed filter=git-crypt diff=git-crypt
-EOF
-git-crypt add-gpg-user user.email@address.org
-git add .
-git commit -v -m "add git-crypt config"
-```
-
-### optional: add machine git-crypt user
-```
-
 ```
 
 ### configure machine
 
 ```bash
-cat > config/node.env <<EOF
+cat > config/node.env << EOF
 # mandatory
 sshlogin=root@1.2.3.4
-hostname=box.local
+hostname=${targethostname}
 firstuser=$(id -u -n)
 # storage_ids=""
 
@@ -210,26 +159,92 @@ firstuser=$(id -u -n)
 # [--data-lvm-vol-size= <volsizemb, default if lvm is true: 20480 mb>]
 
 EOF
+git add config/node.env
+git commit -v -m "add node config"
+```
 
-# copy current user ssh public key as authorized_keys
+### copy current user ssh public key as authorized_keys
+
+```bash
 cat ~/.ssh/id_rsa.pub ~/.ssh/id_ed25519.pub \
     > config/authorized_keys
+git add config/authorized_keys
+git commit -v -m "add authorized_keys"
+```
 
-# list serial(s) of harddisk(s)
-./machine-bootstrap/connect.sh temporary "ls /dev/disk/by-id/"
+### optional: add files for a gitops run (only ubuntu/debian)
 
-# add serial(s) to config, eg. filter all virtio (but no partitions)
-echo $(printf 'storage_ids="'; for i in \
-    $(./machine-bootstrap/connect.sh temporary "ls /dev/disk/by-id/" | \
-        grep -E "^virtio-[^-]+$"); do \
-    printf "$i "; done; printf '"') >> config/node.env
+```bash
+mkdir -p salt/local
+pushd salt
+git submodule add https://github.com/wuxxin/salt-shared.git
+popd
+printf "base:\n  '*':\n    - main\n" > config/top.sls
+cp salt/salt-shared/gitops/config.template.sls config/config.sls
+cp salt/salt-shared/gitops/pillar.template.sls config/main.sls
+cp salt/salt-shared/gitops/state.template.sls salt/local/top.sls
+printf "  '*':\n    - machine-bootstrap\n\n" >> salt/local/top.sls
+touch salt/local/main.sls
+ln -s "../../machine-bootstrap" salt/local/machine-bootstrap
+git add .
+git commit -v -m "add saltstack skeleton"
+```
 
-# create disk.passphrase.gpg
-# example: create a random diskphrase and encrypted with user gpg key
-(x=$(openssl rand -base64 16); echo -n "$x" | \
-    gpg --encrypt -r username@email.address) \
-    > config/disk.passphrase.gpg
+### optional: git-crypt config
 
+```bash
+git-crypt init
+cat > .gitattributes <<EOF
+**/secret/** filter=git-crypt diff=git-crypt
+**/secrets/** filter=git-crypt diff=git-crypt
+*secrets* filter=git-crypt diff=git-crypt
+*secret* filter=git-crypt diff=git-crypt
+*key filter=git-crypt diff=git-crypt
+*keys filter=git-crypt diff=git-crypt
+*id_rsa* filter=git-crypt diff=git-crypt
+*id_ecdsa* filter=git-crypt diff=git-crypt
+*id_ed25519* filter=git-crypt diff=git-crypt
+*.sec* filter=git-crypt diff=git-crypt
+*.key* filter=git-crypt diff=git-crypt
+*.pem* filter=git-crypt diff=git-crypt
+*.p12 filter=git-crypt diff=git-crypt
+credentials* filter=git-crypt diff=git-crypt
+csrftokens* filter=git-crypt diff=git-crypt
+random_seed filter=git-crypt diff=git-crypt
+EOF
+git-crypt add-gpg-user user.email@address.org
+git add .
+git commit -v -m "add git-crypt config and first git-crypt user"
+```
+
+### optional: add machine git-crypt user
+
++ if git-crypt is used on repository files, additional files are needed in config dir
+    + gitops@node-secret-key.gpg gitops@node-public-key.gpg
+
+```bash
+gpgdir="$(mktemp -d -p /run/user/$(id -u))"
+base="--homedir $gpgdir --batch --yes"
+if test -d $gpgdir; then
+    gpg $base --gen-key << EOF
+%echo generating
+%no-protection
+Key-Type: RSA
+Key-Length: 2560
+Key-Usage: encrypt,sign
+Name-Real: ${targethostname}
+Name-Email: gitops@node
+Expire-Date: 0
+%commit
+%echo done
+EOF
+    gpg $base --armor --export --output config/gitops@node-public-key.gpg
+    gpg $base --armor --export-secret-keys --output config/gitops@node-secret-key.gpg
+    rm -r $gpgdir
+    # FIXME add gpg user to git-crypt
+    git add .
+    git commit -v -m "add gitops@node git-crypt user"
+fi
 ```
 
 ### optional: add ssh credentials for git repository cloning on target
@@ -238,18 +253,32 @@ echo $(printf 'storage_ids="'; for i in \
 + if gitops_source is set, the script will clone the repository files on target
 + if gitops_source is a ssh git url, the following additional files are needed in config dir
     + gitops.id_ed25519, gitops.id_ed25519.pub, gitops_known_hosts
+
 ```bash
-ssh-keygen -q -t ed25519 -N '' -C 'gitops@box' -f config/gitops.id_ed25519
+ssh-keygen -q -t ed25519 -N '' -C 'gitops@${targethostname}' -f config/gitops.id_ed25519
 ssh-keyscan -H -p 10023 git.server.domain > config/gitops.known_hosts
 ```
 
-### optional: add gpg key for git-crypt encrypted files access
+### create disk.passphrase.gpg
 
-+ if git-crypt is used on repository files, additional files are needed in config dir
-    + gitops@node-secret-key.gpg gitops@node-public-key.gpg
 ```bash
-gpgutils.py gen_keypair gitops@node "box" \
-    config/gitops@node-secret-key.gpg config/gitops@node-public-key.gpg
+# example: create a random diskphrase and encrypted with user gpg key
+(x=$(openssl rand -base64 16); echo -n "$x" | \
+    gpg --encrypt -r username@email.address) \
+    > config/disk.passphrase.gpg
+```
+
+### add storage serials to node.env
+
+```bash
+# list serial(s) of harddisk(s)
+./machine-bootstrap/connect.sh temporary "ls /dev/disk/by-id/"
+
+# add serial(s) to config, eg. filter all virtio (but no partitions)
+echo $(printf 'storage_ids="'; for i in \
+    $(./machine-bootstrap/connect.sh temporary "ls /dev/disk/by-id/" | \
+        grep -E "^virtio-[^-]+$"); do \
+    printf "$i "; done; printf '"') >> config/node.env
 ```
 
 ### optional: create a custom netplan.yaml file
@@ -277,7 +306,6 @@ cat > config/systemd.netdev << EOF
 EOF
 cat > config/systemd.network << EOF
 EOF
-
 ```
 
 ### optional: create a minimal Nixos configuration.nix
@@ -328,12 +356,12 @@ git add .
 git commit -v -m "bootstrap run"
 
 # run all steps (recovery, install, gitops) combined
-./machine-bootstrap/bootstrap.sh execute all box.local
+./machine-bootstrap/bootstrap.sh execute all ${targethostname}.local
 
 # or each step seperate
-./machine-bootstrap/bootstrap.sh execute recovery box.local
-./machine-bootstrap/bootstrap.sh execute install box.local
-./machine-bootstrap/bootstrap.sh execute gitops box.local
+./machine-bootstrap/bootstrap.sh execute recovery ${targethostname}.local
+./machine-bootstrap/bootstrap.sh execute install ${targethostname}.local
+./machine-bootstrap/bootstrap.sh execute gitops ${targethostname}.local
 
 # logs of each step will be written to log/bootstrap-*.log
 # but log directory is in .gitignore and content won't be comitted
