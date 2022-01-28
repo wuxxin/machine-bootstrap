@@ -114,7 +114,31 @@ EOF
 fi
 
 echo "configure dracut; warning: dracut-network pulls in nfs-kernel-server, nfs-common and rpcbind"
-configure_dracut
+mkdir -p /etc/dracut.conf.d
+cat > /etc/dracut.conf.d/90-custom.conf << EOF
+do_prelink=no
+hostonly=yes
+omit_drivers+=" crc32c "
+omit_dracutmodules+=" ifcfg "
+$(test -e "/dev/mapper/luks-swap" && echo 'add_device+=" /dev/mapper/luks-swap"')
+add_dracutmodules+=" kernel-network-modules systemd-networkd sshd clevis-pin-tang clevis-pin-sss rescue"
+kernel_commandline=
+#rd.debug rd.break=pre-shutdown rd.break=shutdown rd.shell
+EOF
+echo "fix /etc/dracut.conf.d/10-debian.conf (crc32 module)"
+if test -e /etc/dracut.conf.d/10-debian.conf; then rm /etc/dracut.conf.d/10-debian.conf; fi
+touch /etc/dracut.conf.d/10-debian.conf
+# workaround dracut and initramfs-tools clashes
+# while there, keep whoopsie and apport from hitting the disk
+echo "pin whoopsie apport brltty initramfs-tools to unwanted"
+for i in whoopsie apport brltty initramfs-tools; do
+    cat > /etc/apt/preferences.d/${i}-preference << EOF
+Package: $i
+Pin: release o=Ubuntu
+Pin-Priority: -1
+EOF
+done
+
 if $option_restore_backup; then
     restore_warning "not overwriting /etc/default/rpcbind and /etc/systemd/system/rpcbind.socket"
     restore_warning "not overwriting /etc/modprobe.d/zfs.conf"
