@@ -344,10 +344,24 @@ or inside an emulator supplied with a live image preconfigured with ssh and othe
 
 installation is done in 4 steps:
 
-+ 1 initial live system: partition disk, recovery install to EFI partition, reboot into recovery
-+ 2 recovery live system: build patches, create boot & root, debootstrap, configure system, chroot into target
-+ 3 recovery chroot target: configure system, kernel, initrd, install standard software, reboot into target
-+ 4 target system: install and run saltstack
++ 1 initial live system
+    + partition disk
+    + optional recovery install to EFI partition
+    + optional reboot into recovery
++ 2 recovery or target live system
+    + build patches
+    + format partitions
+    + bootstrap system
+    + configure system
+    + chroot into target
++ 3 recovery or target live system chroot
+    + configure system
+    + kernel
+    + initrd
+    + install standard software
+    + reboot into target
++ 4 target system
+    + install and run saltstack
 
 ```bash
 # test if everything needed is there
