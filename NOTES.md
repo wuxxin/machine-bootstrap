@@ -13,7 +13,6 @@
 #### bugs
 + ubuntu: non-blocking: phase install: reboot: rpool busy (can not export rpool)
     + lvm-root busy (Logical volume vg0/lvm-root contains a filesystem in use)
-+ ubuntu: after hardreset, recovery is not selected as fallback
 
 #### features
 + recovery scripts to replace a faulty disk and to invalidate a disk
@@ -22,6 +21,7 @@
 + extend: connect.sh initrdluks|recoverymount --unsafe for extra safety for encryption key
     + checks after connecting if gatewaydev is emulated, aborts if emulated
     + use --unsafe if you know you're connecting to a vm
++ ubuntu: after hardreset, recovery should be auto selected as fallback
 + gitops: make target system also honor http_proxy on gitops install
 + clevis integration
 + optional use of tmux for long running ssh connections of bootstrap.sh
