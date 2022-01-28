@@ -12,25 +12,25 @@ diskpassphrase_file=$config_path/disk.passphrase.gpg
 
 usage() {
     cat <<EOF
-Usage: $0 [--show-ssh|--show-scp]
-    temporary|recovery|initrd|system|
-    recoverycrypt|recoverymount|initrdcrypt [\$@]
+Usage: $0 [--show-ssh|--show-scp] temporary|recovery|initrd|system|initrd-unlock|recovery-unlock [\$@]
 
 use ssh keys and config taken from $config_path to connect to system via ssh
+
+--show-ssh: only displays the parameters for ssh
+--show-scp: only displays the parameters for scp
+    may be used for scp \$(connect.sh --show-args system)/root/test.txt .
 
 + temporary, recovery, initrd, system
     connect to system with the expected the ssh hostkey
 
-+ initrdcrypt [--unsafe]
++ initrd-unlock [--unsafe]
     uses the initrd host key for connection,
-    and transfers the luks diskphrase keys to /lib/systemd/systemd-reply-password
+    and transfers the diskphrase keys to /lib/systemd/systemd-reply-password
 
-+ recoverycrypt [--unsafe]
++ recovery-unlock [--unsafe]
     uses the recovery host key for connection,
-    and transfers the luks diskphrase keys to storage-mount.sh
-
-+ recoverymount [--unsafe]
-    equal to recoveryluks but also mount all partitions and prepare a chroot at /mnt
+    transfers the diskphrase keys to storage-mount.sh,
+    mount all partitions and prepare a chroot at /mnt
 
 --unsafe
     before posting the disk encryption unlock key,
@@ -41,9 +41,6 @@ use ssh keys and config taken from $config_path to connect to system via ssh
     **currently this does not much**, only the storageid's configured in
     config/node.env:storage_ids are checked to be available
 
---show-ssh: only displays the parameters for ssh
---show-scp: only displays the parameters for scp
-    may be used for scp \$(connect.sh --show-args system)/root/test.txt .
 EOF
     exit 1
 }
@@ -121,7 +118,7 @@ showargs=false
 allowunsafe=false
 if test "$1" = "--show-ssh"; then showargs=ssh; shift; fi
 if test "$1" = "--show-scp"; then showargs=scp; shift; fi
-if [[ ! "$1" =~ ^(temporary|recovery|recoveryluks|recoverymount|initrd|initrdluks|system)$ ]]; then usage; fi
+if [[ ! "$1" =~ ^(temporary|recovery|recovery-unlock|initrd|initrd-unlock|system)$ ]]; then usage; fi
 hosttype="$1"
 shift 1
 
@@ -137,17 +134,13 @@ if test "$sshlogin" = ""; then
 fi
 
 if test "$showargs" != "false"; then
-    if test "$hosttype" = "initrdluks"; then
-        hosttype="initrd"
-    fi
-    if test "$hosttype" = "recoverymount" -o "$hosttype" = "recoveryluks"; then
-        hosttype="recovery"
-    fi
+    if test "$hosttype" = "initrd-unlock"; then hosttype="initrd"; fi
+    if test "$hosttype" = "recovery-unlock"; then hosttype="recovery"; fi
     echo "-o UserKnownHostsFile=$config_path/${hosttype}.known_hosts $(ssh_uri ${sshlogin} $showargs)"
     exit 0
 fi
-if test "$hosttype" = "initrdluks" -o \
-        "$hosttype" = "recoveryluks" -o "$hosttype" = "recoverymount"; then
+
+if test "$hosttype" = "initrd-unlock" -o "$hosttype" = "recovery-unlock"; then
     if test "$1" = "--unsafe"; then allowunsafe=true; shift; fi
     if test ! -e "$diskpassphrase_file"; then
         echo "ERROR: diskphrase file $diskpassphrase_file not found"
@@ -158,24 +151,22 @@ if test "$hosttype" = "initrdluks" -o \
         echo "Error: diskphrase is empty, abort"
         exit 1
     fi
-    if test "$hosttype" = "recoverymount" -o "$hosttype" = "recoveryluks"; then
-        sshopts="-o UserKnownHostsFile=$config_path/recovery.known_hosts"
-        waitfor_ssh "$sshlogin"
-        remote_attestation_ssh "$sshopts" "$(ssh_uri ${sshlogin})" $allowunsafe
-        echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
-            'storage-mount.sh --yes --only-raid-luks --password-from-stdin'
-        if test "$hosttype" = "recoverymount"; then
-            echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
-                "storage-mount.sh --yes --without-raid-luks --password-from-stdin $@"
-        fi
-        ssh $sshopts $(ssh_uri ${sshlogin})
-    else
+
+    if test "$hosttype" = "initrd-unlock"; then
         sshopts="-o UserKnownHostsFile=$config_path/initrd.known_hosts"
         waitfor_ssh "$sshlogin"
         remote_attestation_ssh "$sshopts" "$(ssh_uri ${sshlogin})" $allowunsafe
         echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
             'phrase=$(cat -); for s in /var/run/systemd/ask-password/sck.*; do echo -n "$phrase" | /lib/systemd/systemd-reply-password 1 $s; done'
+    else
+        sshopts="-o UserKnownHostsFile=$config_path/recovery.known_hosts"
+        waitfor_ssh "$sshlogin"
+        remote_attestation_ssh "$sshopts" "$(ssh_uri ${sshlogin})" $allowunsafe
+        echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
+            "storage-mount.sh --yes --password-from-stdin $@"
+        ssh $sshopts $(ssh_uri ${sshlogin})
     fi
+
 else
     waitfor_ssh "$sshlogin"
     sshopts="-o UserKnownHostsFile=$config_path/${hosttype}.known_hosts"
