@@ -3,9 +3,9 @@ set -eo pipefail
 set -x
 
 install_packages() {
-    if which apt-get > /dev/null; then
+    if which apt-get 2> /dev/null; then
         DEBIAN_FRONTEND=noninteractive apt-get install --yes $@
-    elif which pamac > /dev/null; then
+    elif which pamac 2> /dev/null; then
         pamac install --no-confirm --no-upgrade $@
     else
         echo "Error: unknown platform, add cmds for other platforms"; exit 1
@@ -29,7 +29,7 @@ install_restic() {
     rclone_local_binary="/usr/local/bin/rclone"
 
     install_packages bzip2 unzip fuse curl
-    mkdir -p $(dirname $restic_local_download) $(dirname $rclone_local_download)
+    mkdir -p "$(dirname $restic_local_download)" "$(dirname $rclone_local_download)"
 
     curl -L -s -o "$rclone_local_download" "$rclone_download_url"
     printf "%s %s" "$rclone_download_hash" "$rclone_local_download" \
