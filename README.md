@@ -9,7 +9,7 @@ Unattended ssh based linux operating system installer with customizable storage 
 
 + to be executed on an linux liveimage/recoveryimage system connected via ssh
 + can be configured to fit different use cases, eg.
-    + as a Desktop/Laptop
+    + as a Desktop or Laptop with hibernate compatible swap
     + as a typical Rootserver (2xHD, headless)
     + as a home-nas/home-io headless server
         + with one or two ssd and two ore more attached big spindle disks
@@ -27,24 +27,24 @@ Unattended ssh based linux operating system installer with customizable storage 
 + **ubuntu**
     + **efi and legacy bios** boot compatible hybrid grub setup with grubenv support
     + initial ramdisk based on **dracut with openssh and crypt remote unlock**
-    + buildin **recovery system installation** on EFI partition
-        + based on casper of ubuntu 20.04
-        + unattended cloud-init boot via custom squashfs with ssh ready to login
-        + buildin scripts to mount/unmount root and update recovery boot parameter
 + **manjaro**
     + modern **amd64 uefi systemd-boot** setup
 
 ### optional Features
 
-+ luks encrypted **hibernate compatible swap** for eg. a desktop installation
++ luks encrypted **hibernate compatible swap** for eg. a laptop installation
 + **gitops stage using saltstack** with states from salt-shared (eg. desktop)
 + **encrypt sensitive data** in setup repository with git-crypt
     + git & git-crypt repository setup to store machine configuration inside a git repository
 + **ubuntu**
-    + **build a preconfigured livesystem image** usable for headless physical installation
+    + buildin **recovery system installation** on EFI partition
+        + based on casper of ubuntu 20.04
+        + unattended cloud-init boot via custom squashfs with ssh ready to login
+        + buildin scripts to mount/unmount root and update recovery boot parameter
+    + build a **preconfigured livesystem image** usable for headless physical installation
         + resulting image is compatible as CD or USB-Stick with BIOS and EFI support
         + optional netplan for static or other non dhcp based ip configurations
-        + execute `./machine-bootstrap/bootstrap.sh create-liveimage` to build image and copy to stick
+        + execute `./machine-bootstrap/bootstrap.sh create-liveimage` to build image
         + use ssh with preconfigured key or physical terminal/console of livesystem for interaction
 
 #### Example Configurations
@@ -91,6 +91,7 @@ Requirements:
     + \+ ~5GB (full desktop installation)
 
 ### make a new project repository (eg. box)
+
 ```bash
 targethostname=box
 mkdir ${targethostname}
@@ -166,13 +167,12 @@ git commit -v -m "add node config"
 ### copy current user ssh public key as authorized_keys
 
 ```bash
-cat ~/.ssh/id_rsa.pub ~/.ssh/id_ed25519.pub \
-    > config/authorized_keys
+cat ~/.ssh/id_rsa.pub ~/.ssh/id_ed25519.pub > config/authorized_keys
 git add config/authorized_keys
 git commit -v -m "add authorized_keys"
 ```
 
-### optional: add files for a gitops run (only ubuntu/debian)
+### optional: add files for a gitops run
 
 ```bash
 mkdir -p salt/local
@@ -180,9 +180,9 @@ pushd salt
 git submodule add https://github.com/wuxxin/salt-shared.git
 popd
 printf "base:\n  '*':\n    - main\n" > config/top.sls
-cp salt/salt-shared/gitops/config.template.sls config/config.sls
-cp salt/salt-shared/gitops/pillar.template.sls config/main.sls
-cp salt/salt-shared/gitops/state.template.sls salt/local/top.sls
+cp salt/salt-shared/gitops/template/pillar.template.sls config/main.sls
+cp salt/salt-shared/gitops/template/node.template.sls config/node.sls
+cp salt/salt-shared/gitops/template/state.template.sls salt/local/top.sls
 printf "  '*':\n    - machine-bootstrap\n\n" >> salt/local/top.sls
 touch salt/local/main.sls
 ln -s "../../machine-bootstrap" salt/local/machine-bootstrap
@@ -211,6 +211,8 @@ cat > .gitattributes <<EOF
 credentials* filter=git-crypt diff=git-crypt
 csrftokens* filter=git-crypt diff=git-crypt
 random_seed filter=git-crypt diff=git-crypt
+authorized_keys !filter !diff
+.gitattributes !filter !diff
 EOF
 git-crypt add-gpg-user user.email@address.org
 git add .
@@ -219,8 +221,8 @@ git commit -v -m "add git-crypt config and first git-crypt user"
 
 ### optional: add machine git-crypt user
 
-+ if git-crypt is used on repository files, additional files are needed in config dir
-    + gitops@node-secret-key.gpg gitops@node-public-key.gpg
++ if git-crypt is used on repository files, the additional files
+gitops@node-secret-key.gpg and gitops@node-public-key.gpg are needed in config dir
 
 ```bash
 gpgdir="$(mktemp -d -p /run/user/$(id -u))"
@@ -299,7 +301,7 @@ network:
 EOF
 ```
 
-##### optional: create a custom systemd netdev and network file
+### optional: create a custom systemd netdev and network file
 
 ```bash
 cat > config/systemd.netdev << EOF
@@ -356,12 +358,12 @@ git add .
 git commit -v -m "bootstrap run"
 
 # run all steps (recovery, install, gitops) combined
-./machine-bootstrap/bootstrap.sh execute all ${targethostname}.local
+./machine-bootstrap/bootstrap.sh install all ${targethostname}
 
 # or each step seperate
-./machine-bootstrap/bootstrap.sh execute recovery ${targethostname}.local
-./machine-bootstrap/bootstrap.sh execute install ${targethostname}.local
-./machine-bootstrap/bootstrap.sh execute gitops ${targethostname}.local
+./machine-bootstrap/bootstrap.sh install recovery ${targethostname}
+./machine-bootstrap/bootstrap.sh install system ${targethostname}
+./machine-bootstrap/bootstrap.sh install gitops ${targethostname}
 
 # logs of each step will be written to log/bootstrap-*.log
 # but log directory is in .gitignore and content won't be comitted
@@ -383,14 +385,14 @@ git push -u origin master
 ./machine-bootstrap/connect.sh temporary|recovery|initrd|system
 ```
 
-+ connect to initrd, open luks disks, exit, machine will continue to boot
++ connect to initrd, open encrypted storage, exit, machine will continue to boot
 ```bash
-./machine-bootstrap/connect.sh initrdluks
+./machine-bootstrap/connect.sh initrd-unlock
 ```
 
-+ connect to recovery, open luks disks, mount storage, prepare chroot, shell
++ connect to recovery, open encrypted storage, mount storage, prepare chroot, shell
 ```bash
-./machine-bootstrap/connect.sh recoverymount
+./machine-bootstrap/connect.sh recovery-unlock
 ```
 
 ### switch next boot to boot into recovery (from running target system)
@@ -400,6 +402,27 @@ reboot
 ```
 
 ## Notes
+
+### Partition (GPT) Layout
+
+Nr |Name(max 36 x UTF16)|Description|
+---|---|---
+6  | `BIOS,1,2`  | GRUB-BIOS boot binary partition, used to host grub code on gpt for bios boot
+5  | `EFI,1,2`   | EFI vfat partition, unencrypted, /boot if no boot partition
+4  | `LOG,1,2`   | **optional** ZFS Log (SLOG) for pools of other storage devices
+3  | `CACHE,1,2` | **optional** ZFS Cache (L2ARC) for pools of other storage devices
+2  | `[raid_]luks_SWAP,1,2`  | **optional** encrypted hibernation compatible swap
+1  | `[raid_](zfs:ext4:xfs)_BOOT,1,2`  | **optional**,**legacy** boot partition, unencrypted, kernel,initrd
+0  | `[raid_][luks_][lvm.vg0_](enczfs:zfs:ext4:xfs)_ROOT,1,2` | root partition
+7  | `[raid_][luks_][lvm.vgdata_](enczfs:zfs:ext4:xfs:other)_DATA,1,2` | **optional** data partition
+
++ Ubuntu/Debian
+    + hybrid efi & bios grub installation
+    + EFI contains recovery system: kernel,initrd,fs
+    + EFI contains /boot for system: kernel,initrd if no boot partition
++ Manjaro
+    + efi only systemd-boot installation
+    + EFI contains /boot for system, kernel,initrd if no boot partition
 
 ### Limits, Automatics, Contraints, Safety, Security
 
@@ -431,24 +454,3 @@ reboot
     + a Log and a Cache Partition can be created for pools outside the two
     primary storage devices. its data encryption state is corresponding to
     the target pool, meaning, if the target pool is encrypted, so will be the SLOG and the L2ARC
-
-### Partition (GPT) Layout
-
-Nr |Name(max 36 x UTF16)|Description|
----|---|---
-6  | `BIOS,1,2`  | GRUB-BIOS boot binary partition, used to host grub code on gpt for bios boot
-5  | `EFI,1,2`   | EFI vfat partition, unencrypted, /boot if no boot partition
-4  | `LOG,1,2`   | **optional** ZFS Log (SLOG) for pools of other storage devices
-3  | `CACHE,1,2` | **optional** ZFS Cache (L2ARC) for pools of other storage devices
-2  | `[raid_]luks_SWAP,1,2`  | **optional** encrypted hibernation compatible swap
-1  | `[raid_](zfs:ext4:xfs)_BOOT,1,2`  | **optional**,**legacy** boot partition, unencrypted, kernel,initrd
-0  | `[raid_][luks_][lvm.vg0_](enczfs:zfs:ext4:xfs)_ROOT,1,2` | root partition
-7  | `[raid_][luks_][lvm.vgdata_](enczfs:zfs:ext4:xfs:other)_DATA,1,2` | **optional** data partition
-
-+ Ubuntu/Debian
-    + hybrid efi & bios grub installation
-    + EFI contains recovery system: kernel,initrd,fs
-    + EFI contains /boot for system: kernel,initrd if no boot partition
-+ Manjaro
-    + efi only systemd-boot installation
-    + EFI contains /boot for system, kernel,initrd if no boot partition
