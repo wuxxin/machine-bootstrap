@@ -134,16 +134,14 @@ fi
 echo "set target hostname in current system"
 setup_hostname "$hostname"
 
-echo "FIXME: generate new systemd machineid (/etc/machine-id) in active system"
-if test -e /etc/machine-id; then
-    echo "fixme machine-id"
+if test ! -e /etc/machine-id; then
+    echo "generate new systemd machineid (/etc/machine-id) in active system"
+    uuidgen -r | tr -d "-" > /etc/machine-id
 fi
-
-echo "configuring nfs (which get pulled in by zfsutils) to be restricted to localhost"
-configure_nfs
 
 echo "install needed packages"
 packages="$(get_default_packages) $(get_zfs_packages)"
+configure_nfs   # make sure debian/ubuntu version of zfsutils does not open rpcbind to world
 install_packages --refresh $packages
 
 echo "generate new zfs hostid (/etc/hostid) in active system"
@@ -159,6 +157,20 @@ create_homedir home $firstuser
 mount_boot /mnt
 mount_efi /mnt
 mount_data /mnt/mnt
+
+# copy machine-id, hostid and authorized_keys before bootstraping
+mkdir -p /mnt/etc
+echo "copy/overwrite machine-id (/etc/machine-id)"
+cp -a /etc/machine-id /mnt/etc/machine-id
+
+echo "copy/overwrite hostid (/etc/hostid)"
+cp -a /etc/hostid /mnt/etc/hostid
+
+echo "copy authorized_keys"
+install -m "0700" -d /mnt/root/.ssh
+warn_rename /mnt/root/.ssh/authorized_keys
+cp /tmp/authorized_keys /mnt/root/.ssh/authorized_keys
+chmod "0600" /mnt/root/.ssh/authorized_keys
 
 if test "$option_restore_backup" = "true"; then
     echo "call bootstrap-1-restore"
@@ -181,88 +193,71 @@ else
 fi
 create_root_finished
 
-if test "$distrib_id" != "ubuntu" -a "$distrib_id" != "debian"; then
-    echo "swap off"; swapoff -a || true
-    unmount_data /mnt/mnt
-    unmount_efi /mnt
-    unmount_boot /mnt
-    unmount_root /mnt
-    deactivate_lvm
-    deactivate_luks
-    deactivate_mdadm
-    exit 0
-fi
 
-# chroot preperations
-echo "copy/overwrite machine-id (/etc/machine-id)"
-cp -a /etc/machine-id /mnt/etc/machine-id
-
-echo "copy/overwrite hostid (/etc/hostid)"
-cp -a /etc/hostid /mnt/etc/hostid
-
-echo "copy authorized_keys"
-install -m "0700" -d /mnt/root/.ssh
-warn_rename /mnt/root/.ssh/authorized_keys
-cp /tmp/authorized_keys /mnt/root/.ssh/authorized_keys
-chmod "0600" /mnt/root/.ssh/authorized_keys
-
-echo "copy network netplan config to 50-default.yaml"
-warn_rename /mnt/etc/netplan/50-default.yaml
-cp -a /tmp/netplan.yaml /mnt/etc/netplan/50-default.yaml
-
-echo "copy bootstrap files for chroot install"
-echo "copying dracut files to /usr/lib/dracut/modules.d/46sshd"
-mkdir -p /mnt/usr/lib/dracut/modules.d/46sshd
-cp -a -t /mnt/usr/lib/dracut/modules.d/46sshd /tmp/dracut/*
-
-echo "copying recovery files to /etc/recovery"
-mkdir -p /mnt/etc/recovery/zfs
-cp -a -t /mnt/etc/recovery /tmp/recovery/*
-if test -d /tmp/recovery/zfs; then
-    echo "copying files to /etc/recovery/zfs"
-    cp -a -t /mnt/etc/recovery/zfs /tmp/zfs/*
-fi
-echo "copy bootstrap-library.sh to /etc/recovery"
-cp /tmp/bootstrap-library.sh /mnt/etc/recovery
-echo "copy ssh hostkeys to /etc/recovery"
-cp /tmp/recovery_hostkeys /mnt/etc/recovery
-chmod 0600 /mnt/etc/recovery/recovery_hostkeys
-
-echo "copy bootstrap-2.sh and bootstrap-library.sh to /tmp"
+# bootstrap-2 preperations
+if test "$distrib_id" = "manjaro"; then echo "exit and dont unmount devel"; exit 1; fi
+echo "copy bootstrap-2-${distrib_id}.sh bootstrap-2-recovery.sh and bootstrap-library.sh to /tmp"
 cp /tmp/bootstrap-library.sh /mnt/tmp
-cp /tmp/bootstrap-2.sh /mnt/tmp
-chmod +x /mnt/tmp/bootstrap-2.sh
+cp /tmp/bootstrap-2-restore.sh /mnt/tmp
+cp /tmp/bootstrap-2-${distrib_id}.sh /mnt/tmp
+chmod +x /mnt/tmp/bootstrap-2-restore.sh
+chmod +x /mnt/tmp/bootstrap-2-${distrib_id}.sh
 
-echo "mount bind mounts"
-mount_bind_mounts /mnt
+if test "$distrib_id" = "ubuntu" -o "$distrib_id" = "debian"; then
+    if test "$distrib_id" = "ubuntu"; then
+        echo "copy network netplan config to 50-default.yaml"
+        warn_rename /mnt/etc/netplan/50-default.yaml
+        cp -a /tmp/netplan.yaml /mnt/etc/netplan/50-default.yaml
+    fi
 
-bootstrap2_postfix=""
-if test "$option_restore_backup" = "true"; then
-    bootstrap2_postfix="--restore-from-backup"
+    echo "copying dracut files to /usr/lib/dracut/modules.d/46sshd"
+    mkdir -p /mnt/usr/lib/dracut/modules.d/46sshd
+    cp -a -t /mnt/usr/lib/dracut/modules.d/46sshd /tmp/dracut/*
+
+    echo "copying recovery files to /etc/recovery"
+    mkdir -p /mnt/etc/recovery/zfs
+    cp -a -t /mnt/etc/recovery /tmp/recovery/*
+    if test -d /tmp/recovery/zfs; then
+        echo "copying files to /etc/recovery/zfs"
+        cp -a -t /mnt/etc/recovery/zfs /tmp/zfs/*
+    fi
+    echo "copy bootstrap-library.sh to /etc/recovery"
+    cp /tmp/bootstrap-library.sh /mnt/etc/recovery
+    echo "copy ssh hostkeys to /etc/recovery"
+    cp /tmp/recovery_hostkeys /mnt/etc/recovery
+    chmod 0600 /mnt/etc/recovery/recovery_hostkeys
 fi
-echo "call bootstrap-2 $bootstrap2_postfix in chroot"
-chroot /mnt /tmp/bootstrap-2.sh \
-    "$hostname" "$firstuser" --yes $bootstrap2_postfix
-echo "back in bootstrap-1-install"
 
+# bootstrap-2 execution
+bootstrap2_postfix=""; bootstrap2_chroot="chroot"
+if test "$option_restore_backup" = "true"; then bootstrap2_postfix="--restore-from-backup"; fi
+if test "$distrib_id" = "manjaro"; then bootstrap2_chroot="chrootmanjaro"; fi
+if test "$distrib_id" = "ubuntu" -o "$distrib_id" = "debian"; then
+    echo "mount bind mounts";  mount_bind_mounts /mnt
+fi
+echo "call bootstrap-2-${distrib_id}.sh $bootstrap2_postfix in chroot"
+$bootstrap2_chroot /mnt /tmp/bootstrap-2-${distrib_id}.sh \
+    "$hostname" "$firstuser" --yes $bootstrap2_postfix
 if test "$option_restore_backup" = "true"; then
-    echo "call bootstrap-2-restore"
-    cp -a /tmp/bootstrap-2-restore.sh /mnt/tmp
-    chmod +x /mnt/tmp/bootstrap-2-restore.sh
-    chroot /mnt /tmp/bootstrap-2-restore.sh \
+    echo "call bootstrap-2-restore.sh in chroot"
+    $bootstrap2_chroot /mnt /tmp/bootstrap-2-restore.sh \
         "$hostname" "$firstuser" --yes && err=$? || err=$?
-    echo "back in bootstrap-1-install"
     if test "$err" != "0"; then echo "Backup - Restore Error $err"; exit $err; fi
 fi
+if test "$distrib_id" = "ubuntu" -o "$distrib_id" = "debian"; then
+    echo "unmount bind mounts"; unmount_bind_mounts /mnt
+fi
+echo "back in bootstrap-1-install"
 
+# housekeeping: copy host ssh public keys to install pc
 echo "copy initrd and system ssh host keys from install"
 mkdir -p /tmp/ssh_hostkeys
 for i in initrd_ssh_host_ed25519_key.pub ssh_host_ed25519_key.pub ssh_host_rsa_key.pub; do
-    cp /mnt/etc/ssh/$i /tmp/ssh_hostkeys
+    if test -e /mnt/etc/ssh/$i; then cp /mnt/etc/ssh/$i /tmp/ssh_hostkeys; fi
 done
 
+# unmount and deactivate all storage
 echo "swap off"; swapoff -a || true
-unmount_bind_mounts /mnt
 unmount_data /mnt/mnt
 unmount_efi /mnt
 unmount_boot /mnt
