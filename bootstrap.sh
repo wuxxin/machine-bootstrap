@@ -8,30 +8,31 @@ self_path=$(dirname "$(readlink -e "$0")")
 usage() {
     cat << EOF
 
-$0 execute recovery|install|gitops|all|plain <hostname> [optional parameter]
+$0 install recovery|system|gitops|all|plain <hostname> [optional parameter]
 
 execute the requested stages of install on host <hostname>,
 output from target host is displayed on screen and captured to "run/log"
 for safety, <hostname>  must be the same value as in the config file config/hostname
 
 + recovery
-    execute partitioning and recovery install
-        expects debian (apt-get) or manjaro (pamac) like live system
+    **wipe disks**, partition storage and optional recovery install
+        expects debian (apt-get) or manjaro (pamac) like live system,
+        running at target host
 
-+ install [--restore-from-backup]
-    execute format and install system
-        expects running recovery image, or target distribution live image
++ system [--restore-from-backup]
+    format storage partitionas and install system
+        expects running recovery image, or a target distribution live image
 
     --restore-from-backup
         partition & format system, then restore from backup
 
 + gitops
-    execute step gitops
+    execute gitops high state
         expects installed and running base machine,
         will first try to connect to initrd and unlock storage
 
-+ plain:    executes steps recovery, install
-+ all:      executes steps recovery, install, gitops
++ plain:    executes steps recovery, system
++ all:      executes steps recovery, system, gitops
 
 $0 test
     + test the setup for mandatory files and settings, exits 0 if successful
@@ -188,12 +189,12 @@ base_name=$(basename "$base_path")
 bootstrap0liveimage="bootstrap-0-liveimage.iso"
 
 # parse args
-if test "$1" != "test" -a "$1" != "execute" -a "$1" != "create"; then usage; fi
+if test "$1" != "test" -a "$1" != "install" -a "$1" != "create"; then usage; fi
 command=$1
 shift
-if test "$command" = "execute"; then
-    if [[ ! "$1" =~ ^(all|plain|recovery|install|gitops)$ ]]; then
-        echo "ERROR: Stage must be one of 'all|plain|recovery|install|gitops'"
+if test "$command" = "install"; then
+    if [[ ! "$1" =~ ^(all|plain|recovery|system|gitops)$ ]]; then
+        echo "ERROR: Stage must be one of 'all|plain|recovery|system|gitops'"
         usage
     fi
     if test "$2" = ""; then
@@ -258,7 +259,7 @@ if test "$diskphrase" = ""; then
     exit 1
 fi
 # safety check that cmdline argument hostname = config file var hostname
-if test "$command" = "execute"; then
+if test "$command" = "install"; then
     if test "$hostname" != "$safety_hostname"; then
         echo "ERROR: hostname on commandline ($safety_hostname) does not match hostname from configfile ($hostname)"
         exit 1
@@ -418,20 +419,24 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"
     ssh $sshopts "$(ssh_uri ${sshlogin})" \
         "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-0.sh $hostname \"$storage_ids\" --yes $storage_opts $select_no_recovery $select_autologin" 2>&1 | tee "$log_path/bootstrap-recovery.log"
 
-    echo "reboot into recovery"
-    ssh $sshopts "$(ssh_uri ${sshlogin})" '{ sleep 1; reboot; } >/dev/null &' || true
-    echo "sleep 10 seconds, for machine to stop responding to ssh"
-    sleep 10
+    if test "$recovery_install" != "true"; then
+        echo "did not install recovery (as requested), therefore do not reboot machine"
+    else
+        echo "recovery installed, reboot into recovery"
+        ssh $sshopts "$(ssh_uri ${sshlogin})" '{ sleep 1; reboot; } >/dev/null &' || true
+        echo "sleep 10 seconds, for machine to stop responding to ssh"
+        sleep 10
+    fi
 fi
 
 
-# ### STEP install
-if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install"; then
+# ### STEP system
+if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "system"; then
     waitfor_ssh "$sshlogin"
-    echo "Step: install"
+    echo "Step: system"
     sshopts="-o UserKnownHostsFile=$config_path/recovery.known_hosts"
 
-    echo "copy ssh_authorized_keys, netplan, install script to target"
+    echo "copy ssh_authorized_keys, netplan, install scripts to target"
     scp $sshopts "$authorized_keys_file" \
         "$(ssh_uri ${sshlogin} scp)/tmp/authorized_keys"
     echo "$netplan_data" | ssh $sshopts ${sshlogin} "cat - > /tmp/netplan.yaml"
@@ -462,7 +467,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "install";
     echo "call bootstrap-1, format storage, install system or restore from backup"
     echo -n "$diskphrase" \
         | ssh $sshopts ${sshlogin} \
-            "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1.sh $hostname $firstuser \"$storage_ids\" --yes $select_root_lvm_vol_size $select_data_lvm_vol_size --distrib-id $distrib_id --distrib-codename $distrib_codename  $@" 2>&1 | tee "$log_path/bootstrap-install.log"
+            "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1.sh $hostname $firstuser \"$storage_ids\" --yes $select_root_lvm_vol_size $select_data_lvm_vol_size --distrib-id $distrib_id --distrib-codename $distrib_codename  $@" 2>&1 | tee "$log_path/bootstrap-system.log"
 
     echo "copy initrd and system ssh hostkeys from target"
     printf "%s %s\n" "$(ssh_uri ${sshlogin} known)" \
@@ -497,7 +502,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "gitops"; then
     if (ssh-keyscan -p "$(ssh_uri ${sshlogin} port)" -H "$(ssh_uri ${sshlogin} host)" \
         | sed -r 's/.+(ssh-[^ ]+) (.+)$/\1 \2/g' \
         | grep -q -F -f - "$config_path/initrd.known_hosts") ; then
-        echo "initrd is waiting for luksopen, sending passphrase"
+        echo "initrd is waiting for cryptopen, sending passphrase"
         sshopts="-o UserKnownHostsFile=$config_path/initrd.known_hosts"
         echo -n "$diskphrase" | ssh $sshopts "$(ssh_uri ${sshlogin})" \
             'phrase=$(cat -); for s in /var/run/systemd/ask-password/sck.*; do echo -n "$phrase" | /lib/systemd/systemd-reply-password 1 $s; done'
@@ -538,7 +543,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "gitops"; then
 
     gitops_args="$@"
     if test "$gitops_args" = ""; then gitops_args="state.highstate"; fi
-    echo "execute-saltstack.sh ... $gitops_args"
+    echo "install-saltstack.sh ... $gitops_args"
     ssh $sshopts "$(ssh_uri ${sshlogin})" \
         "http_proxy=\"$http_proxy\"; export http_proxy; \
         chown -R $gitops_user:$gitops_user $gitops_target/$base_name; \
