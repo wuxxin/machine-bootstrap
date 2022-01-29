@@ -43,7 +43,7 @@ get_zfs_packages() {
     if which apt-get &> /dev/null; then
         echo "zfsutils-linux"
     elif which pamac &> /dev/null; then
-        echo "linux-zfs"
+        echo "zfs-utils"
     else
         echo "Error: unknown platform, add cmds for other platforms in get_zfs_packages"
         exit 1
