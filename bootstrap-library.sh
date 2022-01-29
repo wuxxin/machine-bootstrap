@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# ### encryption options
+
 luks_encryption_options() {
     echo "-c aes-xts-plain64 -s 512 -h sha256"
     # LUKS chiper recommendation:
@@ -23,10 +25,12 @@ zfs_encryption_options() {
 }
 
 
+# ### default packages
+
 get_default_packages() {
-    if which apt-get > /dev/null; then
+    if which apt-get 2> /dev/null; then
         echo "cryptsetup gdisk mdadm lvm2 grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools openssh-server curl gnupg gpgv ca-certificates bzip2 libc-bin rsync tmux haveged debootstrap"
-    elif which pamac > /dev/null; then
+    elif which pamac 2> /dev/null; then
         echo "cryptsetup gptfdisk mdadm lvm2 grub openssh curl gnupg ca-certificates bzip2 rsync tmux manjaro-tools-iso git"
     else
         echo "Error: unknown platform, add list for other platforms in get_default_packages"
@@ -36,9 +40,9 @@ get_default_packages() {
 
 
 get_zfs_packages() {
-    if which apt-get > /dev/null; then
+    if which apt-get 2> /dev/null; then
         echo "zfsutils-linux"
-    elif which pamac > /dev/null; then
+    elif which pamac 2> /dev/null; then
         echo "linux-zfs"
     else
         echo "Error: unknown platform, add cmds for other platforms in get_zfs_packages"
@@ -47,233 +51,9 @@ get_zfs_packages() {
 }
 
 
-install_packages() { # --refresh package*
-    local refresh
-    if test "$1" = "--refresh"; then refresh="true"; shift; else refresh="false"; fi
-    if which apt-get > /dev/null; then
-        if test "$refresh" = "true"; then
-            DEBIAN_FRONTEND=noninteractive apt-get update --yes
-        fi
-        if test "$@" != ""; then
-            DEBIAN_FRONTEND=noninteractive apt-get install --yes $@
-        fi
-    elif which pamac > /dev/null; then
-        if test "$@" != ""; then
-            pamac install --no-confirm --no-upgrade $@
-        fi
-    else
-        echo "Error: unknown platform, add cmds for other platforms in install_packages"
-        exit 1
-    fi
-}
-
-
-configure_module_zfs() {
-    mkdir -p /etc/modprobe.d
-    echo "configure zfs fs options"
-    arc_max_bytes=$(grep MemTotal /proc/meminfo | awk '{printf("%u",$2*25/100*1024)}')
-    echo "use maximum of 25% of available memory for arc zfs_arc_max=$arc_max_bytes bytes"
-    echo "options zfs zfs_arc_max=${arc_max_bytes}" >> /etc/modprobe.d/zfs.conf
-}
-
-
-configure_sshd() {
-    echo "setup sshd, config taken at 2022-01-20 (exkl. ecsda) from https://infosec.mozilla.org/guidelines/openssh.html "
-    echo "only use >= 3072-bit-long moduli"
-    awk '$5 >= 3071' /etc/ssh/moduli > /etc/ssh/moduli.tmp && mv /etc/ssh/moduli.tmp /etc/ssh/moduli
-    echo "do not use and remove all present ecdsa keys"
-    for i in ssh_host_ecdsa_key ssh_host_ecdsa_key.pub; do
-        if test -e /etc/ssh/$i; then rm /etc/ssh/$i; fi
-    done
-    cat >> /etc/ssh/sshd_config <<EOF
-# ### MACHINE-BOOTSTRAP BEGIN ###
-# Supported HostKey algorithms by order of preference.
-HostKey /etc/ssh/ssh_host_ed25519_key
-HostKey /etc/ssh/ssh_host_rsa_key
-AuthenticationMethods publickey
-KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256
-Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
-MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-512,hmac-sha2-256,umac-128@openssh.com
-# ### MACHINE-BOOTSTRAP END ###
-EOF
-}
-
-
-configure_nfs() {
-    # dracut-network pulls in nfs-common which pulls in rpcbind
-    echo "configuring nfs (which get pulled in by zfsutils)"
-    echo "restrict to nfs 4 and localhost, disable rpcbind"
-    echo "overwriting /etc/default/rpcbind"
-    cat > /etc/default/rpcbind << EOF
-# restrict rpcbind to localhost only for UDP requests
-OPTIONS="-w -l -h 127.0.0.1 -h ::1"
-EOF
-    mkdir -p /etc/systemd/system/
-    echo "mask (disable) rpcbind.service and rpbind.socket, because nfs4 only setup"
-    ln -s -f /dev/null /etc/systemd/system/rpcbind.service
-    ln -s -f /dev/null /etc/systemd/system/rpcbind.socket
-    echo "overwriting /etc/default/nfs-common"
-    mkdir -p /etc/default
-    cat > /etc/default/nfs-common << EOF
-# nfs4 only configuration (-N 2 -N 3, NEED_STATD=no,NEED_IDMAPD=yes)
-# Options for rpc.statd, see rpc.statd(8) or http://wiki.debian.org/SecuringNFS
-STATDOPTS="--port 32765 --outgoing-port 32766 --name 127.0.0.1 --name ::1"
-# If you do not set values for the NEED_ options, they will be attempted
-# autodetected; Valid alternatives for the NEED_ options are "yes" and "no".
-# Do you want to start the gssd daemon? It is required for Kerberos mounts.
-NEED_GSSD=
-NEED_STATD="no"
-NEED_IDMAPD="yes"
-EOF
-    echo "overwriting /etc/default/nfs-kernel-server"
-    cat > /etc/default/nfs-kernel-server << EOF
-# nfs4 only configuration (-N 2 -N 3)
-# Number of servers to start up
-RPCNFSDCOUNT=8
-# Runtime priority of server (see nice(1))
-RPCNFSDPRIORITY=0
-# Options for rpc.mountd.
-RPCMOUNTDOPTS="-N 2 -N 3 --no-udp --manage-gids --port 32767"
-# Options for rpc.nfsd.
-RPCNFSDOPTS="-N 2 -N 3 --no-udp --host 127.0.0.1 --host ::1"
-# Do you want to start the svcgssd daemon? It is only required for Kerberos
-# exports. Valid alternatives are "yes" and "no"; the default is "no".
-NEED_SVCGSSD=""
-# Options for rpc.svcgssd.
-RPCSVCGSSDOPTS=""
-EOF
-}
-
-
-configure_dracut() {
-    mkdir -p /etc/dracut.conf.d
-    cat > /etc/dracut.conf.d/90-custom.conf << EOF
-do_prelink=no
-hostonly=yes
-omit_drivers+=" crc32c "
-omit_dracutmodules+=" ifcfg "
-$(test -e "/dev/mapper/luks-swap" && echo 'add_device+=" /dev/mapper/luks-swap"')
-add_dracutmodules+=" kernel-network-modules systemd-networkd sshd clevis-pin-tang clevis-pin-sss rescue"
-kernel_commandline=
-#rd.debug rd.break=pre-shutdown rd.break=shutdown rd.shell
-EOF
-    echo "fix /etc/dracut.conf.d/10-debian.conf (crc32 module)"
-    if test -e /etc/dracut.conf.d/10-debian.conf; then
-        rm /etc/dracut.conf.d/10-debian.conf
-    fi
-    touch /etc/dracut.conf.d/10-debian.conf
-    # workaround dracut and initramfs-tools clashes
-    # while there, keep whoopsie and apport from hitting the disk
-    echo "pin whoopsie apport brltty initramfs-tools to unwanted"
-    for i in whoopsie apport brltty initramfs-tools; do
-        cat > /etc/apt/preferences.d/${i}-preference << EOF
-Package: $i
-Pin: release o=Ubuntu
-Pin-Priority: -1
-EOF
-    done
-}
-
-
-setup_hostname() { # hostname
-    local hostname shortname domainname intip intip_re
-    hostname="$1"
-    echo "configure hostname ($hostname)"
-    shortname="${hostname%%.*}"
-    domainname="${hostname#*.}"
-    intip="127.0.1.1"
-    intip_re="127\.0\.1\.1"
-    if ! grep -E -q "^${intip_re}[[:space:]]+${hostname}[[:space:]]+${shortname}" /etc/hosts; then
-        if grep -q "^${intip_re}" /etc/hosts; then
-            sed -i -r "s/^(${intip_re}[ \t]+).*/\1${hostname} ${shortname}/" /etc/hosts
-        else
-            sed -i -r "$ a${intip} ${hostname} ${shortname}\n" /etc/hosts
-        fi
-    fi
-    echo "$shortname" > /etc/hostname
-    hostnamectl set-hostname "$shortname"
-}
-
-
-install_grub() { # efi_dir efi_disk
-    local efi_dir efi_disk efi_grub_param
-    efi_dir="$1"; efi_disk="$2"
-    if test ! -e "/sys/firmware/efi"; then
-        efi_grub_param="--no-nvram"
-    else
-        efi_grub_param="--auto-nvram"
-    fi
-    grub-install    --target=x86_64-efi \
-                    --boot-directory="$efi_dir" \
-                    --efi-directory="$efi_dir" \
-                    --bootloader-id=Ubuntu \
-                    --recheck --no-floppy $efi_grub_param
-    grub-install    --target=i386-pc \
-                    --boot-directory="$efi_dir" \
-                    --recheck --no-floppy \
-                    "$efi_disk"
-}
-
-
-install_efi_sync() { # rootprefix(default="")
-    local rootprefix
-    rootprefix=""
-    if test "$1" != ""; then rootprefix="$1"; shift; fi
-    cat > "$rootprefix/etc/systemd/system/efi-sync.path" << EOF
-[Unit]
-Description=Copy EFI to EFI2 System Partition
-
-[Path]
-PathChanged=/efi
-
-[Install]
-WantedBy=multi-user.target
-WantedBy=system-update.target
-EOF
-    cat > "$rootprefix/etc/systemd/system/efi-sync.service" << EOF
-[Unit]
-Description=Copy EFI to EFI2 System Partition
-RequiresMountsFor=/efi
-RequiresMountsFor=/efi2
-
-[Service]
-Type=oneshot
-ExecStart=/etc/recovery/efi-sync.sh --yes
-EOF
-    systemctl enable efi-sync.{path,service}
-}
-
-
-efi_sync() { # efi_src efi_dest
-    local efi_src efi_dest efi_fs_uuid efi2_fs_uuid
-    efi_src="$1"; efi_dest="$2"
-
-    echo "Sync contents of $efi_src to $efi_dest"
-    rsync -a --exclude EFI/Ubuntu/grub.cfg --exclude grub/grub.cfg \
-        --exclude grub/grubenv --delete-during "$efi_src/" "$efi_dest/"
-
-    efi_fs_uuid=$(dev_fs_uuid "$(by_partlabel EFI | first_of)")
-    efi2_fs_uuid=$(dev_fs_uuid "$(by_partlabel EFI | x_of 2)")
-    if test -e "$efi_src/EFI/Ubuntu/grub.cfg"; then
-        echo "copy and modify EFI/Ubuntu/grub.cfg for fsuuid of efi2"
-        cat "$efi_src/EFI/Ubuntu/grub.cfg" \
-            | sed -r "s/$efi_fs_uuid/$efi2_fs_uuid/g" \
-            > "$efi_dest/EFI/Ubuntu/grub.cfg"
-    fi
-    if test -e "$efi_src/grub/grub.cfg"; then
-        echo "copy and modify grub/grub.cfg for fsuuid of efi2"
-        cat "$efi_src/grub/grub.cfg" \
-            | sed -r "s/$efi_fs_uuid/$efi2_fs_uuid/g" \
-            > "$efi_dest/grub/grub.cfg"
-    fi
-    if test ! -e "$efi_dest/grub/grubenv"; then
-        echo "create empty grub/grubenv"
-        grub-editenv "$efi_dest/grub/grubenv" create
-    fi
-    echo "copy grubenv of $efi_src to $efi_dest"
-    dd if="$efi_src/grub/grubenv" of="$efi_dest/grub/grubenv" bs=1024 count=1
-}
-
+# ### tools: mk_partlabel , by_partlabel , x_of , first_of
+# ### tools: is_substr , substr_fstype , substr_vgname , dev_fs_uuid , dev_part_uuid
+# ### tools: is_enczfs , is_zfs, is_lvm , is_mdadm , is_luks
 
 mk_partlabel() { # diskcount crypt=true/false/native lvm=vgname/""/false fs=""/ext4/xfs/zfs partname
     local diskcount crypt lvm fs partname label
@@ -391,7 +171,7 @@ dev_part_uuid() { # devpath
 }
 
 
-# ### Create and format Partitions
+# ### Create and format partitions efi, swap, boot, root, data
 
 create_efi() {
     local devlist devcount
@@ -405,35 +185,8 @@ create_efi() {
 }
 
 
-create_boot() {
-    local devlist devcount
-    devlist=$(by_partlabel BOOT)
-    devcount=$(echo "$devlist" | wc -w)
-    if test "$devcount" = "1" -o "$devcount" = "2"; then
-        if is_zfs "$devlist"; then
-            echo "create zfs boot pool (bpool) $devlist"
-            create_boot_pool \
-                "$(if test "$devcount" != 1; then echo "mirror"; fi)" $devlist
-        else
-            if test "$devcount" != 1; then
-                echo "create mdadm-boot $devlist"
-                echo "y" | mdadm --create /dev/md/$(hostname):mdadm-boot -v \
-                    --symlinks=yes --assume-clean \
-                    --level=mirror "--raid-disks=${devcount}" \
-                    $devlist
-                actlist="/dev/md/$(hostname):mdadm-boot"
-            else
-                actlist="$devlist"
-            fi
-            echo "format boot"
-            "mkfs.$(substr_fstype "$devlist")" -q -L boot "$actlist"
-        fi
-    fi
-}
-
-
 create_swap() { # diskpassword
-    local diskpassword targetdev devlist devcount
+    local diskpassword devlist devcount targetdev
     diskpassword="$1"
     devlist=$(by_partlabel SWAP)
     devcount=$(echo "$devlist" | wc -w)
@@ -460,68 +213,82 @@ create_swap() { # diskpassword
 }
 
 
-create_data() { # diskpassword data_lvm_vol_size
-    local diskpassword data_lvm_vol_size devlist devcount devindex devtarget actlist templist vgname i
-    diskpassword="$1"; data_lvm_vol_size="$2"
-    devlist=$(by_partlabel DATA)
+create_boot() { # basedir distrib_id
+    local basedir distrib_id devlist devcount
+    basedir="$1"
+    distrib_id="$2"
+    devlist=$(by_partlabel BOOT)
     devcount=$(echo "$devlist" | wc -w)
     if test "$devcount" = "1" -o "$devcount" = "2"; then
-        actlist=$devlist
-        if (test "$devcount" != "1" && ! is_zfs "$devlist"); then
-            echo "create mdadm-data $actlist"
-            echo "y" | mdadm --create /dev/md/$(hostname):mdadm-data -v \
-                --symlinks=yes --assume-clean \
-                --level=mirror "--raid-disks=${devcount}" \
-                $actlist
-            actlist=/dev/md/$(hostname):mdadm-data
-        fi
-        if is_luks "$devlist"; then
-            devindex=1
-            templist=$actlist
-            actlist=""
-            for i in $templist; do
-                devtarget=luks-data$(if (test "$devcount" != "1" && is_zfs "${i}"); then echo "${i##*DATA}"; fi)
-                echo "setup luks $devtarget $i"
-                echo "$diskpassword" \
-                    | cryptsetup luksFormat $(luks_encryption_options) ${i}
-                echo "$diskpassword" \
-                    | cryptsetup open --type luks ${i} "$devtarget"
-                actlist="$actlist /dev/mapper/$devtarget"
-                while test ! -L /dev/mapper/$devtarget; do
-                    udevadm settle --exit-if-exists=/dev/mapper/$devtarget
-                    sleep 1
-                done
-                devindex=$((devindex+1))
-            done
-            sleep 2
-        fi
-        if is_lvm "$devlist"; then
-            vgname="$(substr_vgname "$devlist")"
-            echo "setup lvm pv $actlist and vg $vgname"
-            lvm pvcreate -f -y $actlist
-            lvm vgcreate -y "$vgname" $actlist
-            echo "format lv lvm_data"
-            lvm lvcreate -y --size "${data_lvm_vol_size}" "$vgname" --name lvm_data
-            "mkfs.$(substr_fstype "$devlist")" -q -L data "/dev/$vgname/lvm_data"
-        elif is_zfs "$devlist"; then
-            echo "create data zpool $actlist"
-            create_data_zpool "$basedir" \
-                "$(if test "$devcount" != 1; then echo "mirror"; fi)" $actlist
+        if is_zfs "$devlist"; then
+            echo "create zfs boot pool (bpool for $distrib_id) $devlist"
+            create_boot_pool \
+                "$(if test "$devcount" != 1; then echo "mirror"; fi)" $devlist
         else
-            if test "$(substr_fstype "$devlist")" = "other"; then
-                echo "not touching $actlist as fstype=other"
+            if test "$devcount" != 1; then
+                echo "create mdadm-boot $devlist"
+                echo "y" | mdadm --create /dev/md/$(hostname):mdadm-boot -v \
+                    --symlinks=yes --assume-clean \
+                    --level=mirror "--raid-disks=${devcount}" \
+                    $devlist
+                actlist="/dev/md/$(hostname):mdadm-boot"
             else
-                echo "format data $actlist"
-                "mkfs.$(substr_fstype "$devlist")" -q -L data "$actlist"
+                actlist="$devlist"
             fi
+            echo "format boot"
+            "mkfs.$(substr_fstype "$devlist")" -q -L boot "$actlist"
         fi
     fi
 }
 
 
-create_and_mount_root() { # basedir diskpassword root_lvm_vol_size
-    local basedir diskpassword root_lvm_vol_size devlist devcount devindex devtarget actlist templist vgname
-    basedir="$1"; diskpassword="$2"; root_lvm_vol_size="$3"
+create_boot_zpool() { # basedir distrib_id zpool-create-parameter (eg. mirror sda1 sda2)
+    local basedir distrib_id
+    basedir="$1"
+    distrib_id="$2"
+    shift 2
+
+    zpool create \
+        -o ashift=12 \
+        -o autotrim=on \
+        -d \
+        -o feature@async_destroy=enabled \
+        -o feature@bookmarks=enabled \
+        -o feature@embedded_data=enabled \
+        -o feature@empty_bpobj=enabled \
+        -o feature@enabled_txg=enabled \
+        -o feature@extensible_dataset=enabled \
+        -o feature@filesystem_limits=enabled \
+        -o feature@hole_birth=enabled \
+        -o feature@large_blocks=enabled \
+        -o feature@lz4_compress=enabled \
+        -o feature@spacemap_histogram=enabled \
+        -O normalization=formD \
+        -O xattr=sa \
+        -O acltype=posixacl \
+        -O relatime=on \
+        -O compression=lz4 \
+        -O devices=off \
+        -O canmount=off \
+        -O mountpoint=/boot \
+        -R "$basedir" \
+        bpool "$@"
+
+    zfs create \
+        -o canmount=off \
+        -o mountpoint=none \
+        bpool/BOOT
+    zfs create \
+        -o canmount=noauto \
+        -o mountpoint=/boot \
+        bpool/BOOT/$distrib_id
+}
+
+
+create_and_mount_root() { # basedir distrib_id diskpassword root_lvm_vol_size
+    local basedir distrib_id diskpassword root_lvm_vol_size
+    local devlist devcount devindex devtarget actlist templist vgname luksdev
+    basedir="$1"; distrib_id="$2"; diskpassword="$3"; root_lvm_vol_size="$4"
     devlist=$(by_partlabel ROOT)
     devcount=$(echo "$devlist" | wc -w)
     if test "$devcount" != "1" -a "$devcount" != "2"; then
@@ -541,13 +308,13 @@ create_and_mount_root() { # basedir diskpassword root_lvm_vol_size
         devindex=1
         templist=$actlist
         actlist=""
-        for i in $templist; do
-            devtarget=luks-root$(if (test "$devcount" != "1" && is_zfs "${i}"); then echo "${i##*ROOT}"; fi)
-            echo "setup luks-root $devtarget $i"
+        for luksdev in $templist; do
+            devtarget=luks-root$(if (test "$devcount" != "1" && is_zfs "${luksdev}"); then echo "${i##*ROOT}"; fi)
+            echo "setup luks-root $devtarget $luksdev"
             echo "$diskpassword" \
-                | cryptsetup luksFormat $(luks_encryption_options) ${i}
+                | cryptsetup luksFormat $(luks_encryption_options) ${luksdev}
             echo "$diskpassword" \
-                | cryptsetup open --type luks ${i} "$devtarget"
+                | cryptsetup open --type luks ${luksdev} "$devtarget"
             actlist="$(if test -n $actlist; then echo "$actlist "; fi)/dev/mapper/$devtarget"
             dmsetup info
             dmsetup mknodes
@@ -558,6 +325,10 @@ create_and_mount_root() { # basedir diskpassword root_lvm_vol_size
         dmsetup info
     fi
     if is_lvm "$devlist"; then
+        if is_zfs "$devlist"; then
+            echo "error: device(s) $devlist are configured for ROOT on lvm *and* zfs which is not supported"
+            exit 1
+        fi
         vgname="$(substr_vgname "$devlist")"
         echo "setup lvm pv $actlist and vg $vgname"
         lvm pvcreate -f -y $actlist
@@ -567,9 +338,15 @@ create_and_mount_root() { # basedir diskpassword root_lvm_vol_size
         "mkfs.$(substr_fstype "$devlist")" -q -L root "/dev/$vgname/lvm-root"
         mount "/dev/$vgname/lvm-root" "$basedir"
     elif is_zfs "$devlist"; then
-        echo "create root zpool $actlist"
-        create_root_zpool "$basedir" \
-            "$(if test "$devcount" != 1; then echo "mirror"; fi)" $actlist
+        if is_enczfs "$devlist"; then
+            echo "create native encrypted root zpool $actlist"
+            create_root_zpool --password "$diskpassword" "$basedir" \
+                "$(if test "$devcount" != 1; then echo "mirror"; fi)" $actlist
+        else
+            echo "create root zpool $actlist"
+            create_root_zpool "$basedir" \
+                "$(if test "$devcount" != 1; then echo "mirror"; fi)" $actlist
+        fi
     else
         echo "format and mount root $actlist"
         "mkfs.$(substr_fstype "$devlist")" -q -L root "$actlist"
@@ -578,11 +355,232 @@ create_and_mount_root() { # basedir diskpassword root_lvm_vol_size
 }
 
 
-create_root_finished() {
-    if is_zfs "$(by_partlabel ROOT)"; then
-        # TODO explain
-        zfs set devices=off "rpool/ROOT"
+
+create_root_zpool() { # [--password password] basedir distrib_id zpool-create-args* (eg. mirror sda1 sda2)
+    local basedir distrib_id diskpassword option_encrypt
+    diskpassword=""; option_encrypt=""
+    if test "$1" = "--password"; then
+        diskpassword=$2; shift 2
+        option_encrypt="$(zfs_encryption_options)"
     fi
+    basedir="$1"
+    distrib_id="$2"
+    shift 2
+
+    echo "zpool create -R $basedir rpool $@"
+    # XXX ashift 12 or 13 (4096/8192 byte sectors) depending disk
+    # -O compression=on|off|gzip|gzip-N|lz4|lzjb|zle|zstd|zstd-N|zstd-fast|zstd-fast-N
+    zpool create \
+        -o ashift=12 \
+        -o autotrim=on \
+        -O acltype=posixacl \
+        -O xattr=sa \
+        -O dnodesize=auto \
+        -O normalization=formD \
+        -O relatime=on \
+        -O compression=lz4 \
+        $option_encrypt \
+        -O canmount=off \
+        -O mountpoint=/ \
+        -R "$basedir" \
+        rpool "$@"
+
+    zfs create \
+        -o canmount=off \
+        -o mountpoint=none \
+        -O devices=off \
+        rpool/ROOT
+
+    # "/" from ROOT/$distrib_id
+    zfs create \
+        -o canmount=noauto \
+        -o mountpoint=/ \
+        -o com.sun:auto-snapshot:frequent=true \
+        -o com.sun:auto-snapshot:hourly=false \
+        -o com.sun:auto-snapshot:daily=true \
+        -o com.sun:auto-snapshot:weekly=false \
+        -o com.sun:auto-snapshot:monthly=false \
+        rpool/ROOT/$distrib_id
+
+    # mount future root ("/") to $basedir/
+    zfs mount rpool/ROOT/$distrib_id
+
+    # ephemeral parts of /var
+    zfs create \
+        -o canmount=off \
+        -o com.sun:auto-snapshot:frequent=true \
+        -o com.sun:auto-snapshot:hourly=false \
+        -o com.sun:auto-snapshot:daily=false \
+        -o com.sun:auto-snapshot:weekly=false \
+        -o com.sun:auto-snapshot:monthly=false \
+        -o local.custom:auto-backup=false \
+        -o logbias=throughput \
+        rpool/var
+
+    # make /var/lib an unmountable container, so subcontainer have automatic mountpoint
+    zfs create \
+        -o canmount=off \
+        rpool/var/lib
+    # create /var/lib (which is part of /var) and other needed base directories
+    mkdir -p "$basedir/var/lib"
+
+    # important data to keep: rpool/data
+    zfs create \
+        -o setuid=off \
+        -o exec=off \
+        -o canmount=off \
+        -o mountpoint=none \
+        -o com.sun:auto-snapshot:frequent=true \
+        -o com.sun:auto-snapshot:hourly=true \
+        -o com.sun:auto-snapshot:daily=true \
+        -o com.sun:auto-snapshot:weekly=true \
+        -o com.sun:auto-snapshot:monthly=true \
+        rpool/data
+
+    # keep in sync with salt-shared/zfs/defaults.jinja/zfs_rpool_defaults, see README.md for snippet
+    zfs create -o "mountpoint=/home" -o "setuid=off" -o "exec=on" rpool/data/home
+    zfs create -o "mountpoint=/root" rpool/data/home/root
+    zfs create -o "mountpoint=/tmp" rpool/var/basedir-tmp
+    zfs create rpool/var/tmp
+    zfs create rpool/var/spool
+    zfs create -o "exec=off" rpool/var/log
+    zfs create -o "exec=off" rpool/var/cache
+
+    zfs create -o "recordsize=16K" -o "logbias=throughput" -o "primarycache=metadata" rpool/data/postgresql
+    zfs create -o "mountpoint=/var/lib/postgresql" rpool/data/postgresql/localhost
+    zfs create -o "mountpoint=/var/lib/mail" rpool/data/mail
+
+    if test "$distrib_id" = "ubuntu" -o "$distrib_id" = "debian"; then
+        # for apt based systems
+        zfs create rpool/var/backups
+        mkdir -p "$basedir/var/lib/apt"
+        zfs create -o "exec=off" -o "mountpoint=/var/lib/apt/lists" rpool/var/lib/apt-lists
+        # for pbuilder
+        zfs create -o "exec=on" -o "devices=on" rpool/var/cache/pbuilder
+        # for snaps
+        zfs create rpool/var/lib/snapd
+    fi
+    # for GNOME
+    #- name: var/lib/AccountsService
+    # for Docker
+    # - name: var/lib/docker
+    # for NFS
+    # - name: var/lib/nfs
+    # for LXC
+    # - name: var/lib/lxc
+    # for LibVirt
+    # - name: var/lib/libvirt
+
+    # keep in sync end
+
+    # correct filepermission for temp directories
+    chmod 1777 "$basedir/tmp"
+    chmod 1777 "$basedir/var/tmp"
+}
+
+
+create_data() { # diskpassword data_lvm_vol_size
+    local diskpassword root_lvm_vol_size
+    local devlist devcount devindex devtarget actlist templist vgname luksdev
+    diskpassword="$1"; data_lvm_vol_size="$2"
+    devlist=$(by_partlabel DATA)
+    devcount=$(echo "$devlist" | wc -w)
+    if test "$devcount" = "1" -o "$devcount" = "2"; then
+        actlist=$devlist
+        if (test "$devcount" != "1" && ! is_zfs "$devlist"); then
+            echo "create mdadm-data $actlist"
+            echo "y" | mdadm --create /dev/md/$(hostname):mdadm-data -v \
+                --symlinks=yes --assume-clean \
+                --level=mirror "--raid-disks=${devcount}" \
+                $actlist
+            actlist=/dev/md/$(hostname):mdadm-data
+        fi
+        if is_luks "$devlist"; then
+            devindex=1
+            templist=$actlist
+            actlist=""
+            for luksdev in $templist; do
+                devtarget=luks-data$(if (test "$devcount" != "1" && is_zfs "${luksdev}"); then echo "${i##*DATA}"; fi)
+                echo "setup luks $devtarget ${luksdev}"
+                echo "$diskpassword" \
+                    | cryptsetup luksFormat $(luks_encryption_options) ${luksdev}
+                echo "$diskpassword" \
+                    | cryptsetup open --type luks ${luksdev} "$devtarget"
+                actlist="$actlist /dev/mapper/$devtarget"
+                while test ! -L /dev/mapper/$devtarget; do
+                    udevadm settle --exit-if-exists=/dev/mapper/$devtarget
+                    sleep 1
+                done
+                devindex=$((devindex+1))
+            done
+            sleep 2
+        fi
+        if is_lvm "$devlist"; then
+            if is_zfs "$devlist"; then
+                echo "error: device(s) $devlist are configured for DATA using lvm *and* zfs which is not supported"
+                exit 1
+            fi
+            vgname="$(substr_vgname "$devlist")"
+            echo "setup lvm pv $actlist and vg $vgname"
+            lvm pvcreate -f -y $actlist
+            lvm vgcreate -y "$vgname" $actlist
+            echo "format lv lvm_data"
+            lvm lvcreate -y --size "${data_lvm_vol_size}" "$vgname" --name lvm_data
+            "mkfs.$(substr_fstype "$devlist")" -q -L data "/dev/$vgname/lvm_data"
+        elif is_zfs "$devlist"; then
+            if is_enczfs "$devlist"; then
+                echo "create native encrypted data zpool $actlist"
+                create_data_zpool --password "$diskpassword" "$basedir" \
+                    "$(if test "$devcount" != 1; then echo "mirror"; fi)" $actlist
+            else
+                echo "create data zpool $actlist"
+                create_data_zpool "$basedir" \
+                    "$(if test "$devcount" != 1; then echo "mirror"; fi)" $actlist
+            fi
+        else
+            if test "$(substr_fstype "$devlist")" = "other"; then
+                echo "not touching $actlist as fstype=other"
+            else
+                echo "format data $actlist"
+                "mkfs.$(substr_fstype "$devlist")" -q -L data "$actlist"
+            fi
+        fi
+    fi
+}
+
+
+create_data_zpool() { # [--password password] basedir zpool-create-args* (eg. mirror sda1 sda2)
+    local basedir diskpassword option_encrypt
+    diskpassword=""; option_encrypt=""
+    if test "$1" = "--password"; then
+        diskpassword=$2; shift 2
+        option_encrypt="$(zfs_encryption_options)"
+    fi
+    basedir="$1"
+    shift
+
+    # XXX ashift 12 or 13 (4096/8192 byte sectors) depending disk
+    zpool create \
+        -o ashift=12 \
+        -o autotrim=on \
+        -O acltype=posixacl \
+        -O xattr=sa \
+        -O dnodesize=auto \
+        -O normalization=formD \
+        -O relatime=on \
+        -O compression=lz4 \
+        "$option_encrypt" \
+        -O canmount=off \
+        -O mountpoint=/ \
+        -R "$basedir" \
+        dpool "$@"
+
+    zfs create \
+        -o setuid=off \
+        -o exec=off \
+        -o mountpoint=/data \
+        -o com.sun:auto-snapshot:frequent=true \
+        "dpool/data"
 }
 
 
@@ -641,7 +639,7 @@ create_file_swap() { # <swap_size-in-mb:default=1024>
 }
 
 
-# ### Activate/Deactivate mdadm,luks,lvm, write out storage configuration
+# ### Activate/Deactivate mdadm, luks, lvm, zfs_key, write out /etc/fstab, crypttab
 
 activate_mdadm() {
     local p all_mdadm this_md
@@ -752,6 +750,34 @@ deactivate_lvm() {
     done
     for vg in $(lvm vgs -o vg_name --no-headings); do
         vgchange -a n $vg || echo "deactivate of vg $vg failed!"
+    done
+}
+
+
+activate_zfs_key() { # passphrase
+    local passphrase p poolname
+    passphrase="$1"
+    for p in ROOT DATA; do
+        if is_enczfs "$(by_partlabel $p)"; then
+            poolname="rpool"
+            if test "$p" = "DATA"; then poolname="dpool"; fi
+            echo "zfs load-key -r $poolname"
+            printf "%s" "$passphrase" \
+                | zfs load-key -r $poolname
+        fi
+    done
+}
+
+
+deactivate_zfs_key() {
+    local p poolname
+    for p in ROOT DATA; do
+        if is_enczfs "$(by_partlabel $p)"; then
+            poolname="rpool"
+            if test "$p" = "DATA"; then poolname="dpool"; fi
+            echo "zfs unload-key -r $poolname"
+            zfs unload-key -r $poolname
+        fi
     done
 }
 
@@ -875,22 +901,23 @@ EOF
 }
 
 
-# ### Mounting / Unmounting
+# ### Mounting / Unmounting root, boot, data, efi, bindmounts
 
 mount_root() { # basedir force:true|false
-    local basedir import_opts devlist devcount
+    local basedir devlist devcount import_opts
     basedir=$1
-    import_opts=""
     devlist=$(by_partlabel ROOT)
     devcount=$(echo "$devlist" | wc -w)
-    if test "$2" = "true"; then import_opts="-f"; fi
+    if test "$2" = "true"; then import_opts="-f"; else import_opts=""; fi
 
     mkdir -p "$basedir"
     if is_zfs "$devlist"; then
         echo "import rpool"
         zpool import $import_opts -N -R "$basedir" rpool
         echo "mount root at $basedir"
+FIXME
         zfs mount rpool/ROOT/ubuntu
+
         zfs mount -a || echo "Error: could not mount all zfs volumes!"
     elif is_lvm "$devlist"; then
         echo "mount $(substr_vgname "$devlist")/lvm-root at $basedir"
@@ -914,6 +941,7 @@ mount_boot() { # basedir force:true|false
             echo "import bpool"
             zpool import $import_opts -N -R "$basedir/boot" bpool
             echo "mount bpool/BOOT/ubuntu at $basedir/boot"
+FIXME
             zfs mount bpool/BOOT/ubuntu
         else
             echo "mount boot at $basedir/boot"
@@ -924,12 +952,11 @@ mount_boot() { # basedir force:true|false
 
 
 mount_data() { # basedir force:true|false
-    local basedir import_opts devlist devcount
-    basedir=$1
-    import_opts=""
+    local basedir devlist devcount import_opts
     devlist=$(by_partlabel DATA)
     devcount=$(echo "$devlist" | wc -w)
-    if test "$2" = "true"; then import_opts="-f"; fi
+    basedir=$1
+    if test "$2" = "true"; then import_opts="-f"; else import_opts=""; fi
 
     if test "$devlist" != ""; then
         if is_zfs "$devlist"; then
@@ -947,11 +974,11 @@ mount_data() { # basedir force:true|false
 mount_efi() { # basedir
     local basedir devlist devcount devpath bootcount hasboot
     basedir=$1;
-    hasboot="false"
-    bootcount="$(by_partlabel BOOT | wc -w)"
-    if test "$bootcount" = 1 -o "$bootcount" = 2; then hasboot="true"; fi
     devlist=$(by_partlabel EFI)
     devcount=$(echo "$devlist" | wc -w)
+    bootcount="$(by_partlabel BOOT | wc -w)"
+    hasboot="false"
+    if test "$bootcount" = 1 -o "$bootcount" = 2; then hasboot="true"; fi
     if test "$hasboot" = "true"; then devpath=efi; else devpath=boot; fi
 
     mkdir -p "$basedir/$devpath"
@@ -1038,203 +1065,208 @@ unmount_root() { # basedir
 }
 
 
-# ### ZFS Pool generation
 
-create_boot_zpool() { # [--distrib_id distrib_id] basedir zpool-create-parameter (eg. mirror sda1 sda2)
-    local basedir distrib_id
-    if test "$1" = "--distrib_id"; then distrib_id="$2"; shift 2; else distrib_id="ubuntu"; fi
-    basedir=$1
-    shift
-    zpool create \
-        -o ashift=12 \
-        -o autotrim=on \
-        -d \
-        -o feature@async_destroy=enabled \
-        -o feature@bookmarks=enabled \
-        -o feature@embedded_data=enabled \
-        -o feature@empty_bpobj=enabled \
-        -o feature@enabled_txg=enabled \
-        -o feature@extensible_dataset=enabled \
-        -o feature@filesystem_limits=enabled \
-        -o feature@hole_birth=enabled \
-        -o feature@large_blocks=enabled \
-        -o feature@lz4_compress=enabled \
-        -o feature@spacemap_histogram=enabled \
-        -O normalization=formD \
-        -O xattr=sa \
-        -O acltype=posixacl \
-        -O relatime=on \
-        -O compression=lz4 \
-        -O devices=off \
-        -O canmount=off \
-        -O mountpoint=/ \
-        -R "$basedir" \
-        bpool "$@"
+# ### configure zfs, nfs, sshd, hostname
 
-    zfs create \
-        -o canmount=off \
-        -o mountpoint=none \
-        bpool/BOOT
-    zfs create \
-        -o canmount=noauto \
-        -o mountpoint=/boot \
-        bpool/BOOT/$distrib_id
+configure_module_zfs() {
+    mkdir -p /etc/modprobe.d
+    echo "configure zfs fs options"
+    arc_max_bytes=$(grep MemTotal /proc/meminfo | awk '{printf("%u",$2*25/100*1024)}')
+    echo "use maximum of 25% of available memory for arc zfs_arc_max=$arc_max_bytes bytes"
+    echo "options zfs zfs_arc_max=${arc_max_bytes}" >> /etc/modprobe.d/zfs.conf
 }
 
 
-create_data_zpool() { # [--password password] basedir zpool-create-args* (eg. mirror sda1 sda2)
-    local basedir diskpassword option_encrypt
-    diskpassword=""; option_encrypt=""
-    if test "$1" = "--password"; then
-        diskpassword=$2; shift 2
-        option_encrypt="-O encryption=aes-256-gcm -O keylocation=prompt -O keyformat=passphrase"
+configure_nfs() {
+    if which apt-get 2> /dev/null; then
+        echo "dracut-network pulls in nfs-common which pulls in rpcbind"
+        echo "configuring nfs (which get pulled in by zfsutils)"
+        echo "restrict to nfs 4 and localhost, disable rpcbind"
+        echo "overwriting /etc/default/rpcbind"
+        cat > /etc/default/rpcbind << EOF
+# restrict rpcbind to localhost only for UDP requests
+OPTIONS="-w -l -h 127.0.0.1 -h ::1"
+EOF
+        mkdir -p /etc/systemd/system/
+        echo "mask (disable) rpcbind.service and rpbind.socket, because nfs4 only setup"
+        ln -s -f /dev/null /etc/systemd/system/rpcbind.service
+        ln -s -f /dev/null /etc/systemd/system/rpcbind.socket
+        echo "overwriting /etc/default/nfs-common"
+        mkdir -p /etc/default
+        cat > /etc/default/nfs-common << EOF
+# nfs4 only configuration (-N 2 -N 3, NEED_STATD=no,NEED_IDMAPD=yes)
+# Options for rpc.statd, see rpc.statd(8) or http://wiki.debian.org/SecuringNFS
+STATDOPTS="--port 32765 --outgoing-port 32766 --name 127.0.0.1 --name ::1"
+# If you do not set values for the NEED_ options, they will be attempted
+# autodetected; Valid alternatives for the NEED_ options are "yes" and "no".
+# Do you want to start the gssd daemon? It is required for Kerberos mounts.
+NEED_GSSD=
+NEED_STATD="no"
+NEED_IDMAPD="yes"
+EOF
+        echo "overwriting /etc/default/nfs-kernel-server"
+        cat > /etc/default/nfs-kernel-server << EOF
+# nfs4 only configuration (-N 2 -N 3)
+# Number of servers to start up
+RPCNFSDCOUNT=8
+# Runtime priority of server (see nice(1))
+RPCNFSDPRIORITY=0
+# Options for rpc.mountd.
+RPCMOUNTDOPTS="-N 2 -N 3 --no-udp --manage-gids --port 32767"
+# Options for rpc.nfsd.
+RPCNFSDOPTS="-N 2 -N 3 --no-udp --host 127.0.0.1 --host ::1"
+# Do you want to start the svcgssd daemon? It is only required for Kerberos
+# exports. Valid alternatives are "yes" and "no"; the default is "no".
+NEED_SVCGSSD=""
+# Options for rpc.svcgssd.
+RPCSVCGSSDOPTS=""
+EOF
     fi
-    basedir="$1"
-    shift
-
-    # XXX ashift 12 or 13 (4096/8192 byte sectors) depending disk
-    zpool create \
-        -o ashift=12 \
-        -o autotrim=on \
-        -O normalization=formD \
-        -O acltype=posixacl \
-        -O xattr=sa \
-        -O relatime=on \
-        -O compression=lz4 \
-        "$option_encrypt" \
-        -O canmount=off \
-        -O mountpoint=/ \
-        -R "$basedir" \
-        dpool "$@"
-
-    zfs create \
-        -o setuid=off \
-        -o exec=off \
-        -o canmount=noauto \
-        -o mountpoint=/data \
-        -o com.sun:auto-snapshot:frequent=true \
-        "dpool/data"
 }
 
 
-create_root_zpool() { # [--password password] [--distrib_id distrib_id] basedir zpool-create-args* (eg. mirror sda1 sda2)
-    local basedir diskpassword option_encrypt distrib_id
-    diskpassword=""; option_encrypt=""; distrib_id="ubuntu"
-    if test "$1" = "--password"; then
-        diskpassword=$2; shift 2
-        option_encrypt="$(zfs_encryption_options)"
+configure_sshd() {
+    echo "setup sshd, config taken at 2022-01-20 (exkl. ecsda) from https://infosec.mozilla.org/guidelines/openssh.html "
+    echo "only use >= 3072-bit-long moduli"
+    awk '$5 >= 3071' /etc/ssh/moduli > /etc/ssh/moduli.tmp && mv /etc/ssh/moduli.tmp /etc/ssh/moduli
+    echo "do not use and remove all present ecdsa keys"
+    for i in ssh_host_ecdsa_key ssh_host_ecdsa_key.pub; do
+        if test -e /etc/ssh/$i; then rm /etc/ssh/$i; fi
+    done
+    cat >> /etc/ssh/sshd_config <<EOF
+# ### MACHINE-BOOTSTRAP BEGIN ###
+# Supported HostKey algorithms by order of preference.
+HostKey /etc/ssh/ssh_host_ed25519_key
+HostKey /etc/ssh/ssh_host_rsa_key
+AuthenticationMethods publickey
+KexAlgorithms curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group-exchange-sha256
+Ciphers chacha20-poly1305@openssh.com,aes256-gcm@openssh.com,aes128-gcm@openssh.com,aes256-ctr,aes192-ctr,aes128-ctr
+MACs hmac-sha2-512-etm@openssh.com,hmac-sha2-256-etm@openssh.com,umac-128-etm@openssh.com,hmac-sha2-512,hmac-sha2-256,umac-128@openssh.com
+# ### MACHINE-BOOTSTRAP END ###
+EOF
+}
+
+
+configure_hostname() { # hostname
+    local hostname shortname domainname intip intip_re
+    hostname="$1"
+    echo "configure hostname ($hostname)"
+    shortname="${hostname%%.*}"
+    domainname="${hostname#*.}"
+    intip="127.0.1.1"
+    intip_re="127\.0\.1\.1"
+    if ! grep -E -q "^${intip_re}[[:space:]]+${hostname}[[:space:]]+${shortname}" /etc/hosts; then
+        if grep -q "^${intip_re}" /etc/hosts; then
+            sed -i -r "s/^(${intip_re}[ \t]+).*/\1${hostname} ${shortname}/" /etc/hosts
+        else
+            sed -i -r "$ a${intip} ${hostname} ${shortname}\n" /etc/hosts
+        fi
     fi
-    if test "$1" = "--distrib_id"; then distrib_id="$2"; shift 2; fi
-    basedir=$1
-    shift
+    echo "$shortname" > /etc/hostname
+    hostnamectl set-hostname "$shortname"
+}
 
-    echo "zpool create -R $basedir rpool $@"
-    # XXX ashift 12 or 13 (4096/8192 byte sectors) depending disk
-    # -O compression=on|off|gzip|gzip-N|lz4|lzjb|zle|zstd|zstd-N|zstd-fast|zstd-fast-N
-    zpool create \
-        -o ashift=12 \
-        -o autotrim=on \
-        -O normalization=formD \
-        -O acltype=posixacl \
-        -O xattr=sa \
-        -O relatime=on \
-        -O compression=lz4 \
-        $option_encrypt \
-        -O canmount=off \
-        -O mountpoint=/ \
-        -R "$basedir" \
-        rpool "$@"
 
-    zfs create \
-        -o canmount=off \
-        -o mountpoint=none \
-        rpool/ROOT
+# ### install packages, grub, efi_sync, bootstrap_manjaro, bootstrap_nixos
 
-    # "/" from ROOT/$distrib_id
-    zfs create \
-        -o canmount=noauto \
-        -o mountpoint=/ \
-        -o com.sun:auto-snapshot:frequent=true \
-        -o com.sun:auto-snapshot:hourly=false \
-        -o com.sun:auto-snapshot:daily=true \
-        -o com.sun:auto-snapshot:weekly=false \
-        -o com.sun:auto-snapshot:monthly=false \
-        rpool/ROOT/$distrib_id
-
-    # mount future root ("/") to $basedir/
-    zfs mount rpool/ROOT/$distrib_id
-
-    # ephemeral parts of /var
-    zfs create \
-        -o canmount=off \
-        -o com.sun:auto-snapshot:frequent=true \
-        -o com.sun:auto-snapshot:hourly=false \
-        -o com.sun:auto-snapshot:daily=false \
-        -o com.sun:auto-snapshot:weekly=false \
-        -o com.sun:auto-snapshot:monthly=false \
-        -o local.custom:auto-backup=false \
-        -o logbias=throughput \
-        rpool/var
-
-    # make /var/lib an unmountable container, so subcontainer have automatic mountpoint
-    zfs create \
-        -o canmount=off \
-        rpool/var/lib
-    # create /var/lib (which is part of /var) and other needed base directories
-    mkdir -p "$basedir/var/lib"
-
-    # important data to keep: rpool/data
-    zfs create \
-        -o setuid=off \
-        -o exec=off \
-        -o canmount=off \
-        -o mountpoint=none \
-        -o com.sun:auto-snapshot:frequent=true \
-        -o com.sun:auto-snapshot:hourly=true \
-        -o com.sun:auto-snapshot:daily=true \
-        -o com.sun:auto-snapshot:weekly=true \
-        -o com.sun:auto-snapshot:monthly=true \
-        rpool/data
-
-    # keep in sync with salt-shared/zfs/defaults.jinja/zfs_rpool_defaults, see README.md for snippet
-    zfs create -o "mountpoint=/home" -o "setuid=off" -o "exec=on" rpool/data/home
-    zfs create -o "mountpoint=/root" rpool/data/home/root
-    zfs create -o "mountpoint=/tmp" rpool/var/basedir-tmp
-    zfs create rpool/var/tmp
-    zfs create rpool/var/spool
-    zfs create -o "exec=off" rpool/var/log
-    zfs create -o "exec=off" rpool/var/cache
-
-    zfs create -o "recordsize=16K" -o "logbias=throughput" -o "primarycache=metadata" rpool/data/postgresql
-    zfs create -o "mountpoint=/var/lib/postgresql" rpool/data/postgresql/localhost
-    zfs create -o "mountpoint=/var/lib/mail" rpool/data/mail
-
-    if test "$distrib_id" = "ubuntu"; then
-        # for apt based systems
-        zfs create rpool/var/backups
-        mkdir -p "$basedir/var/lib/apt"
-        zfs create -o "exec=off" -o "mountpoint=/var/lib/apt/lists" rpool/var/lib/apt-lists
-        # for pbuilder
-        zfs create -o "exec=on" -o "devices=on" rpool/var/cache/pbuilder
-        # for snaps
-        zfs create rpool/var/lib/snapd
+install_packages() { # --refresh package*
+    local refresh
+    if test "$1" = "--refresh"; then refresh="true"; shift; else refresh="false"; fi
+    if which apt-get 2> /dev/null; then
+        if test "$refresh" = "true"; then
+            DEBIAN_FRONTEND=noninteractive apt-get update --yes
+        fi
+        if test "$1" != ""; then
+            DEBIAN_FRONTEND=noninteractive apt-get install --yes $@
+        fi
+    elif which pamac 2> /dev/null; then
+        if test "$1" != ""; then
+            pamac install --no-confirm --no-upgrade $@
+        fi
+    else
+        echo "Error: unknown platform, add cmds for other platforms in install_packages"
+        exit 1
     fi
-    # for GNOME
-    #- name: var/lib/AccountsService
-    # for Docker
-    # - name: var/lib/docker
-    # for NFS
-    # - name: var/lib/nfs
-    # for LXC
-    # - name: var/lib/lxc
-    # for LibVirt
-    # - name: var/lib/libvirt
+}
 
-    # keep in sync end
 
-    # correct filepermission for temp directories
-    chmod 1777 "$basedir/tmp"
-    chmod 1777 "$basedir/var/tmp"
+install_grub() { # efi_dir efi_disk
+    local efi_dir efi_disk efi_grub_param
+    efi_dir="$1"; efi_disk="$2"
+    if test ! -e "/sys/firmware/efi"; then
+        efi_grub_param="--no-nvram"
+    else
+        efi_grub_param="--auto-nvram"
+    fi
+    grub-install    --target=x86_64-efi \
+                    --boot-directory="$efi_dir" \
+                    --efi-directory="$efi_dir" \
+                    --bootloader-id=Ubuntu \
+                    --recheck --no-floppy $efi_grub_param
+    grub-install    --target=i386-pc \
+                    --boot-directory="$efi_dir" \
+                    --recheck --no-floppy \
+                    "$efi_disk"
+}
+
+
+install_efi_sync() { # rootprefix(default="")
+    local rootprefix
+    rootprefix=""
+    if test "$1" != ""; then rootprefix="$1"; shift; fi
+    cat > "$rootprefix/etc/systemd/system/efi-sync.path" << EOF
+[Unit]
+Description=Copy EFI to EFI2 System Partition
+
+[Path]
+PathChanged=/efi
+
+[Install]
+WantedBy=multi-user.target
+WantedBy=system-update.target
+EOF
+    cat > "$rootprefix/etc/systemd/system/efi-sync.service" << EOF
+[Unit]
+Description=Copy EFI to EFI2 System Partition
+RequiresMountsFor=/efi
+RequiresMountsFor=/efi2
+
+[Service]
+Type=oneshot
+ExecStart=/etc/recovery/efi-sync.sh --yes
+EOF
+    systemctl enable efi-sync.{path,service}
+}
+
+
+efi_sync() { # efi_src efi_dest
+    local efi_src efi_dest efi_fs_uuid efi2_fs_uuid
+    efi_src="$1"; efi_dest="$2"
+
+    echo "Sync contents of $efi_src to $efi_dest"
+    rsync -a --exclude EFI/Ubuntu/grub.cfg --exclude grub/grub.cfg \
+        --exclude grub/grubenv --delete-during "$efi_src/" "$efi_dest/"
+
+    efi_fs_uuid=$(dev_fs_uuid "$(by_partlabel EFI | first_of)")
+    efi2_fs_uuid=$(dev_fs_uuid "$(by_partlabel EFI | x_of 2)")
+    if test -e "$efi_src/EFI/Ubuntu/grub.cfg"; then
+        echo "copy and modify EFI/Ubuntu/grub.cfg for fsuuid of efi2"
+        cat "$efi_src/EFI/Ubuntu/grub.cfg" \
+            | sed -r "s/$efi_fs_uuid/$efi2_fs_uuid/g" \
+            > "$efi_dest/EFI/Ubuntu/grub.cfg"
+    fi
+    if test -e "$efi_src/grub/grub.cfg"; then
+        echo "copy and modify grub/grub.cfg for fsuuid of efi2"
+        cat "$efi_src/grub/grub.cfg" \
+            | sed -r "s/$efi_fs_uuid/$efi2_fs_uuid/g" \
+            > "$efi_dest/grub/grub.cfg"
+    fi
+    if test ! -e "$efi_dest/grub/grubenv"; then
+        echo "create empty grub/grubenv"
+        grub-editenv "$efi_dest/grub/grubenv" create
+    fi
+    echo "copy grubenv of $efi_src to $efi_dest"
+    dd if="$efi_src/grub/grubenv" of="$efi_dest/grub/grubenv" bs=1024 count=1
 }
 
 
