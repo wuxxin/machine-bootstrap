@@ -14,7 +14,7 @@ usage() {
     cat <<EOF
 Usage: $0 [--show-ssh|--show-scp] temporary|recovery|initrd|system|initrd-unlock|recovery-unlock [\$@]
 
-use ssh keys and config taken from $config_path to connect to system via ssh
+use ssh keys and config taken from $config_path to connect to a system via ssh
 
 --show-ssh: only displays the parameters for ssh
 --show-scp: only displays the parameters for scp
