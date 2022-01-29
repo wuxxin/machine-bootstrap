@@ -457,8 +457,8 @@ Nr |Name(max 36 x UTF16)|Description|
         create_file_swap() which is feature equal to the swap partition
         beside the suspend to disk functionality.
 
-+ ZFS or LVM but not both on one partition
-    + on partittions ROOT and DATA, currently only either zfs or lvm can be used.
++ ZFS and LVM can not be specified on the same partition.
+    + on partittions ROOT and DATA, either zfs or lvm can be used.
         if both are specified at the same time, the script will fail.
 
 + GPT Name Scheme information leakage
