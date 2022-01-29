@@ -222,7 +222,7 @@ create_boot() { # basedir distrib_id
     if test "$devcount" = "1" -o "$devcount" = "2"; then
         if is_zfs "$devlist"; then
             echo "create zfs boot pool (bpool for $distrib_id) $devlist"
-            create_boot_pool \
+            create_boot_zpool "$basedir" "$distrib_id" \
                 "$(if test "$devcount" != 1; then echo "mirror"; fi)" $devlist
         else
             if test "$devcount" != 1; then
@@ -341,11 +341,11 @@ create_and_mount_root() { # basedir distrib_id diskpassword root_lvm_vol_size
     elif is_zfs "$devlist"; then
         if is_enczfs "$devlist"; then
             echo "create native encrypted root zpool $actlist"
-            create_root_zpool --password "$diskpassword" "$basedir" \
+            create_root_zpool --password "$diskpassword" "$basedir" "$distrib_id" \
                 "$(if test "$devcount" != 1; then echo "mirror"; fi)" $actlist
         else
             echo "create root zpool $actlist"
-            create_root_zpool "$basedir" \
+            create_root_zpool "$basedir" "$distrib_id" \
                 "$(if test "$devcount" != 1; then echo "mirror"; fi)" $actlist
         fi
     else

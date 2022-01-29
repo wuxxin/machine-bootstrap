@@ -153,7 +153,7 @@ zgenhostid
 
 # create & mount target filesystems
 create_and_mount_root /mnt "$distrib_id" "$diskpassword" "$root_lvm_vol_size"
-create_boot "$distrib_id"
+create_boot /mnt "$distrib_id"
 create_data "$diskpassword" $data_lvm_vol_size
 create_swap "$diskpassword"
 create_homedir home $firstuser
