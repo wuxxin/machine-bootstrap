@@ -247,11 +247,12 @@ create_boot_zpool() { # basedir distrib_id zpool-create-parameter (eg. mirror sd
     basedir="$1"
     distrib_id="$2"
     shift 2
-
+    # -d = no default options, because boot pool must be accessable from bootloader
     zpool create \
+        -d \
         -o ashift=12 \
         -o autotrim=on \
-        -d \
+        -o cachefile=/etc/zfs/zpool.cache \
         -o feature@async_destroy=enabled \
         -o feature@bookmarks=enabled \
         -o feature@embedded_data=enabled \
@@ -373,6 +374,7 @@ create_root_zpool() { # [--password password] basedir distrib_id zpool-create-ar
     zpool create \
         -o ashift=12 \
         -o autotrim=on \
+        -o cachefile=/etc/zfs/zpool.cache \
         -O acltype=posixacl \
         -O xattr=sa \
         -O dnodesize=auto \
@@ -388,7 +390,7 @@ create_root_zpool() { # [--password password] basedir distrib_id zpool-create-ar
     zfs create \
         -o canmount=off \
         -o mountpoint=none \
-        -O devices=off \
+        -o devices=off \
         rpool/ROOT
 
     # "/" from ROOT/$distrib_id
@@ -401,6 +403,10 @@ create_root_zpool() { # [--password password] basedir distrib_id zpool-create-ar
         -o com.sun:auto-snapshot:weekly=false \
         -o com.sun:auto-snapshot:monthly=false \
         rpool/ROOT/$distrib_id
+
+    # Set the bootfs property on the descendant root filesystem
+    # so the boot loader knows where to find the operating system
+    zpool set bootfs=rpool/ROOT/$distrib_id rpool
 
     # mount future root ("/") to $basedir/
     zfs mount rpool/ROOT/$distrib_id
@@ -563,6 +569,7 @@ create_data_zpool() { # [--password password] basedir zpool-create-args* (eg. mi
     zpool create \
         -o ashift=12 \
         -o autotrim=on \
+        -o cachefile=/etc/zfs/zpool.cache \
         -O acltype=posixacl \
         -O xattr=sa \
         -O dnodesize=auto \
@@ -624,7 +631,7 @@ create_file_swap() { # <swap_size-in-mb:default=1024>
         zfs create  \
             -V $swap_size \
             -b "$(getconf PAGESIZE)" \
-            -o compression=zle \
+            -o compression=lz4 \
             -o logbias=throughput \
             -o sync=always \
             -o primarycache=metadata \
@@ -634,7 +641,8 @@ create_file_swap() { # <swap_size-in-mb:default=1024>
             "$(get_zfs_pool ROOT)/swap"
         mkswap -y "/dev/zvol/$(get_zfs_pool ROOT)/swap"
     else
-        echo "ERROR: FIXME swap file generation on ext4/xfs is requested but not implemented!"
+        echo "ERROR: swap file generation on ext4/xfs is requested but not implemented!"
+        exit 1
     fi
 }
 
@@ -855,7 +863,7 @@ EOF
     if test "$devcount" = "1" -o "$devcount" = "2"; then
         if is_zfs "$devlist"; then
             cat >> /etc/fstab << EOF
-dpool/data   /mnt/data   zfs     defaults 0 0
+dpool/data   /data   zfs     defaults 0 0
 EOF
         else
             devtarget="$devlist"
@@ -865,7 +873,7 @@ EOF
                 devtarget="/dev/$(substr_vgname "$devlist")/lvm_data"
             fi
             cat >> /etc/fstab << EOF
-UUID=$(dev_fs_uuid "$devtarget")    /mnt/data   $(substr_fstype "$devlist")   defaults 0 1
+UUID=$(dev_fs_uuid "$devtarget")    /data   $(substr_fstype "$devlist")   defaults 0 1
 EOF
         fi
     fi
@@ -904,7 +912,7 @@ EOF
 # ### Mounting / Unmounting root, boot, data, efi, bindmounts
 
 mount_root() { # basedir force:true|false
-    local basedir devlist devcount import_opts
+    local basedir devlist devcount import_opts bootfs
     basedir=$1
     devlist=$(by_partlabel ROOT)
     devcount=$(echo "$devlist" | wc -w)
@@ -914,10 +922,9 @@ mount_root() { # basedir force:true|false
     if is_zfs "$devlist"; then
         echo "import rpool"
         zpool import $import_opts -N -R "$basedir" rpool
-        echo "mount root at $basedir"
-FIXME
-        zfs mount rpool/ROOT/ubuntu
-
+        bootfs=$(zpool get -H -o value bootfs rpool)
+        echo "mount root ($bootfs) at $basedir"
+        zfs mount $bootfs
         zfs mount -a || echo "Error: could not mount all zfs volumes!"
     elif is_lvm "$devlist"; then
         echo "mount $(substr_vgname "$devlist")/lvm-root at $basedir"
@@ -941,7 +948,6 @@ mount_boot() { # basedir force:true|false
             echo "import bpool"
             zpool import $import_opts -N -R "$basedir/boot" bpool
             echo "mount bpool/BOOT/ubuntu at $basedir/boot"
-FIXME
             zfs mount bpool/BOOT/ubuntu
         else
             echo "mount boot at $basedir/boot"
