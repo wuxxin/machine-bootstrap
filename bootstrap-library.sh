@@ -1,6 +1,10 @@
 #!/bin/bash
 
 # ### encryption options
+# How long is a secure passphrase ?
+#   https://gitlab.com/cryptsetup/cryptsetup/-/wikis/FrequentlyAskedQuestions#5-security-aspects
+#   LUKS1 and LUKS2: Use > 65 bit. That is e.g. 14 random chars from a-z
+#   or a random English sentence of > 108 characters length.
 
 luks_encryption_options() {
     echo "-c aes-xts-plain64 -s 512 -h sha256"
@@ -8,15 +12,11 @@ luks_encryption_options() {
     #   For LUKS, the key size chosen is 512 bits.
     #   However, XTS mode requires two keys, so the LUKS key is split in half.
     #   Thus, -s 512 means AES-256
-    # How long is a secure passphrase ?
-    #   https://gitlab.com/cryptsetup/cryptsetup/-/wikis/FrequentlyAskedQuestions#5-security-aspects
-    #   LUKS1 and LUKS2: Use > 65 bit. That is e.g. 14 random chars from a-z
-    #   or a random English sentence of > 108 characters length.
 }
 
 
 zfs_encryption_options() {
-    echo "-O encryption=aes-256-gcm -O keylocation=prompt -O keyformat=passphrase"
+    echo "-O encryption=aes-256-gcm -O keyformat=passphrase"
     # ZFS chiper recommendation:
     #   ZFS native encryption defaults to aes-256-ccm, but the default has
     #   changed upstream to aes-256-gcm. AES-GCM seems to be generally preferred
@@ -340,11 +340,11 @@ create_and_mount_root() { # basedir distrib_id diskpassword root_lvm_vol_size
         mount "/dev/$vgname/lvm-root" "$basedir"
     elif is_zfs "$devlist"; then
         if is_enczfs "$devlist"; then
-            echo "create native encrypted root zpool $actlist"
+            echo "create native encrypted zfs root pool (rpool for $distrib_id) $actlist"
             create_root_zpool --password "$diskpassword" "$basedir" "$distrib_id" \
                 "$(if test "$devcount" != 1; then echo "mirror"; fi)" $actlist
         else
-            echo "create root zpool $actlist"
+            echo "create zfs root pool (rpool for $distrib_id) $actlist"
             create_root_zpool "$basedir" "$distrib_id" \
                 "$(if test "$devcount" != 1; then echo "mirror"; fi)" $actlist
         fi
@@ -358,17 +358,17 @@ create_and_mount_root() { # basedir distrib_id diskpassword root_lvm_vol_size
 
 
 create_root_zpool() { # [--password password] basedir distrib_id zpool-create-args* (eg. mirror sda1 sda2)
-    local basedir distrib_id diskpassword option_encrypt
-    diskpassword=""; option_encrypt=""
+    local basedir distrib_id diskpassword option_encrypt diskpassword_file
+    diskpassword=""; option_encrypt=""; diskpassword_file="/dev/shm/diskpassword"
     if test "$1" = "--password"; then
         diskpassword=$2; shift 2
-        option_encrypt="$(zfs_encryption_options)"
+        echo "$diskpassword" > ${diskpassword_file}
+        option_encrypt="$(zfs_encryption_options) -O keylocation=file:/${diskpassword_file}"
     fi
     basedir="$1"
     distrib_id="$2"
     shift 2
 
-    echo "zpool create -R $basedir rpool $@"
     # XXX ashift 12 or 13 (4096/8192 byte sectors) depending disk
     # -O compression=on|off|gzip|gzip-N|lz4|lzjb|zle|zstd|zstd-N|zstd-fast|zstd-fast-N
     zpool create \
@@ -386,6 +386,8 @@ create_root_zpool() { # [--password password] basedir distrib_id zpool-create-ar
         -O mountpoint=/ \
         -R "$basedir" \
         rpool "$@"
+
+    if test -e "${diskpassword_file}"; then rm "${diskpassword_file}"; fi
 
     zfs create \
         -o canmount=off \
@@ -556,11 +558,12 @@ create_data() { # diskpassword data_lvm_vol_size
 
 
 create_data_zpool() { # [--password password] basedir zpool-create-args* (eg. mirror sda1 sda2)
-    local basedir diskpassword option_encrypt
-    diskpassword=""; option_encrypt=""
+    local basedir diskpassword option_encrypt diskpassword_file
+    diskpassword=""; option_encrypt=""; diskpassword_file="/dev/shm/diskpassword"
     if test "$1" = "--password"; then
         diskpassword=$2; shift 2
-        option_encrypt="$(zfs_encryption_options)"
+        echo "$diskpassword" > ${diskpassword_file}
+        option_encrypt="$(zfs_encryption_options) -O keylocation=file:/${diskpassword_file}"
     fi
     basedir="$1"
     shift
@@ -581,6 +584,8 @@ create_data_zpool() { # [--password password] basedir zpool-create-args* (eg. mi
         -O mountpoint=/ \
         -R "$basedir" \
         dpool "$@"
+
+    if test -e "${diskpassword_file}"; then rm "${diskpassword_file}"; fi
 
     zfs create \
         -o setuid=off \
