@@ -1186,6 +1186,9 @@ install_packages() { # --refresh package*
             DEBIAN_FRONTEND=noninteractive apt-get install --yes $@
         fi
     elif which pamac &> /dev/null; then
+        if test "$refresh" = "true"; then
+            pacman --sync -yy
+        fi
         if test "$1" != ""; then
             pamac install --no-confirm --no-upgrade $@
         fi
