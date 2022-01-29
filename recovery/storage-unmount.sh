@@ -26,6 +26,7 @@ unmount_data /mnt/mnt
 unmount_efi /mnt
 unmount_boot /mnt
 unmount_root /mnt
+deactivate_zfs_key
 deactivate_lvm
 deactivate_luks
 deactivate_mdadm
