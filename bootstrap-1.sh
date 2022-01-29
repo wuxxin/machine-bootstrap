@@ -1,6 +1,6 @@
 #!/bin/bash
 set -eo pipefail
-# set -x
+set -x
 
 self_path=$(dirname "$(readlink -e "$0")")
 
@@ -55,7 +55,7 @@ option_restore_backup=false
 if test "$4" != "--yes"; then usage; fi
 hostname=$1; firstuser=$2; disklist=$3
 shift 4
-if test "$hostname" = "${hostname%%.*}"; then hostname="${hostname}.local"; fi
+# if test "$hostname" = "${hostname%%.*}"; then hostname="${hostname}.local"; fi
 fulldisklist=$(for i in $disklist; do echo "/dev/disk/by-id/${i} "; done)
 diskcount=$(echo "$disklist" | wc -w)
 if test "$diskcount" -gt "2"; then
@@ -111,7 +111,9 @@ if test "$http_proxy" != ""; then export http_proxy; fi
 
 # show important settings to user
 cat << EOF
+
 Configuration:
+
 hostname: $hostname, firstuser: $firstuser
 fulldisklist: $(for i in $fulldisklist; do echo -n " $i"; done)
 http_proxy: $http_proxy
@@ -121,11 +123,12 @@ $(if test "$distrib_id" = "manjaro"; then echo "distrib_profile: $distrib_profil
 option_restore_backup: $option_restore_backup
 root_lvm_vol_size: $root_lvm_vol_size
 data_lvm_vol_size: $data_lvm_vol_size
+
 EOF
 
 # ## main
 cd /tmp
-if which cloud-init > /dev/null; then
+if which cloud-init 2> /dev/null; then
     printf "waiting for cloud-init finish..."
     cloud-init status --wait || printf "exited with error: $?"
     printf "\n"
@@ -139,9 +142,9 @@ if test ! -e /etc/machine-id; then
     uuidgen -r | tr -d "-" > /etc/machine-id
 fi
 
-echo "install needed packages"
-packages="$(get_default_packages) $(get_zfs_packages)"
 configure_nfs   # make sure debian/ubuntu version of zfsutils does not open rpcbind to world
+packages="$(get_default_packages) $(get_zfs_packages)"
+echo "install needed packages: $packages"
 install_packages --refresh $packages
 
 echo "generate new zfs hostid (/etc/hostid) in active system"
