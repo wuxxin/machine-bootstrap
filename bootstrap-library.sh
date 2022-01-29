@@ -363,7 +363,7 @@ create_root_zpool() { # [--password password] basedir distrib_id zpool-create-ar
     if test "$1" = "--password"; then
         diskpassword=$2; shift 2
         echo "$diskpassword" > ${diskpassword_file}
-        option_encrypt="$(zfs_encryption_options) -O keylocation=file:/${diskpassword_file}"
+        option_encrypt="$(zfs_encryption_options) -O keylocation=file://${diskpassword_file}"
     fi
     basedir="$1"
     distrib_id="$2"
@@ -563,7 +563,7 @@ create_data_zpool() { # [--password password] basedir zpool-create-args* (eg. mi
     if test "$1" = "--password"; then
         diskpassword=$2; shift 2
         echo "$diskpassword" > ${diskpassword_file}
-        option_encrypt="$(zfs_encryption_options) -O keylocation=file:/${diskpassword_file}"
+        option_encrypt="$(zfs_encryption_options) -O keylocation=file://${diskpassword_file}"
     fi
     basedir="$1"
     shift
