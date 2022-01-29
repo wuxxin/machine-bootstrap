@@ -32,5 +32,8 @@ if test "$1" = "--restore-from-backup"; then
     shift
 fi
 
+# if http_proxy is set, reexport for sub-processes
+if test "$http_proxy" != ""; then export http_proxy; fi
+
 # include library
 . "$self_path/bootstrap-library.sh"
