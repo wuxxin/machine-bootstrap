@@ -10,14 +10,13 @@ usage() {
 
 $0 install recovery|system|gitops|all|plain <hostname> [optional parameter]
 
-execute the requested stages of install on host <hostname>,
+execute the requested stages of installation on host <hostname>,
 output from target host is displayed on screen and captured to "run/log"
 for safety, <hostname>  must be the same value as in the config file config/hostname
 
 + recovery
     **wipe disks**, partition storage and optional recovery install
-        expects debian (apt-get) or manjaro (pamac) like live system,
-        running at target host
+        expects debian (apt-get) or manjaro (pamac) like live system, running at target host
 
 + system [--restore-from-backup]
     format storage partitionas and install system
@@ -163,6 +162,17 @@ network:
         name: "eth*"
       dhcp4: true
       optional: true
+EOF
+)
+
+
+DEFAULT_systemd_network=$(cat <<"EOF"
+[Match]
+Name=en*
+Name=eth*
+
+[Network]
+DHCP=yes
 EOF
 )
 
