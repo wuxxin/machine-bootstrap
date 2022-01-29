@@ -166,9 +166,11 @@ cp -a /etc/machine-id /mnt/etc/machine-id
 echo "copy/overwrite hostid (/etc/hostid)"
 cp -a /etc/hostid /mnt/etc/hostid
 
-echo "copy zpool.cache"
-mkdir -p /mnt/etc/zfs
-cp -a /etc/zfs/zpool.cache /mnt/etc/zfs/
+if test -e "/etc/zfs/zpool.cache"; then
+    echo "copy zpool.cache"
+    mkdir -p /mnt/etc/zfs
+    cp -a /etc/zfs/zpool.cache /mnt/etc/zfs/
+fi
 
 echo "copy authorized_keys"
 install -m "0700" -d /mnt/root/.ssh
