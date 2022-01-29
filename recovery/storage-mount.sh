@@ -23,7 +23,7 @@ if test "$1" = "--force"; then force=true; shift; fi
 
 . "$self_path/bootstrap-library.sh"
 
-if which cloud-init > /dev/null; then
+if which cloud-init 2> /dev/null; then
     printf "waiting for cloud-init finish..."
     cloud-init status --wait || printf "exited with error: $?"
     printf "\n"
