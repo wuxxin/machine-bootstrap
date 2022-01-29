@@ -132,7 +132,7 @@ if which cloud-init > /dev/null; then
 fi
 
 echo "set target hostname in current system"
-setup_hostname "$hostname"
+configure_hostname "$hostname"
 
 if test ! -e /etc/machine-id; then
     echo "generate new systemd machineid (/etc/machine-id) in active system"
@@ -149,8 +149,8 @@ if test -e /etc/hostid; then rm /etc/hostid; fi
 zgenhostid
 
 # create & mount target filesystems
-create_and_mount_root /mnt "$diskpassword" $root_lvm_vol_size
-create_boot
+create_and_mount_root /mnt "$distrib_id" "$diskpassword" "$root_lvm_vol_size"
+create_boot "$distrib_id"
 create_data "$diskpassword" $data_lvm_vol_size
 create_swap "$diskpassword"
 create_homedir home $firstuser
@@ -158,13 +158,17 @@ mount_boot /mnt
 mount_efi /mnt
 mount_data /mnt/mnt
 
-# copy machine-id, hostid and authorized_keys before bootstraping
+# copy machine-id, hostid, zpool-cache and authorized_keys before bootstraping
 mkdir -p /mnt/etc
 echo "copy/overwrite machine-id (/etc/machine-id)"
 cp -a /etc/machine-id /mnt/etc/machine-id
 
 echo "copy/overwrite hostid (/etc/hostid)"
 cp -a /etc/hostid /mnt/etc/hostid
+
+echo "copy zpool.cache"
+mkdir -p /mnt/etc/zfs
+cp -a /etc/zfs/zpool.cache /mnt/etc/zfs/
 
 echo "copy authorized_keys"
 install -m "0700" -d /mnt/root/.ssh
@@ -191,7 +195,6 @@ else
         exit 1
     fi
 fi
-create_root_finished
 
 
 # bootstrap-2 preperations
@@ -262,6 +265,7 @@ unmount_data /mnt/mnt
 unmount_efi /mnt
 unmount_boot /mnt
 unmount_root /mnt
+deactivate_zfs_key
 deactivate_lvm
 deactivate_luks
 deactivate_mdadm
