@@ -50,7 +50,7 @@ else
     timedatectl set-timezone "Etc/UTC"
 fi
 
-setup_hostname "$hostname"
+configure_hostname "$hostname"
 
 echo "configure apt"
 if $option_restore_backup; then
