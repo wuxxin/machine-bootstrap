@@ -183,7 +183,9 @@ if test "$http_proxy" != ""; then
 fi
 
 cat << EOF
+
 Configuration:
+
 hostname: $hostname, http_proxy: $http_proxy
 fulldisklist=$(for i in $fulldisklist; do echo -n " $i"; done)
 reuse: $option_reuse, efi-size: $efi_size
@@ -192,9 +194,10 @@ swap: $option_swap ($swap_size), log: $option_log ($log_size), cache: $option_ca
 boot_loader: $boot_loader, boot: $option_boot ($boot_size), boot_fs: $boot_fs
 root_fs: $root_fs, root_crypt: $root_crypt, root_lvm: $root_lvm, root_size: $root_size
 data_fs: $data_fs, data_crypt: $data_crypt, data_lvm: $data_lvm
+
 EOF
 
-if which cloud-init > /dev/null; then
+if which cloud-init 2> /dev/null; then
     printf "waiting for cloud-init finish..."
     cloud-init status --wait || printf "exited with error: $?"
     printf "\n"
