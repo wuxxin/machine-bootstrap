@@ -11,14 +11,12 @@ EOF
 
 self_path=$(dirname "$(readlink -e "$0")")
 force="false"
-mount_options=""
 password=""
 
 if test "$1" != "--yes"; then usage; fi
 shift
 if test "$1" = "--password-from-stdin"; then
     password=$(cat -)
-    mount_options="--password $password"
     shift
 fi
 if test "$1" = "--force"; then force=true; shift; fi
@@ -40,10 +38,11 @@ activate_mdadm
 create_crypttab
 activate_luks "$password"
 activate_lvm
-mount_root $mount_options /mnt $force
+activate_zfs_key "$password"
+mount_root /mnt $force
 mount_boot /mnt $force
 mount_efi /mnt
-mount_data $mount_options /mnt/mnt $force
+mount_data /mnt $force
 mount_bind_mounts /mnt
 
 cat << EOF
