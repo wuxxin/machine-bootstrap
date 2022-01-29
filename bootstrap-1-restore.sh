@@ -3,9 +3,9 @@ set -eo pipefail
 set -x
 
 install_packages() {
-    if which apt-get 2> /dev/null; then
+    if which apt-get &> /dev/null; then
         DEBIAN_FRONTEND=noninteractive apt-get install --yes $@
-    elif which pamac 2> /dev/null; then
+    elif which pamac &> /dev/null; then
         pamac install --no-confirm --no-upgrade $@
     else
         echo "Error: unknown platform, add cmds for other platforms"; exit 1

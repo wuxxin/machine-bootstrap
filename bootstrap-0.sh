@@ -197,7 +197,7 @@ data_fs: $data_fs, data_crypt: $data_crypt, data_lvm: $data_lvm
 
 EOF
 
-if which cloud-init 2> /dev/null; then
+if which cloud-init &> /dev/null; then
     printf "waiting for cloud-init finish..."
     cloud-init status --wait || printf "exited with error: $?"
     printf "\n"

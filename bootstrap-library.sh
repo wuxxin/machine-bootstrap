@@ -28,9 +28,9 @@ zfs_encryption_options() {
 # ### default packages
 
 get_default_packages() {
-    if which apt-get 2> /dev/null; then
+    if which apt-get &> /dev/null; then
         echo "cryptsetup gdisk mdadm lvm2 grub-pc grub-pc-bin grub-efi-amd64-bin grub-efi-amd64-signed efibootmgr squashfs-tools openssh-server curl gnupg gpgv ca-certificates bzip2 libc-bin rsync tmux haveged debootstrap"
-    elif which pamac 2> /dev/null; then
+    elif which pamac &> /dev/null; then
         echo "cryptsetup gptfdisk mdadm lvm2 grub openssh curl gnupg ca-certificates bzip2 rsync tmux manjaro-tools-iso git"
     else
         echo "Error: unknown platform, add list for other platforms in get_default_packages"
@@ -40,9 +40,9 @@ get_default_packages() {
 
 
 get_zfs_packages() {
-    if which apt-get 2> /dev/null; then
+    if which apt-get &> /dev/null; then
         echo "zfsutils-linux"
-    elif which pamac 2> /dev/null; then
+    elif which pamac &> /dev/null; then
         echo "linux-zfs"
     else
         echo "Error: unknown platform, add cmds for other platforms in get_zfs_packages"
@@ -1084,7 +1084,7 @@ configure_module_zfs() {
 
 
 configure_nfs() {
-    if which apt-get 2> /dev/null; then
+    if which apt-get &> /dev/null; then
         echo "dracut-network pulls in nfs-common which pulls in rpcbind"
         echo "configuring nfs (which get pulled in by zfsutils)"
         echo "restrict to nfs 4 and localhost, disable rpcbind"
@@ -1178,14 +1178,14 @@ configure_hostname() { # hostname
 install_packages() { # --refresh package*
     local refresh
     if test "$1" = "--refresh"; then refresh="true"; shift; else refresh="false"; fi
-    if which apt-get 2> /dev/null; then
+    if which apt-get &> /dev/null; then
         if test "$refresh" = "true"; then
             DEBIAN_FRONTEND=noninteractive apt-get update --yes
         fi
         if test "$1" != ""; then
             DEBIAN_FRONTEND=noninteractive apt-get install --yes $@
         fi
-    elif which pamac 2> /dev/null; then
+    elif which pamac &> /dev/null; then
         if test "$1" != ""; then
             pamac install --no-confirm --no-upgrade $@
         fi
