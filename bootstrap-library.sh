@@ -1290,11 +1290,11 @@ bootstrap_manjaro() { # basedir distrib_codename distrib_profile
     if test "$distrib_codename" = ""; then distrib_codename="stable"; fi
     if test "$distrib_profile" = ""; then distrib_profile="manjaro/gnome"; fi
 
-    # systemctl enable --now systemd-timesyncd
-    # pacman-mirrors --api --set-branch "$distrib_codename" --url https://manjaro.moson.eu
-    # pacman -Syy archlinux-keyring manjaro-keyring
-    # pacman-key --init
-    # pacman-key --populate archlinux manjaro
+    systemctl enable --now systemd-timesyncd
+    pacman-mirrors --api --set-branch "$distrib_codename" --url https://manjaro.moson.eu
+    pacman -Syy archlinux-keyring manjaro-keyring
+    pacman-key --init
+    pacman-key --populate archlinux manjaro
     # pacman-key --refresh-keys
 
     linux_latest=$(pamac search -r -q "linux[0-9]+$" | sort -n -k 1.6 | tail -1)
