@@ -1292,7 +1292,7 @@ bootstrap_manjaro() { # basedir distrib_codename distrib_profile
 
     systemctl enable --now systemd-timesyncd
     pacman-mirrors --api --set-branch "$distrib_codename" --url https://manjaro.moson.eu
-    pacman -Syy archlinux-keyring manjaro-keyring
+    pacman -Syy --noconfirm archlinux-keyring manjaro-keyring
     pacman-key --init
     pacman-key --populate archlinux manjaro
     # pacman-key --refresh-keys
