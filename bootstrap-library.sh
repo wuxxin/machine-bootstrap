@@ -1285,10 +1285,10 @@ efi_sync() { # efi_src efi_dest
 
 
 bootstrap_manjaro() { # basedir distrib_codename distrib_profile
-    local basedir distrib_codename distrib_profile
-    basedir=$1; distrib_codename=$2; $distrib_profile=$3
-    if test "$distrib_codename" = ""; then $distrib_codename="stable"; fi
-    if test "$distrib_profile" = ""; then $distrib_profile="manjaro/gnome"; fi
+    local basedir distrib_codename distrib_profile linux_latest
+    basedir=$1; distrib_codename=$2; distrib_profile=$3
+    if test "$distrib_codename" = ""; then distrib_codename="stable"; fi
+    if test "$distrib_profile" = ""; then distrib_profile="manjaro/gnome"; fi
 
     # systemctl enable --now systemd-timesyncd
     # pacman-mirrors --api --set-branch "$distrib_codename" --url https://manjaro.moson.eu
@@ -1297,9 +1297,17 @@ bootstrap_manjaro() { # basedir distrib_codename distrib_profile
     # pacman-key --populate archlinux manjaro
     # pacman-key --refresh-keys
 
+    linux_latest=$(pamac search -r -q "linux[0-9]+$" | sort -n -k 1.6 | tail -1)
+
     git clone https://gitlab.manjaro.org/profiles-and-settings/iso-profiles.git ~/iso-profiles
-    cd ~/iso-profiles
-    basestrap -C $distrib_profile/profile.conf /mnt
+    cd ~/iso-profiles/$distrib_profile
+
+    cat Packages-Root Packages-Mhwd Packages-Desktop  | \
+        grep -v "^#" | sed -r "s/(#.+)$//g" | \
+        sed -r "s/>(basic|extra|multilib|office) //g" | \
+        sed -r "s/KERNEL/$linux_latest/g" | \
+        grep -v "zfs-dkms" | \
+        grep -v ">" | sort | uniq | xargs basestrap /mnt
 }
 
 
