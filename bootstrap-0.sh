@@ -332,6 +332,10 @@ fi
 
 if test "$recovery_install" != "true"; then
     unmount_efi /mnt
+    for i in /mnt/boot /mnt/efi /mnt/efi2; do
+        if test -d "$i"; then rm -r "$i"; fi
+        if test -e "$i"; then rm "$i"; fi
+    done
     exit 0
 fi
 
