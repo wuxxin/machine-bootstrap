@@ -23,6 +23,11 @@ use ssh keys and config taken from $config_path to connect to a system via ssh
 + temporary, recovery, initrd, system
     connect to system with the expected the ssh hostkey
 
++ temporary-unlock [--unsafe]
+    uses the temporary host key for connection,
+    transfers and execute storage-mount.sh script with the diskphrase keys,
+    mount all partitions and prepare a chroot at /mnt
+
 + initrd-unlock [--unsafe]
     uses the initrd host key for connection,
     and transfers the diskphrase keys to /lib/systemd/systemd-reply-password
@@ -118,7 +123,7 @@ showargs=false
 allowunsafe=false
 if test "$1" = "--show-ssh"; then showargs=ssh; shift; fi
 if test "$1" = "--show-scp"; then showargs=scp; shift; fi
-if [[ ! "$1" =~ ^(temporary|recovery|recovery-unlock|initrd|initrd-unlock|system)$ ]]; then usage; fi
+if [[ ! "$1" =~ ^(temporary|temporary-unlock|recovery|recovery-unlock|initrd|initrd-unlock|system)$ ]]; then usage; fi
 hosttype="$1"
 shift 1
 
@@ -134,13 +139,15 @@ if test "$sshlogin" = ""; then
 fi
 
 if test "$showargs" != "false"; then
+    if test "$hosttype" = "temporary-unlock"; then hosttype="temporary"; fi
     if test "$hosttype" = "initrd-unlock"; then hosttype="initrd"; fi
     if test "$hosttype" = "recovery-unlock"; then hosttype="recovery"; fi
     echo "-o UserKnownHostsFile=$config_path/${hosttype}.known_hosts $(ssh_uri ${sshlogin} $showargs)"
     exit 0
 fi
 
-if test "$hosttype" = "initrd-unlock" -o "$hosttype" = "recovery-unlock"; then
+if test "$hosttype" = "temporary-unlock" -o \
+        "$hosttype" = "initrd-unlock" -o "$hosttype" = "recovery-unlock"; then
     if test "$1" = "--unsafe"; then allowunsafe=true; shift; fi
     if test ! -e "$diskpassphrase_file"; then
         echo "ERROR: diskphrase file $diskpassphrase_file not found"
@@ -152,13 +159,25 @@ if test "$hosttype" = "initrd-unlock" -o "$hosttype" = "recovery-unlock"; then
         exit 1
     fi
 
-    if test "$hosttype" = "initrd-unlock"; then
+    if test "$hosttype" = "temporary-unlock"; then
+        sshopts="-o UserKnownHostsFile=$config_path/temporary.known_hosts"
+        waitfor_ssh "$sshlogin"
+        remote_attestation_ssh "$sshopts" "$(ssh_uri ${sshlogin})" $allowunsafe
+        scp $sshopts \
+            "$self_path/recovery/storage-mount.sh" \
+            "$self_path/recovery/storage-unmount.sh" \
+            "$self_path/bootstrap-library.sh" \
+            "$(ssh_uri ${sshlogin} scp)/tmp"
+        echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
+            "/tmp/storage-mount.sh --yes --password-from-stdin $@"
+        ssh $sshopts $(ssh_uri ${sshlogin})
+    elif test "$hosttype" = "initrd-unlock"; then
         sshopts="-o UserKnownHostsFile=$config_path/initrd.known_hosts"
         waitfor_ssh "$sshlogin"
         remote_attestation_ssh "$sshopts" "$(ssh_uri ${sshlogin})" $allowunsafe
         echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
             'phrase=$(cat -); for s in /var/run/systemd/ask-password/sck.*; do echo -n "$phrase" | /lib/systemd/systemd-reply-password 1 $s; done'
-    else
+    elif test "$hosttype" = "recovery-unlock"; then
         sshopts="-o UserKnownHostsFile=$config_path/recovery.known_hosts"
         waitfor_ssh "$sshlogin"
         remote_attestation_ssh "$sshopts" "$(ssh_uri ${sshlogin})" $allowunsafe
