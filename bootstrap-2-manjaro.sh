@@ -45,9 +45,10 @@ else
         --keymap="$KEYMAP" --timezone="$TIMEZONE" --hostname="$hostname"
 fi
 
-echo "create fstab and crypttab"
+echo "create fstab, crypttab, zpool cache"
 create_fstab "manjaro"
 create_crypttab
+create_zpool_cachefile
 
 if $restore_backup; then
     restore_warning "not overwriting /etc/modprobe.d/zfs.conf"

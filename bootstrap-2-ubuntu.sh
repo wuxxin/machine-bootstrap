@@ -205,6 +205,9 @@ EOF
     apt-get --yes clean
 fi
 
+echo "create zpool cachefile"
+create_zpool_cachefile
+
 echo "create missing system groups"
 getent group lpadmin > /dev/null || addgroup --system lpadmin
 getent group sambashare > /dev/null || addgroup --system sambashare
