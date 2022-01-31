@@ -284,10 +284,14 @@ create_boot_zpool() { # basedir distrib_id zpool-create-parameter (eg. mirror sd
         -o canmount=off \
         -o mountpoint=none \
         bpool/BOOT
+
     zfs create \
         -o canmount=noauto \
         -o mountpoint=/boot \
         bpool/BOOT/$distrib_id
+
+    # Set the bootfs property so the boot loader knows where to find the operating system
+    zpool set bootfs=bpool/BOOT/$distrib_id bpool
 }
 
 
@@ -391,7 +395,12 @@ create_root_zpool() { # [--password password] basedir distrib_id zpool-create-ar
         -R "$basedir" \
         rpool "$@"
 
-    if test -e "${diskpassword_file}"; then rm "${diskpassword_file}"; fi
+    if test -e "${diskpassword_file}"; then
+        # remove temporary password file from ram
+        rm "${diskpassword_file}"
+        # set default keylocation back to prompt
+        zfs set keylocation=prompt rpool
+    fi
 
     zfs create \
         -o canmount=off \
@@ -588,7 +597,12 @@ create_data_zpool() { # [--password password] basedir zpool-create-args* (eg. mi
         -R "$basedir" \
         dpool "$@"
 
-    if test -e "${diskpassword_file}"; then rm "${diskpassword_file}"; fi
+    if test -e "${diskpassword_file}"; then
+        # remove temporary password file from ram
+        rm "${diskpassword_file}"
+        # set default keylocation back to prompt
+        zfs set keylocation=prompt dpool
+    fi
 
     zfs create \
         -o setuid=off \
