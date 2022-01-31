@@ -51,9 +51,10 @@ get_zfs_packages() {
 }
 
 
-# ### tools: mk_partlabel , by_partlabel , x_of , first_of
-# ### tools: is_substr , substr_fstype , substr_vgname , dev_fs_uuid , dev_part_uuid
-# ### tools: is_enczfs , is_zfs, is_lvm , is_mdadm , is_luks
+
+# ### tool functions
+# mk_partlabel, by_partlabel, x_of, first_of, is_substr, substr_fstype, substr_vgname
+# dev_fs_uuid, dev_part_uuid, is_enczfs, is_zfs, is_lvm, is_mdadm, is_luks
 
 mk_partlabel() { # diskcount crypt=true/false/native lvm=vgname/""/false fs=""/ext4/xfs/zfs partname
     local diskcount crypt lvm fs partname label
@@ -171,7 +172,12 @@ dev_part_uuid() { # devpath
 }
 
 
-# ### Create and format partitions efi, swap, boot, root, data
+
+# ### Create and format partitions
+# create_efi, create_swap, create_boot, create_boot_zpool
+# create_and_mount_root, create_root_zpool, create_data, create_data_zpool
+# create_lvm_volume, create_zfs_childfs, create_homedir, create_file_swap
+# create_fstab, create_crypttab, create_zpool_cachefile
 
 create_efi() {
     local devlist devcount
@@ -252,7 +258,6 @@ create_boot_zpool() { # basedir distrib_id zpool-create-parameter (eg. mirror sd
         -d \
         -o ashift=12 \
         -o autotrim=on \
-        -o cachefile=/etc/zfs/zpool.cache \
         -o feature@async_destroy=enabled \
         -o feature@bookmarks=enabled \
         -o feature@embedded_data=enabled \
@@ -362,7 +367,7 @@ create_root_zpool() { # [--password password] basedir distrib_id zpool-create-ar
     diskpassword=""; option_encrypt=""; diskpassword_file="/dev/shm/diskpassword"
     if test "$1" = "--password"; then
         diskpassword=$2; shift 2
-        echo "$diskpassword" > ${diskpassword_file}
+        printf "$diskpassword" > ${diskpassword_file}
         option_encrypt="$(zfs_encryption_options) -O keylocation=file://${diskpassword_file}"
     fi
     basedir="$1"
@@ -374,7 +379,6 @@ create_root_zpool() { # [--password password] basedir distrib_id zpool-create-ar
     zpool create \
         -o ashift=12 \
         -o autotrim=on \
-        -o cachefile=/etc/zfs/zpool.cache \
         -O acltype=posixacl \
         -O xattr=sa \
         -O dnodesize=auto \
@@ -562,7 +566,7 @@ create_data_zpool() { # [--password password] basedir zpool-create-args* (eg. mi
     diskpassword=""; option_encrypt=""; diskpassword_file="/dev/shm/diskpassword"
     if test "$1" = "--password"; then
         diskpassword=$2; shift 2
-        echo "$diskpassword" > ${diskpassword_file}
+        printf "$diskpassword" > ${diskpassword_file}
         option_encrypt="$(zfs_encryption_options) -O keylocation=file://${diskpassword_file}"
     fi
     basedir="$1"
@@ -572,7 +576,6 @@ create_data_zpool() { # [--password password] basedir zpool-create-args* (eg. mi
     zpool create \
         -o ashift=12 \
         -o autotrim=on \
-        -o cachefile=/etc/zfs/zpool.cache \
         -O acltype=posixacl \
         -O xattr=sa \
         -O dnodesize=auto \
@@ -649,149 +652,6 @@ create_file_swap() { # <swap_size-in-mb:default=1024>
         echo "ERROR: swap file generation on ext4/xfs is requested but not implemented!"
         exit 1
     fi
-}
-
-
-# ### Activate/Deactivate mdadm, luks, lvm, zfs_key, write out /etc/fstab, crypttab
-
-activate_mdadm() {
-    local p all_mdadm this_md
-    all_mdadm=$(mdadm --examine --brief --scan --config=partitions)
-    for p in BOOT SWAP ROOT DATA; do
-        if is_mdadm "$(by_partlabel $p)"; then
-            if test ! -e /dev/md/$(hostname):mdadm-${p,,}; then
-                this_md=$(echo "$all_mdadm" \
-                    | grep -E "ARRAY.+name=[^:]+:mdadm-${p,,}" \
-                    | sed -r "s/ARRAY ([^ ]+) .+/\1/g")
-                if test "$this_md" != "" -a "$this_md" != "/dev/md/$(hostname):mdadm-${p,,}"; then
-                    echo "deactivate mdadm raid on $this_md because name is different"
-                    mdadm --manage --stop $this_md
-                fi
-                echo "activate mdadm raid on $p"
-                mdadm --assemble /dev/md/$(hostname):mdadm-${p,,} $(by_partlabel $p)
-            else
-                echo "warning: mdadm raid on ${p,,} already activated"
-            fi
-        fi
-    done
-}
-
-
-deactivate_mdadm() {
-    local p
-    for p in BOOT SWAP ROOT DATA; do
-        if is_mdadm "$(by_partlabel $p)"; then
-            if test -e /dev/md/$(hostname):mdadm-${p,,}; then
-                echo "deactivate mdadm raid on $p"
-                mdadm --manage --stop /dev/md/$(hostname):mdadm-${p,,} || echo "failed!"
-            fi
-        fi
-    done
-}
-
-
-luks_start_one() { # luksname passphrase
-    local luksname passphrase device
-    luksname="$1"
-    passphrase="$2"
-    device="$(cat /etc/crypttab | grep "^$1" | sed -r "s/$1 ([^ ]+)( .+)/\1/g")"
-    if test -e /dev/mapper/$luksname; then
-        echo "warning: luks mapper $luksname already activated"
-    else
-        if test "$passphrase" = ""; then
-            cryptsetup open --type luks "$device" "$luksname"
-        else
-            printf "%s" "$passphrase" \
-                | cryptsetup -q open --type luks  "$device" "$luksname" --key-file=-
-        fi
-    fi
-}
-
-
-activate_luks() { # passphrase
-    local devlist devcount actlist passphrase p
-    passphrase="$1"
-    for p in SWAP ROOT DATA; do
-        if is_luks "$(by_partlabel $p)"; then
-            devlist=$(by_partlabel "$p")
-            devcount=$(echo "$devlist" | wc -w)
-            actlist="luks-${p,,}"
-            echo "activate luks on $actlist"
-            if (test "$devcount" = "2" && is_zfs "$devlist"); then
-                luks_start_one ${actlist}1 "$passphrase"
-                luks_start_one ${actlist}2 "$passphrase"
-            else
-                luks_start_one ${actlist} "$passphrase"
-            fi
-        fi
-    done
-}
-
-
-deactivate_luks() {
-    local p
-    for p in SWAP ROOT DATA; do
-        if is_luks "$(by_partlabel $p)"; then
-            if test -e /dev/mapper/luks-${p,,}; then
-                echo "deactivate luks on luks-${p,,}"
-                cryptdisks_stop "luks-${p,,}" || echo "failed!"
-            fi
-        fi
-    done
-}
-
-
-activate_lvm() {
-    local p
-    if (is_lvm "$(by_partlabel ROOT)" || is_lvm "$(by_partlabel DATA)"); then
-        lvm vgscan -v
-    fi
-    for p in ROOT DATA; do
-        if is_lvm "$(by_partlabel $p)"; then
-            lvm vgchange --activate y "$(substr_vgname "$(by_partlabel $p)")"
-        fi
-    done
-}
-
-
-deactivate_lvm() {
-    local lv vg
-    for lv in $(lvm lvs -o vg_name,lv_name,lv_device_open --no-headings \
-        | grep -E ".+open[[:space:]]*$" \
-        | sed -r "s/[[:space:]]+([^[:space:]]+)[[:space:]]+([^[:space:]]+)[[:space:]]+.+/\1\/\2/g"); do
-        lvchange -a n $lv || echo "deactivate of lv $lv failed!"
-    done
-    for vg in $(lvm vgs -o vg_name --no-headings); do
-        vgchange -a n $vg || echo "deactivate of vg $vg failed!"
-    done
-}
-
-
-activate_zfs_key() { # passphrase
-    local passphrase p poolname
-    passphrase="$1"
-    for p in ROOT DATA; do
-        if is_enczfs "$(by_partlabel $p)"; then
-            poolname="rpool"
-            if test "$p" = "DATA"; then poolname="dpool"; fi
-            echo "zfs load-key -r $poolname"
-            printf "%s" "$passphrase" \
-                | zfs load-key -r $poolname
-        fi
-    done
-}
-
-
-deactivate_zfs_key() {
-    local p poolname
-    for p in ROOT DATA; do
-        if is_enczfs "$(by_partlabel $p)"; then
-            poolname="rpool"
-            if test "$p" = "DATA"; then poolname="dpool"; fi
-            echo "zfs unload-key -r $poolname"
-            zfs unload-key -r $poolname
-        fi
-    done
 }
 
 
@@ -914,6 +774,173 @@ EOF
 }
 
 
+create_zpool_cachefile() {
+    local p poolname
+    for p in ROOT DATA BOOT; do
+        if is_zfs "$(by_partlabel $p)"; then
+            poolname=$(printf "${p:0:1}" | tr "[[:upper:]]" "[[:lower:]]"; printf "pool")
+            zpool set cachefile=/etc/zfs/zpool.cache $poolname
+        fi
+    done
+}
+
+
+
+# ### Activate/Deactivate mdadm, luks, lvm, zfs_pools
+
+activate_mdadm() {
+    local p all_mdadm this_md
+    all_mdadm=$(mdadm --examine --brief --scan --config=partitions)
+    for p in BOOT SWAP ROOT DATA; do
+        if is_mdadm "$(by_partlabel $p)"; then
+            if test ! -e /dev/md/$(hostname):mdadm-${p,,}; then
+                this_md=$(echo "$all_mdadm" \
+                    | grep -E "ARRAY.+name=[^:]+:mdadm-${p,,}" \
+                    | sed -r "s/ARRAY ([^ ]+) .+/\1/g")
+                if test "$this_md" != "" -a "$this_md" != "/dev/md/$(hostname):mdadm-${p,,}"; then
+                    echo "deactivate mdadm raid on $this_md because name is different"
+                    mdadm --manage --stop $this_md
+                fi
+                echo "activate mdadm raid on $p"
+                mdadm --assemble /dev/md/$(hostname):mdadm-${p,,} $(by_partlabel $p)
+            else
+                echo "warning: mdadm raid on ${p,,} already activated"
+            fi
+        fi
+    done
+}
+
+
+deactivate_mdadm() {
+    local p
+    for p in BOOT SWAP ROOT DATA; do
+        if is_mdadm "$(by_partlabel $p)"; then
+            if test -e /dev/md/$(hostname):mdadm-${p,,}; then
+                echo "deactivate mdadm raid on $p"
+                mdadm --manage --stop /dev/md/$(hostname):mdadm-${p,,} || echo "failed!"
+            fi
+        fi
+    done
+}
+
+
+luks_start_one() { # luksname passphrase
+    local luksname passphrase device
+    luksname="$1"
+    passphrase="$2"
+    device="$(cat /etc/crypttab | grep "^$1" | sed -r "s/$1 ([^ ]+)( .+)/\1/g")"
+    if test -e /dev/mapper/$luksname; then
+        echo "warning: luks mapper $luksname already activated"
+    else
+        if test "$passphrase" = ""; then
+            cryptsetup open --type luks "$device" "$luksname"
+        else
+            printf "%s" "$passphrase" \
+                | cryptsetup -q open --type luks  "$device" "$luksname" --key-file=-
+        fi
+    fi
+}
+
+
+activate_luks() { # passphrase
+    local devlist devcount actlist passphrase p
+    passphrase="$1"
+    for p in SWAP ROOT DATA; do
+        if is_luks "$(by_partlabel $p)"; then
+            devlist=$(by_partlabel "$p")
+            devcount=$(echo "$devlist" | wc -w)
+            actlist="luks-${p,,}"
+            echo "activate luks on $actlist"
+            if (test "$devcount" = "2" && is_zfs "$devlist"); then
+                luks_start_one ${actlist}1 "$passphrase"
+                luks_start_one ${actlist}2 "$passphrase"
+            else
+                luks_start_one ${actlist} "$passphrase"
+            fi
+        fi
+    done
+}
+
+
+deactivate_luks() {
+    local p
+    for p in SWAP ROOT DATA; do
+        if is_luks "$(by_partlabel $p)"; then
+            if test -e /dev/mapper/luks-${p,,}; then
+                echo "deactivate luks on luks-${p,,}"
+                cryptdisks_stop "luks-${p,,}" || echo "failed!"
+            fi
+        fi
+    done
+}
+
+
+activate_lvm() {
+    local p
+    if (is_lvm "$(by_partlabel ROOT)" || is_lvm "$(by_partlabel DATA)"); then
+        lvm vgscan -v
+    fi
+    for p in ROOT DATA; do
+        if is_lvm "$(by_partlabel $p)"; then
+            lvm vgchange --activate y "$(substr_vgname "$(by_partlabel $p)")"
+        fi
+    done
+}
+
+
+deactivate_lvm() {
+    local lv vg
+    for lv in $(lvm lvs -o vg_name,lv_name,lv_device_open --no-headings \
+        | grep -E ".+open[[:space:]]*$" \
+        | sed -r "s/[[:space:]]+([^[:space:]]+)[[:space:]]+([^[:space:]]+)[[:space:]]+.+/\1\/\2/g"); do
+        lvchange -a n $lv || echo "deactivate of lv $lv failed!"
+    done
+    for vg in $(lvm vgs -o vg_name --no-headings); do
+        vgchange -a n $vg || echo "deactivate of vg $vg failed!"
+    done
+}
+
+
+activate_zfs_pools() { # basedir passphrase force:true|false
+    local basedir passphrase p poolname import_opts altroot
+    basedir="$1"
+    passphrase="$2"
+    if test "$3" = "true"; then import_opts="-f"; else import_opts=""; fi
+
+    for p in ROOT DATA BOOT; do
+        if is_zfs "$(by_partlabel $p)"; then
+            altroot="$basedir"
+            if test "$p" != "ROOT"; then
+                altroot="$basedir/$(echo $p | tr '[[:upper:]]' '[[:lower:]]')"
+            fi
+            poolname=$(printf "${p:0:1}" | tr "[[:upper:]]" "[[:lower:]]"; printf "pool")
+            echo "zpool import $import_opts -N -R $altroot $poolname"
+            zpool import $import_opts -N -R "$altroot" "$poolname"
+            if is_enczfs "$(by_partlabel $p)"; then
+                echo "zfs load-key -r $poolname"
+                printf "%s" "$passphrase" | zfs load-key -r $poolname
+            fi
+        fi
+    done
+}
+
+
+deactivate_zfs_pools() {
+    local p poolname
+    for p in BOOT DATA ROOT; do
+        if is_zfs "$(by_partlabel $p)"; then
+            poolname=$(printf "${p:0:1}" | tr "[[:upper:]]" "[[:lower:]]"; printf "pool")
+            if is_enczfs "$(by_partlabel $p)"; then
+                echo "zfs unload-key -r $poolname"
+                zfs unload-key -r $poolname || echo "Warning, zfs unload-key -r $poolname exited with error"
+            fi
+            echo "zpool export $poolname"
+            zpool export $poolname || echo "Warning, zpool export $poolname exited with error"
+        fi
+    done
+}
+
+
 # ### Mounting / Unmounting root, boot, data, efi, bindmounts
 
 mount_root() { # basedir force:true|false
@@ -925,8 +952,6 @@ mount_root() { # basedir force:true|false
 
     mkdir -p "$basedir"
     if is_zfs "$devlist"; then
-        echo "import rpool"
-        zpool import $import_opts -N -R "$basedir" rpool
         bootfs=$(zpool get -H -o value bootfs rpool)
         echo "mount root ($bootfs) at $basedir"
         zfs mount $bootfs
@@ -942,7 +967,7 @@ mount_root() { # basedir force:true|false
 
 
 mount_boot() { # basedir force:true|false
-    local basedir import_opts
+    local basedir import_opts bootfs
     basedir=$1
     import_opts=""
     if test "$2" = "true"; then import_opts="-f"; fi
@@ -950,10 +975,9 @@ mount_boot() { # basedir force:true|false
     if test "$(by_partlabel BOOT)" != ""; then
         mkdir -p "$basedir/boot"
         if is_zfs "$(by_partlabel BOOT)"; then
-            echo "import bpool"
-            zpool import $import_opts -N -R "$basedir/boot" bpool
-            echo "mount bpool/BOOT/ubuntu at $basedir/boot"
-            zfs mount bpool/BOOT/ubuntu
+            bootfs=$(zpool get -H -o value bootfs bpool)
+            echo "mount boot ($bootfs) at $basedir/boot"
+            zfs mount $bootfs
         else
             echo "mount boot at $basedir/boot"
             mount /dev/disk/by-label/boot "$basedir/boot"
@@ -970,12 +994,10 @@ mount_data() { # basedir force:true|false
     if test "$2" = "true"; then import_opts="-f"; else import_opts=""; fi
 
     if test "$devlist" != ""; then
+        mkdir -p "$basedir/data"
         if is_zfs "$devlist"; then
-            echo "import dpool"
-            mkdir -p "$basedir/data"
-            zpool import $import_opts -N -R "$basedir/data" dpool
+            zfs mount dpool
         else
-            mkdir -p "$basedir/data"
             mount /dev/disk/by-label/data "$basedir/data"
         fi
     fi
@@ -1035,10 +1057,13 @@ unmount_bind_mounts() { # basedir
 
 
 unmount_efi() { # basedir
-    local basedir=$1
-    echo "unmount efi*"
+    local basedir mountpoint
+    basedir=$1
     for i in efi efi2; do
-        if mountpoint -q "$basedir/$i"; then umount "$basedir/$i"; fi
+        mountpoint="$basedir/$i"
+        if test -L "$mountpoint"; then mountpoint="$(readlink -f $mountpoint)"; fi
+        echo "unmount $i from $mountpoint"
+        if mountpoint -q "$mountpoint"; then umount "$mountpoint"; fi
     done
 }
 
@@ -1046,8 +1071,7 @@ unmount_efi() { # basedir
 unmount_boot() { # basedir
     local basedir=$1
     if is_zfs "$(by_partlabel BOOT)"; then
-        zfs unmount bpool
-        zpool export bpool
+        zfs unmount "$basedir/boot"
     else
         if mountpoint -q "$basedir/boot"; then umount "$basedir/boot"; fi
     fi
@@ -1058,7 +1082,6 @@ unmount_data() { # basedir
     local basedir=$1
     if is_zfs "$(by_partlabel DATA)"; then
         zfs unmount "$basedir/data"
-        zpool export dpool || echo "Warning, zpool export dpool exited with error"
     else
         if mountpoint -q "$basedir/data"; then umount "$basedir/data"; fi
     fi
@@ -1069,7 +1092,6 @@ unmount_root() { # basedir
     local basedir=$1
     if is_zfs "$(by_partlabel ROOT)"; then
         zfs unmount -a
-        zpool export rpool || echo "Warning, zpool export rpool exited with error"
     else
         if mountpoint -q "$basedir"; then umount "$basedir"; fi
     fi
