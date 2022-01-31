@@ -14,18 +14,17 @@ usage() {
     local cmd
     cmd=$(basename $0)
     cat << EOF
-$cmd download               <downloaddir>
-$cmd extract                <downloaddir> <targetdir>
+$cmd download               <download_dir>
+$cmd extract                <download_dir> <target_dir>
 $cmd show grub.cfg          <grub_root> <livemedia> <uuid_volume>
 $cmd show grub.d/recovery   <grub_root> <livemedia> <uuid_volume>
-$cmd show kernel_version    <targetdir containing kernel image>
-                                         returns the kernel version found in targetdir
-$cmd show recovery_version  returns the image plus the recovery-script version for change detection
-$cmd show imagename         returns the expected source image name for recovery building
-$cmd show imageurl          returns the expected download url image name for recovery building
-$cmd show keyfile           returns the expected signingkeys file name for verifying downloads
+$cmd show kernel_version    <kernelimage_dir> # returns the kernel version found in kernelimage_dir
+$cmd show recovery_version  # returns the image plus the recovery-script version for change detection
+$cmd show imagename         # returns the expected source image name for recovery building
+$cmd show imageurl          # returns the expected download url image name for recovery building
+$cmd show keyfile           # returns the expected signingkeys file name for verifying downloads
 
-$cmd --check-req            confirm all needed requisites are present, exit 0 if true
+$cmd --check-req            # confirm all needed requisites are present, exit 0 if true
 
 Version: $recovery_version
 
