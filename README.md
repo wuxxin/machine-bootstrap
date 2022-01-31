@@ -356,9 +356,9 @@ installation is done in 4 steps:
     + chroot into target
 + 3 recovery or target live system chroot
     + configure system
-    + kernel
-    + initrd
+    + install kernel and initrd
     + install standard software
+    + install bootloader
     + reboot into target
 + 4 target system
     + install and run saltstack
