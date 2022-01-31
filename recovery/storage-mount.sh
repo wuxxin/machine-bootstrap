@@ -40,7 +40,7 @@ activate_mdadm
 create_crypttab
 activate_luks "$password"
 activate_lvm
-activate_zfs_key "$password"
+activate_zfs_pools /mnt "$password" "$force"
 mount_root /mnt $force
 mount_boot /mnt $force
 mount_efi /mnt

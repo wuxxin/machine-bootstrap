@@ -24,11 +24,11 @@ echo "swap off"; swapoff -a || true
 if ! which pamac &> /dev/null; then
     unmount_bind_mounts /mnt
 fi
-unmount_data /mnt/mnt
+unmount_data /mnt
 unmount_efi /mnt
 unmount_boot /mnt
 unmount_root /mnt
-deactivate_zfs_key
+deactivate_zfs_pools
 deactivate_lvm
 deactivate_luks
 deactivate_mdadm
