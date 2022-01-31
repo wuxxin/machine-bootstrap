@@ -26,9 +26,9 @@ if test "$3" != "--yes"; then usage; fi
 hostname=$1
 firstuser=$2
 shift 3
-option_restore_backup=false
+restore_backup=false
 if test "$1" = "--restore-from-backup"; then
-    option_restore_backup=true
+    restore_backup=true
     shift
 fi
 
@@ -44,7 +44,7 @@ echo "configure locale & timezone"
 export LC_MESSAGES="POSIX"
 export LANG="en_US.UTF-8"
 export LANGUAGE="en_US:en"
-if $option_restore_backup; then
+if $restore_backup; then
     restore_warning "not setting default locale and timezone"
 else
     echo -e "LANG=$LANG\nLANGUAGE=$LANGUAGE\nLC_MESSAGES=$LC_MESSAGES\n" > /etc/default/locale
@@ -56,7 +56,7 @@ fi
 configure_hostname "$hostname"
 
 echo "configure apt"
-if $option_restore_backup; then
+if $restore_backup; then
     restore_warning "not overwriting /etc/apt/sources.list"
 else
     cat > /etc/apt/sources.list << EOF
@@ -101,7 +101,7 @@ mkdir -p /etc/grub.d
 chmod +x /etc/grub.d/40_recovery
 
 echo "workaround plymouth default theme"
-if $option_restore_backup; then
+if $restore_backup; then
     restore_warning "not overwriting /usr/bin/plymouth-set-default-theme"
 else
     cat > /usr/bin/plymouth-set-default-theme <<"EOF"
@@ -142,7 +142,7 @@ Pin-Priority: -1
 EOF
 done
 
-if $option_restore_backup; then
+if $restore_backup; then
     restore_warning "not overwriting /etc/default/rpcbind and /etc/systemd/system/rpcbind.socket"
     restore_warning "not overwriting /etc/modprobe.d/zfs.conf"
 else
@@ -152,7 +152,7 @@ fi
 
 echo "update installation"
 apt-get update --yes
-if $option_restore_backup; then
+if $restore_backup; then
     restore_warning "not installing base packages"
 else
     dpkg-divert --local --rename \
@@ -209,7 +209,7 @@ echo "create missing system groups"
 getent group lpadmin > /dev/null || addgroup --system lpadmin
 getent group sambashare > /dev/null || addgroup --system sambashare
 
-if $option_restore_backup; then
+if $restore_backup; then
     restore_warning "not creating first user $firstuser"
 else
     echo "add first user: $firstuser"
@@ -223,7 +223,7 @@ else
 fi
 
 echo "configure sshd"
-if $option_restore_backup; then
+if $restore_backup; then
     restore_warning "not overwriting /etc/ssh/sshd"
 else
     configure_sshd
