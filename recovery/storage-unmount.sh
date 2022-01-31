@@ -21,7 +21,9 @@ fi
 
 cd /
 echo "swap off"; swapoff -a || true
-unmount_bind_mounts /mnt
+if ! which pamac &> /dev/null; then
+    unmount_bind_mounts /mnt
+fi
 unmount_data /mnt/mnt
 unmount_efi /mnt
 unmount_boot /mnt

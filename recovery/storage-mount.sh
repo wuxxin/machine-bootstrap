@@ -12,6 +12,8 @@ EOF
 self_path=$(dirname "$(readlink -e "$0")")
 force="false"
 password=""
+chroot_cmd="chroot"
+if which pamac &> /dev/null; then chroot_cmd="manjaro-chroot"; fi
 
 if test "$1" != "--yes"; then usage; fi
 shift
@@ -43,11 +45,13 @@ mount_root /mnt $force
 mount_boot /mnt $force
 mount_efi /mnt
 mount_data /mnt $force
-mount_bind_mounts /mnt
+if ! which pamac &> /dev/null; then
+    mount_bind_mounts /mnt
+fi
 
 cat << EOF
 mounting complete.
-+ use 'chroot /mnt /bin/bash --login' to chroot into system
++ use "$(chroot_cmd) /mnt /bin/bash --login" to chroot into system
 + once returned from the chroot system, and storage is no longer used
   + use 'recovery-unmount.sh --yes' to unmount disks, then reboot
 EOF
