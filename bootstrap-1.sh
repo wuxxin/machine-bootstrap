@@ -159,7 +159,7 @@ create_swap "$diskpassword"
 create_homedir home $firstuser
 mount_boot /mnt
 mount_efi /mnt
-mount_data /mnt/mnt
+mount_data /mnt
 
 # copy machine-id, hostid, zpool-cache and authorized_keys before bootstraping
 mkdir -p /mnt/etc
@@ -265,7 +265,7 @@ done
 
 # unmount and deactivate all storage
 echo "swap off"; swapoff -a || true
-unmount_data /mnt/mnt
+unmount_data /mnt
 unmount_efi /mnt
 unmount_boot /mnt
 unmount_root /mnt
