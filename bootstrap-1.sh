@@ -203,13 +203,12 @@ fi
 
 
 # bootstrap-2 preperations
-if test "$distrib_id" = "manjaro"; then echo "exit and dont unmount devel"; exit 1; fi
-echo "copy bootstrap-2-${distrib_id}.sh bootstrap-2-recovery.sh and bootstrap-library.sh to /tmp"
-cp /tmp/bootstrap-library.sh /mnt/tmp
-cp /tmp/bootstrap-2-restore.sh /mnt/tmp
-cp /tmp/bootstrap-2-${distrib_id}.sh /mnt/tmp
-chmod +x /mnt/tmp/bootstrap-2-restore.sh
-chmod +x /mnt/tmp/bootstrap-2-${distrib_id}.sh
+echo "copy bootstrap-2-${distrib_id}.sh bootstrap-2-recovery.sh and bootstrap-library.sh to /root on target"
+cp /tmp/bootstrap-library.sh /mnt/root
+cp /tmp/bootstrap-2-restore.sh /mnt/root
+cp /tmp/bootstrap-2-${distrib_id}.sh /mnt/root
+chmod +x /mnt/root/bootstrap-2-restore.sh
+chmod +x /mnt/root/bootstrap-2-${distrib_id}.sh
 
 if test "$distrib_id" = "ubuntu" -o "$distrib_id" = "debian"; then
     if test "$distrib_id" = "ubuntu"; then
@@ -239,16 +238,16 @@ fi
 # bootstrap-2 execution
 bootstrap2_postfix=""; bootstrap2_chroot="chroot"
 if test "$option_restore_backup" = "true"; then bootstrap2_postfix="--restore-from-backup"; fi
-if test "$distrib_id" = "manjaro"; then bootstrap2_chroot="chrootmanjaro"; fi
+if test "$distrib_id" = "manjaro"; then bootstrap2_chroot="manjaro-chroot"; fi
 if test "$distrib_id" = "ubuntu" -o "$distrib_id" = "debian"; then
     echo "mount bind mounts";  mount_bind_mounts /mnt
 fi
 echo "call bootstrap-2-${distrib_id}.sh $bootstrap2_postfix in chroot"
-$bootstrap2_chroot /mnt /tmp/bootstrap-2-${distrib_id}.sh \
+$bootstrap2_chroot /mnt /root/bootstrap-2-${distrib_id}.sh \
     "$hostname" "$firstuser" --yes $bootstrap2_postfix
 if test "$option_restore_backup" = "true"; then
     echo "call bootstrap-2-restore.sh in chroot"
-    $bootstrap2_chroot /mnt /tmp/bootstrap-2-restore.sh \
+    $bootstrap2_chroot /mnt /root/bootstrap-2-restore.sh \
         "$hostname" "$firstuser" --yes && err=$? || err=$?
     if test "$err" != "0"; then echo "Backup - Restore Error $err"; exit $err; fi
 fi
