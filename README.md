@@ -2,6 +2,8 @@
 
 Unattended ssh based linux operating system installer with customizable storage layout and remote unlock
 
+**Targets:**
+
 + Ubuntu 20.04 LTS (Focal)
 + Manjaro Stable
 
@@ -21,7 +23,7 @@ Unattended ssh based linux operating system installer with customizable storage 
 ## Features
 
 + **one or two disks** (will be automatically setup as mdadm \&/ zfs mirror if two disks)
-+ **root and other on luks or native encrypted zfs** / zfs mirror pool (encrypted storage at rest)
++ **root** and other **on luks or native encrypted zfs** (mirror) pool
     + and **other common and less common**, easy to configure **storage setups**
 + **logging** of recovery and target system installation on the calling machine in directory ./run/log
 + **ubuntu**
