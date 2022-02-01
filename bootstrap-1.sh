@@ -212,9 +212,9 @@ chmod +x /mnt/root/bootstrap-2-${distrib_id}.sh
 
 if test "$distrib_id" = "ubuntu" -o "$distrib_id" = "debian"; then
     if test "$distrib_id" = "ubuntu"; then
-        echo "copy network netplan config to 50-default.yaml"
-        warn_rename /mnt/etc/netplan/50-default.yaml
-        cp -a /tmp/netplan.yaml /mnt/etc/netplan/50-default.yaml
+        echo "copy network netplan config to 80-default.yaml"
+        warn_rename /mnt/etc/netplan/80-default.yaml
+        cp -a /tmp/netplan.yaml /mnt/etc/netplan/80-default.yaml
     fi
 
     echo "copying dracut files to /usr/lib/dracut/modules.d/46sshd"
