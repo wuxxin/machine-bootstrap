@@ -51,7 +51,7 @@ fi
 
 cat << EOF
 mounting complete.
-+ use "$(chroot_cmd) /mnt /bin/bash --login" to chroot into system
++ use "$chroot_cmd /mnt /bin/bash --login" to chroot into system
 + once returned from the chroot system, and storage is no longer used
   + use 'recovery-unmount.sh --yes' to unmount disks, then reboot
 EOF
