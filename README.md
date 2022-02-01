@@ -307,6 +307,12 @@ EOF
 cat > config/systemd.netdev << EOF
 EOF
 cat > config/systemd.network << EOF
+[Match]
+Name=en*
+Name=eth*
+
+[Network]
+DHCP=yes
 EOF
 ```
 
@@ -462,7 +468,7 @@ Nr |Name(max 36 x UTF16)|Description|
         if both are specified at the same time, the script will fail.
 
 + GPT Name Scheme information leakage
-    + be aware that, the way gpt labels are setup in this script, they leak metadata of encrypted data, eg. raid_luks_lvm.vg0_ext4_ROOT leaks the information that behind the luks encrypted data is a lvm partition with a volume group named vg0 and the root file system is ext4 (but not how to read this data). if this is an issue, rename the volume labels after bootstrap completed, mounts will still work because they are pointing to the uuid
+    + be aware that, the way gpt labels are setup in this script, they leak metadata of encrypted data, eg. raid_luks_lvm.vg0_ext4_ROOT leaks the information that behind the luks encrypted data is a lvm partition with a volume group named vg0 and the root file system is ext4 (but not how to read this data).
 
 + ZFS SLOG and L2ARC encryption
     + a Log and a Cache Partition can be created for pools outside the two
