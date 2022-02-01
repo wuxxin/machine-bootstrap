@@ -74,18 +74,9 @@ fi
 create_fstab "ubuntu"
 create_crypttab
 
-echo "make grub accessable on /boot/grub"
-if test -L /efi; then
-    echo "noop: /efi is a symlink, grub will be found on target /boot/grub"
-else
-    echo "symlink /boot/grub to /efi/grub"
-    if test -e /boot/grub; then
-        echo "removing grub traces from /boot"
-        rm -rf /boot/grub
-    fi
-    ln -s /efi/grub /boot/grub
-fi
-if test "$(findmnt -n -o FSTYPE /boot)" = "vfat"; then
+efi_src=$(install_efi_sync --show efi_src)
+efi_dest=$(install_efi_sync --show efi_dest)
+if test "$(findmnt -n -o FSTYPE $efi_src)" = "vfat"; then
     echo "Warning: disable do_symlinks in kernel-img.conf, because boot is on vfat"
     echo "do_symlinks = no" > /etc/kernel-img.conf
 fi
@@ -267,18 +258,18 @@ fi
 
 echo "install grub"
 update-grub
-if test ! -e /efi/grub/grubenv; then
-    grub-editenv /efi/grub/grubenv create
+if test ! -e $efi_src/grub/grubenv; then
+    grub-editenv $efi_src/grub/grubenv create
 fi
 efi_disk=/dev/$(basename "$(readlink -f \
     "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | first_of)")/..")")
-install_grub /efi "$efi_disk"
+install_grub $efi_src "$efi_disk"
 if test "$(by_partlabel EFI | wc -w)" = "2"; then
     efi_disk=/dev/$(basename "$(readlink -f \
     "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | x_of 2)")/..")")
-    install_grub /efi2 "$efi_disk"
+    install_grub $efi_dest "$efi_disk"
     install_efi_sync
     # efi_sync will be started on next reboot automatically, do a manual sync now
-    efi_sync /efi /efi2
+    efi_sync $efi_src $efi_dest
 fi
 echo "exit from chroot"
