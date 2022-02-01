@@ -165,8 +165,6 @@ network:
 EOF
 )
 
-DEFAULT_systemd_netdev=""
-
 DEFAULT_systemd_network=$(cat <<"EOF"
 [Match]
 Name=en*
@@ -176,6 +174,8 @@ Name=eth*
 DHCP=yes
 EOF
 )
+
+DEFAULT_systemd_netdev=""
 
 
 # main
@@ -189,6 +189,8 @@ diskpassphrase_file=$config_path/disk.passphrase.gpg
 authorized_keys_file=$config_path/authorized_keys
 nixos_configuration_file=$config_path/configuration.nix
 netplan_file=$config_path/netplan.yaml
+systemd_network_file=$config_path/systemd.network
+systemd_netdev_file=$config_path/systemd.netdev
 recovery_hostkeys_file=$config_path/recovery_hostkeys
 ssh_id_file=$config_path/gitops.id_ed25519
 ssh_known_hosts_file=$config_path/gitops.known_hosts
@@ -323,7 +325,7 @@ if test "$command" = "test"; then exit 0; fi
 # create log dir
 if test ! -e "$log_path"; then mkdir -p "$log_path"; fi
 
-# load or generate hostkeys, netplan
+# load or generate hostkeys, netplan, systemd_network, systemd_netdev
 if test -e "$recovery_hostkeys_file"; then
     recovery_hostkeys=$(cat "$recovery_hostkeys_file")
 else
@@ -331,12 +333,12 @@ else
     recovery_hostkeys="$generated_hostkeys"
     echo "$recovery_hostkeys" > "$recovery_hostkeys_file"
 fi
-if test -e "$netplan_file"; then
-    netplan_data=$(cat "$netplan_file")
-else
-    netplan_data="$DEFAULT_netplan_data"
-    echo "$netplan_data" > "$netplan_file"
-fi
+netplan_data="$DEFAULT_netplan_data"
+systemd_network_data="$DEFAULT_systemd_network"
+systemd_netdev_data="$DEFAULT_systemd_netdev"
+if test -e "$netplan_file"; then netplan_data=$(cat "$netplan_file"); fi
+if test -e "$systemd_network_file"; then systemd_network_data=$(cat "$systemd_network_file"); fi
+if test -e "$systemd_netdev_file"; then systemd_netdev_data=$(cat "$systemd_netdev_file"); fi
 
 # load ssh_id, ssh_known_hosts, gpg_id
 ssh_id=""; ssh_known_hosts=""; gpg_id=""
@@ -367,6 +369,7 @@ if test "$command" = "create-liveimage"; then
     cp -a $self_path/recovery/* "$download_path/scripts"
     cp $self_path/bootstrap-library.sh "$download_path/scripts/"
     echo "$generated_hostkeys" > "$download_path/bootstrap-0.hostkeys"
+    if test ! -e "$netplan_file"; then echo "$netplan_data" > "$netplan_file"; fi
     "$self_path/recovery/recovery-config-ubuntu.sh" --custom \
         "$download_path/recovery.squashfs" "$hostname" "-" "$netplan_file" \
         "$download_path/bootstrap-0.hostkeys" "$authorized_keys_file" \
@@ -386,17 +389,20 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"
     echo "Step: recovery"
     sshopts="-o UserKnownHostsFile=$config_path/temporary.known_hosts"
 
-    echo "copy ssh_authorized_keys, ssh_hostkeys, network config and install script to target"
-    scp $sshopts "$authorized_keys_file" \
-        "$(ssh_uri ${sshlogin} scp)/tmp/authorized_keys"
+    echo "copy ssh_authorized_keys, recovery_hostkeys, network config and install scripts to target"
+    scp $sshopts \
+        "$authorized_keys_file" \
+        "$self_path/bootstrap-0.sh" \
+        "$self_path/bootstrap-library.sh" \
+        "$(ssh_uri ${sshlogin} scp)/tmp"
     echo "$recovery_hostkeys" \
         | ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/recovery_hostkeys"
     echo "$netplan_data" \
         | ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/netplan.yaml"
-    scp $sshopts \
-        "$self_path/bootstrap-0.sh" \
-        "$self_path/bootstrap-library.sh" \
-        "$(ssh_uri ${sshlogin} scp)/tmp"
+    echo "$systemd_network_data" \
+        | ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/systemd.network"
+    echo "$systemd_netdev_data" \
+        | ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/systemd.netdev"
 
     if test "$recovery_install" = "true"; then
         scp $sshopts -rp "$self_path/recovery" "$(ssh_uri ${sshlogin} scp)/tmp"
@@ -447,20 +453,22 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "system"; 
     echo "Step: system"
     sshopts="-o UserKnownHostsFile=$config_path/recovery.known_hosts"
 
-    echo "copy ssh_authorized_keys, netplan, install scripts to target"
-    scp $sshopts "$authorized_keys_file" \
-        "$(ssh_uri ${sshlogin} scp)/tmp/authorized_keys"
-    echo "$netplan_data" | ssh $sshopts ${sshlogin} "cat - > /tmp/netplan.yaml"
-    scp $sshopts "$config_path/recovery_hostkeys" \
-        "$(ssh_uri ${sshlogin} scp)/tmp/recovery_hostkeys"
+    echo "copy ssh_authorized_keys, recovery_hostkeys, network config and install scripts to target"
     scp $sshopts \
+        "$authorized_keys_file" \
+        "$config_path/recovery_hostkeys" \
         "$self_path/bootstrap-1.sh" \
         "$self_path/bootstrap-1-restore.sh" \
         "$self_path/bootstrap-2-$distrib_id.sh" \
         "$self_path/bootstrap-2-restore.sh" \
         "$self_path/bootstrap-library.sh" \
-        "$config_path/recovery_hostkeys" \
         "$(ssh_uri ${sshlogin} scp)/tmp"
+    echo "$netplan_data" \
+        | ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/netplan.yaml"
+    echo "$systemd_network_data" \
+        | ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/systemd.network"
+    echo "$systemd_netdev_data" \
+        | ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/systemd.netdev"
     scp $sshopts -rp \
         "$self_path/recovery" \
         "$self_path/dracut" \
