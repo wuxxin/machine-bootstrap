@@ -165,6 +165,7 @@ network:
 EOF
 )
 
+DEFAULT_systemd_netdev=""
 
 DEFAULT_systemd_network=$(cat <<"EOF"
 [Match]
