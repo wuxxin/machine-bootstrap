@@ -47,8 +47,6 @@ recovery-config-ubuntu:
   cmd.run:
     - onlyif: test "$({{ hash_new }})" != "$({{ hash_old }})"
     - name: /etc/recovery/recovery-config-ubuntu.sh --host
-    - require:
-      - sls: machine-bootstrap.recovery.efi-sync
 
 recovery-build-ubuntu:
   cmd.run:
@@ -70,5 +68,3 @@ recovery-build-ubuntu:
         update-grub
         /etc/recovery/efi-sync.sh --yes
         /etc/recovery/recovery-build-ubuntu.sh show recovery_version > /etc/recovery/recovery_version
-    - require:
-      - sls: machine-bootstrap.recovery.efi-sync
