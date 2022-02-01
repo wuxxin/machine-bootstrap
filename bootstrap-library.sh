@@ -1261,63 +1261,122 @@ install_grub() { # efi_dir efi_disk
 }
 
 
-install_efi_sync() { # rootprefix(default="")
-    local rootprefix
-    rootprefix=""
-    if test "$1" != ""; then rootprefix="$1"; shift; fi
-    cat > "$rootprefix/etc/systemd/system/efi-sync.path" << EOF
+install_efi_sync() { # [--show (efi_src|efi_dest|script|systemd.path|systemd.service)]
+    local show efi_src efi_dest
+    show="";
+    if test "$1" = "--show"; then show="$2"; shift 2; fi
+    if test "$show" = ""; then
+        mkdir -p /usr/local/lib/machine-bootstrap
+        install_efi_sync --show systemd.path > /etc/systemd/system/efi-sync.path
+        install_efi_sync --show systemd.service > /etc/systemd/system/efi-sync.service
+        install_efi_sync --show script > /usr/local/lib/machine-bootstrap/efi-sync.sh
+        chmod +x /usr/local/lib/machine-bootstrap/efi-sync.sh
+        systemctl enable efi-sync.{path,service}
+    elif test "$show" = "efi_src"; then
+        efi_src="/efi"
+        if ! mountpoint -q "$efi_src"; then efi_src="/boot"; fi
+        echo "$efi_src"
+    elif test "$show" = "efi_dest"; then
+        efi_dest="/efi2"
+        echo "$efi_dest"
+    elif test "$show" = "systemd.path"; then
+        efi_src=$(install_efi_sync --show efi_src)
+        efi_dest=$(install_efi_sync --show efi_dest)
+        cat - << EFIEOF
 [Unit]
 Description=Copy EFI to EFI2 System Partition
 
 [Path]
-PathChanged=/efi
+PathChanged=${efi_src}
 
 [Install]
 WantedBy=multi-user.target
 WantedBy=system-update.target
-EOF
-    cat > "$rootprefix/etc/systemd/system/efi-sync.service" << EOF
+EFIEOF
+    elif test "$show" = "systemd.service"; then
+        efi_src=$(install_efi_sync --show efi_src)
+        efi_dest=$(install_efi_sync --show efi_dest)
+        cat - << EFIEOF
 [Unit]
 Description=Copy EFI to EFI2 System Partition
-RequiresMountsFor=/efi
-RequiresMountsFor=/efi2
+RequiresMountsFor=${efi_src}
+RequiresMountsFor=${efi_dest}
 
 [Service]
 Type=oneshot
-ExecStart=/etc/recovery/efi-sync.sh --yes
+ExecStart=/usr/local/lib/machine-bootstrap/efi-sync.sh ${efi_src} ${efi_dest} --yes
+EFIEOF
+elif test "$show" = "script"; then
+        cat - << "EFIEOF"
+#!/bin/bash
+set -e
+
+usage() {
+    cat << EOF
+Usage: $0 <efi_src> <efi_dest> --yes
+sync files from <efi_src> to <efi_dest> in case there is <efi_dest>
++ rsync all files except grub and systemd-boot config
++ grub: copy and modify grub/grub.cfg, EFI/*/grub.cfg for fsuuid of efi2
+    + dd (binary duplicate 1kb) grub/grubenv
 EOF
-    systemctl enable efi-sync.{path,service}
+    exit 1
+}
+
+self_path=$(dirname "$(readlink -e "$0")")
+efi_src="$1"; efi_dest="$2"; shift 2
+if test "$1" != "--yes"; then usage; fi
+if test -e "$self_path/bootstrap-library.sh"; then
+    . "$self_path/bootstrap-library.sh"
+elif test -e "$self_path/../bootstrap-library.sh"; then
+    . "$self_path/../bootstrap-library.sh"
+elif test -e "/usr/local/lib/machine-bootstrap/bootstrap-library.sh"; then
+    . "/usr/local/lib/machine-bootstrap/bootstrap-library.sh"
+else
+    echo "Error: bootstrap-library.sh not found!"; usage
+fi
+if ! mountpoint -q "${efi_dest}"; then
+    echo " failed to sync: no mount at ${efi_dest}"
+    exit 0
+fi
+sync_efi "${efi_src}" "${efi_dest}"
+
+EFIEOF
+    fi
 }
 
 
 efi_sync() { # efi_src efi_dest
     local efi_src efi_dest efi_fs_uuid efi2_fs_uuid
     efi_src="$1"; efi_dest="$2"
-
-    echo "Sync contents of $efi_src to $efi_dest"
-    rsync -a --exclude EFI/Ubuntu/grub.cfg --exclude grub/grub.cfg \
-        --exclude grub/grubenv --delete-during "$efi_src/" "$efi_dest/"
-
     efi_fs_uuid=$(dev_fs_uuid "$(by_partlabel EFI | first_of)")
     efi2_fs_uuid=$(dev_fs_uuid "$(by_partlabel EFI | x_of 2)")
-    if test -e "$efi_src/EFI/Ubuntu/grub.cfg"; then
-        echo "copy and modify EFI/Ubuntu/grub.cfg for fsuuid of efi2"
-        cat "$efi_src/EFI/Ubuntu/grub.cfg" \
-            | sed -r "s/$efi_fs_uuid/$efi2_fs_uuid/g" \
-            > "$efi_dest/EFI/Ubuntu/grub.cfg"
-    fi
+
+    echo "Sync contents of $efi_src to $efi_dest"
+    rsync -a --delete-during \
+        --exclude grub/grub.cfg \
+        --exclude grub/grubenv \
+        --exclude "EFI/*/grub.cfg" \
+        "$efi_src/" "$efi_dest/"
+
     if test -e "$efi_src/grub/grub.cfg"; then
         echo "copy and modify grub/grub.cfg for fsuuid of efi2"
         cat "$efi_src/grub/grub.cfg" \
             | sed -r "s/$efi_fs_uuid/$efi2_fs_uuid/g" \
             > "$efi_dest/grub/grub.cfg"
+
+        if test -e "$efi_src/EFI/Ubuntu/grub.cfg"; then
+            echo "copy and modify EFI/Ubuntu/grub.cfg for fsuuid of efi2"
+            cat "$efi_src/EFI/Ubuntu/grub.cfg" \
+                | sed -r "s/$efi_fs_uuid/$efi2_fs_uuid/g" \
+                > "$efi_dest/EFI/Ubuntu/grub.cfg"
+        fi
+        if test ! -e "$efi_dest/grub/grubenv"; then
+            echo "create empty grub/grubenv"
+            grub-editenv "$efi_dest/grub/grubenv" create
+        fi
+        echo "copy grubenv of $efi_src to $efi_dest"
+        dd if="$efi_src/grub/grubenv" of="$efi_dest/grub/grubenv" bs=1024 count=1
     fi
-    if test ! -e "$efi_dest/grub/grubenv"; then
-        echo "create empty grub/grubenv"
-        grub-editenv "$efi_dest/grub/grubenv" create
-    fi
-    echo "copy grubenv of $efi_src to $efi_dest"
-    dd if="$efi_src/grub/grubenv" of="$efi_dest/grub/grubenv" bs=1024 count=1
 }
 
 
@@ -1336,9 +1395,11 @@ bootstrap_manjaro() { # basedir distrib_codename distrib_profile
 
     linux_latest=$(pamac search -r -q "linux[0-9]+$" | sort -n -k 1.6 | tail -1)
 
+    echo "cloning profiles"
     git clone https://gitlab.manjaro.org/profiles-and-settings/iso-profiles.git ~/iso-profiles
     cd ~/iso-profiles/$distrib_profile
 
+    echo "basestrap select profile: $distrib_profile (-grub, +systemd-boot-manager)"
     printf "systemd-boot-manager\n" | \
         cat Packages-Root Packages-Mhwd Packages-Desktop - | \
         grep -v "^#" | sed -r "s/(#.+)$//g" | \
