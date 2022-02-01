@@ -203,7 +203,7 @@ fi
 
 
 # bootstrap-2 preperations
-echo "copy bootstrap-2-${distrib_id}.sh bootstrap-2-recovery.sh and bootstrap-library.sh to /root on target"
+echo "copy bootstrap-2-${distrib_id}.sh bootstrap-2-restore.sh and bootstrap-library.sh to /root on target"
 cp /tmp/bootstrap-library.sh /mnt/root
 cp /tmp/bootstrap-2-restore.sh /mnt/root
 cp /tmp/bootstrap-2-${distrib_id}.sh /mnt/root
@@ -269,7 +269,7 @@ unmount_data /mnt
 unmount_efi /mnt
 unmount_boot /mnt
 unmount_root /mnt
-deactivate_zfs_key
+deactivate_zfs_pools
 deactivate_lvm
 deactivate_luks
 deactivate_mdadm
