@@ -670,12 +670,13 @@ create_file_swap() { # <swap_size-in-mb:default=1024>
 
 
 create_fstab() { # distrib_id
-    local devlist devcount devtarget devpath hasboot distrib_id
+    local devlist devcount devtarget devpath hasboot distrib_id efi_mount_opts
     if test -e /etc/fstab; then rm /etc/fstab; fi
     devlist=$(by_partlabel BOOT)
     devcount=$(echo "$devlist" | wc -w)
     hasboot="false"
     distrib_id="ubuntu"
+    efi_mount_opts="x-systemd.idle-timeout=1min,x-systemd.automount,noauto,umask=0022,fmask=0022,dmask=0022 0 1"
     if test "$1" != ""; then distrib_id="$1"; shift; fi
 
     if test "$devcount" = "1" -o "$devcount" = "2"; then
@@ -698,12 +699,12 @@ EOF
     if test "$hasboot" = "true"; then devpath=/efi; else devpath=/boot; fi
     if test "$devcount" = "1"; then
         cat >> /etc/fstab << EOF
-PARTUUID=$(dev_part_uuid "$devlist") $devpath vfat defaults,nofail 0 1
+PARTUUID=$(dev_part_uuid "$devlist") $devpath vfat $efi_mount_opts
 EOF
     else
         cat >> /etc/fstab << EOF
-PARTUUID=$(dev_part_uuid "$(echo "$devlist" | x_of 1)") $devpath vfat defaults,nofail 0 1
-PARTUUID=$(dev_part_uuid "$(echo "$devlist" | x_of 2)") /efi2  vfat defaults,nofail 0 1
+PARTUUID=$(dev_part_uuid "$(echo "$devlist" | x_of 1)") $devpath vfat $efi_mount_opts
+PARTUUID=$(dev_part_uuid "$(echo "$devlist" | x_of 2)") /efi2  vfat $efi_mount_opts
 EOF
     fi
 
@@ -1038,11 +1039,11 @@ mount_efi() { # basedir
         mount "/dev/disk/by-partlabel/EFI1" "$basedir/$devpath"
         mount "/dev/disk/by-partlabel/EFI2" "$basedir/efi2"
     fi
-    if test "$hasboot" != "true"; then
-        echo "symlink /efi to /boot because we have no boot partition"
-        if test -d $basedir/efi; then rm -r $basedir/efi; fi
-        if test ! -L $basedir/efi; then ln -s boot $basedir/efi; fi
-    fi
+    #if test "$hasboot" != "true"; then
+    #    echo "symlink /efi to /boot because we have no boot partition"
+    #    if test -d $basedir/efi; then rm -r $basedir/efi; fi
+    #    if test ! -L $basedir/efi; then ln -s boot $basedir/efi; fi
+    #fi
 }
 
 
@@ -1070,14 +1071,14 @@ unmount_bind_mounts() { # basedir
 }
 
 
-unmount_efi() { # basedir
-    local basedir mountpoint
+unmount_efi() { # basedir (unused)
+    local basedir actdev
     basedir=$1
-    for i in efi efi2; do
-        mountpoint="$basedir/$i"
-        if test -L "$mountpoint"; then mountpoint="$(readlink -f $mountpoint)"; fi
-        echo "unmount $i from $mountpoint"
-        if mountpoint -q "$mountpoint"; then umount "$mountpoint"; fi
+    for actdev in $(by_partlabel EFI); do
+        if mountpoint --quiet --devno $actdev; then
+            echo "unmount $actdev"
+            umount "$actdev"
+        fi
     done
 }
 
@@ -1338,12 +1339,14 @@ bootstrap_manjaro() { # basedir distrib_codename distrib_profile
     git clone https://gitlab.manjaro.org/profiles-and-settings/iso-profiles.git ~/iso-profiles
     cd ~/iso-profiles/$distrib_profile
 
-    cat Packages-Root Packages-Mhwd Packages-Desktop  | \
+    printf "systemd-boot-manager\n" | \
+        cat Packages-Root Packages-Mhwd Packages-Desktop - | \
         grep -v "^#" | sed -r "s/(#.+)$//g" | \
         sed -r "s/>(basic|extra|multilib|office) //g" | \
         sed -r "s/KERNEL/$linux_latest/g" | \
         grep -v "zfs-dkms" | \
-        grep -v ">" | sort | uniq | xargs basestrap /mnt
+        grep -v "^grub.*" | \
+        grep -v ">" | sort | uniq | xargs basestrap /mnt systemd-boot-manager
 }
 
 
