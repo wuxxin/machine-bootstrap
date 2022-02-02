@@ -1039,11 +1039,6 @@ mount_efi() { # basedir
         mount "/dev/disk/by-partlabel/EFI1" "$basedir/$devpath"
         mount "/dev/disk/by-partlabel/EFI2" "$basedir/efi2"
     fi
-    #if test "$hasboot" != "true"; then
-    #    echo "symlink /efi to /boot because we have no boot partition"
-    #    if test -d $basedir/efi; then rm -r $basedir/efi; fi
-    #    if test ! -L $basedir/efi; then ln -s boot $basedir/efi; fi
-    #fi
 }
 
 
@@ -1400,14 +1395,15 @@ bootstrap_manjaro() { # basedir distrib_codename distrib_profile
     cd ~/iso-profiles/$distrib_profile
 
     echo "basestrap select profile: $distrib_profile (-grub, +systemd-boot-manager)"
-    printf "systemd-boot-manager\n" | \
+    printf "systemd-boot-manager\n${linux_latest}-zfs\nzfs-utils\n" | \
         cat Packages-Root Packages-Mhwd Packages-Desktop - | \
         grep -v "^#" | sed -r "s/(#.+)$//g" | \
         sed -r "s/>(basic|extra|multilib|office) //g" | \
         sed -r "s/KERNEL/$linux_latest/g" | \
+        grep -v "snapd" | \
         grep -v "zfs-dkms" | \
         grep -v "^grub.*" | \
-        grep -v ">" | sort | uniq | xargs basestrap /mnt systemd-boot-manager
+        grep -v ">" | sort | uniq | xargs basestrap /mnt
 }
 
 
