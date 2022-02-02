@@ -59,6 +59,7 @@ remote_attestation_ssh() { # "$sshopts" "$(ssh_uri ${sshlogin})" ignorefail
 
     ssh $sshopts $sshurl \
         "for i in ${storage_ids}; do if test ! -e /dev/disk/by-id/\$i; then exit 1; fi; done" && err=$? || err=$?
+    # cat /proc/cpuinfo | grep "model name" | uniq | sed -r "s/model name.+: (.+)/\1/g"
     if test $err -ne 0; then
         if test "$ignorefail" = "true"; then
             echo "Warning: Remote Attestation failed, but ignorefail=true"
