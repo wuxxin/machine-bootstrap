@@ -89,15 +89,6 @@ else
 fi
 mkinitcpio -P
 
-efi_count="$(by_partlabel EFI | wc -w)"
-if test "$efi_count" = "2"; then
-    efi_src=$(install_efi_sync --show efi_src)
-    efi_dest=$(install_efi_sync --show efi_dest)
-    echo "setup efi-sync from $efi_src to $efi_dest"
-    install_efi_sync
-    efi_sync $efi_src $efi_dest
-fi
-
 echo "setup bootloader"
 sdboot_options="quiet splash loglevel=3 rd.udev.log_priority=3 vt.global_cursor_default=0"
 sdboot_options=""
@@ -108,3 +99,19 @@ else
 fi
 bootctl install
 sdboot-manage gen
+
+efi_count="$(by_partlabel EFI | wc -w)"
+if test "$efi_count" = "2"; then
+    efi_src=$(install_efi_sync --show efi_src)
+    efi_dest=$(install_efi_sync --show efi_dest)
+    echo "setup efi-sync from $efi_src to $efi_dest"
+    install_efi_sync
+    efi_sync $efi_src $efi_dest
+fi
+
+unit_files=$(systemctl --no-pager --no-legend list-unit-files)
+printf "%s" "$unit_files"  | grep -q "^gdm.service" && err=$? || err=$?
+if test "$err" -eq "0"; then
+    echo "Enable Gnome Display Service"
+    systemctl enable gdm.service
+fi
