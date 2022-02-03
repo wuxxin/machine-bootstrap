@@ -17,10 +17,14 @@ for safety, <hostname>  must be the same value as in the config file config/host
 + recovery
     **wipe disks**, partition storage and optional recovery install
         expects debian (apt-get) or manjaro (pamac) like live system, running at target host
+        will reboot into recovery if recovery installed, otherwise exit and wait for next step
 
-+ system [--restore-from-backup]
++ system [--no-reboot] [--restore-from-backup]
     format storage partitionas and install system
         expects running recovery image, or a target distribution live image
+
+    --no-reboot
+        dont reboot on final step, for further inspection
 
     --restore-from-backup
         partition & format system, then restore from backup
@@ -449,6 +453,9 @@ fi
 
 # ### STEP system
 if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "system"; then
+    option_no_reboot=false
+    if test "$1" = "--no-reboot"; then option_no_reboot=true; shift; fi
+
     waitfor_ssh "$sshlogin"
     echo "Step: system"
     sshopts="-o UserKnownHostsFile=$config_path/recovery.known_hosts"
@@ -505,10 +512,15 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "system"; 
         if test -e "$old"; then rm "$old"; fi
     done
 
-    echo "reboot into target system"
-    ssh $sshopts "$(ssh_uri ${sshlogin})" 'systemctl --no-block reboot' || true
-    echo "sleep 10 seconds, for machine to stop responding to ssh"
-    sleep 10
+    if test "$option_no_reboot" = "true"; then
+        echo "dont reboot into target system for further inspection"
+        exit 0
+    else
+        echo "reboot into target system"
+        ssh $sshopts "$(ssh_uri ${sshlogin})" 'systemctl --no-block reboot' || true
+        echo "sleep 10 seconds, for machine to stop responding to ssh"
+        sleep 10
+    fi
 fi
 
 
