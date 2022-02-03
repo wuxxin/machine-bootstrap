@@ -77,11 +77,12 @@ fi
 systemctl enable sshd
 
 echo "setup initrd ramdisk"
-initrd_hooks="base udev autodetect modconf block filesystems keyboard fsck"
+initrd_hooks="base udev autodetect modconf keyboard block"
 if is_mdadm "$(by_partlabel ROOT)"; then initrd_hooks="$initrd_hooks mdadm_udev"; fi
 if is_luks "$(by_partlabel ROOT)"; then initrd_hooks="$initrd_hooks encrypt"; fi
 if is_lvm "$(by_partlabel ROOT)"; then initrd_hooks="$initrd_hooks lvm2"; fi
 if is_zfs "$(by_partlabel ROOT)"; then initrd_hooks="$initrd_hooks zfs"; fi
+initrd_hooks="$initrd_hooks filesystems fsck"
 if grep -E -q "^HOOKS=" /etc/mkinitcpio.conf 2> /dev/null; then
     sed -i -r "s/^HOOKS=.+/HOOKS=($initrd_hooks)/g" /etc/mkinitcpio.conf
 else
@@ -91,7 +92,6 @@ mkinitcpio -P
 
 echo "setup bootloader"
 sdboot_options="quiet splash loglevel=3 rd.udev.log_priority=3 vt.global_cursor_default=0"
-sdboot_options=""
 if grep -E -q "^LINUX_OPTIONS=" /etc/sdboot-manage.conf 2> /dev/null; then
     sed -i -r "s/^LINUX_OPTIONS=.+/LINUX_OPTIONS=\"$sdboot_options\"/g" /etc/sdboot-manage.conf
 else
