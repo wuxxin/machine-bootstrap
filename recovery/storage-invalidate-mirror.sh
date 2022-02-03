@@ -6,8 +6,9 @@ self_path=$(dirname "$(readlink -e "$0")")
 cat <<"EOF"
 storage-invalidate-mirror.sh --invalidate diskserial
 
-+ disconnect rpool
-  + remove disk from rpool
+FIXME: implement
++ disconnect dpool, rpool
++ remove disk from dpool, rpool
 + disconnect swap
 + disconnect luks *
 + disconnect mdadm *

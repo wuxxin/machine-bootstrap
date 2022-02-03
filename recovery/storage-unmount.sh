@@ -5,7 +5,9 @@ self_path=$(dirname "$(readlink -e "$0")")
 
 if test "$1" != "--yes"; then
     cat <<EOF
-Usage: $0 --yes
+Usage: $0 --yes [--ignore-fail]
+FIXME  implement ignore-fail
+
 EOF
     exit 1
 fi

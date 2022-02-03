@@ -6,9 +6,11 @@ set -e
 cat <<"EOF"
 recovery-replace-mirror.sh --valid-data sourceserial --new-mirror targetserial
 
+FIXME: implement
+
 + gdisk /dev/whateverhasdata | gdisk /dev/whatisnew
 + mkfs.fat -F 32 "${disk}-part${EFI_NR}"
-+ copy contents of other efi part
++ copy contents of other efi part (efi-sync whateverhasdata whatisnew)
 + reassamble mdadm-boot
 + reassemble luks *
   + luksformat luks-swap${disk} if existing
