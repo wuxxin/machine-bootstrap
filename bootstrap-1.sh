@@ -210,17 +210,22 @@ cp /tmp/bootstrap-2-${distrib_id}.sh /mnt/root
 chmod +x /mnt/root/bootstrap-2-restore.sh
 chmod +x /mnt/root/bootstrap-2-${distrib_id}.sh
 
-if test "$distrib_id" = "ubuntu" -o "$distrib_id" = "debian"; then
-    if test "$distrib_id" = "ubuntu"; then
-        echo "copy network netplan config to 80-default.yaml"
-        warn_rename /mnt/etc/netplan/80-default.yaml
-        cp -a /tmp/netplan.yaml /mnt/etc/netplan/80-default.yaml
-    fi
+# network configuration
+if test "$distrib_id" = "manjaro"; then
+    echo "copy systemd.network config to 80-default.network"
+    warn_rename /mnt/etc/systemd/network/80-default.network
+    cp -a /tmp/systemd.network /mnt/etc/systemd/network/80-default.network
+elif test "$distrib_id" = "ubuntu"; then
+    echo "copy network netplan config to 80-default.yaml"
+    warn_rename /mnt/etc/netplan/80-default.yaml
+    cp -a /tmp/netplan.yaml /mnt/etc/netplan/80-default.yaml
+fi
 
+# other distribution specific files
+if test "$distrib_id" = "ubuntu" -o "$distrib_id" = "debian"; then
     echo "copying dracut files to /usr/lib/dracut/modules.d/46sshd"
     mkdir -p /mnt/usr/lib/dracut/modules.d/46sshd
     cp -a -t /mnt/usr/lib/dracut/modules.d/46sshd /tmp/dracut/*
-
     echo "copying recovery files to /etc/recovery"
     mkdir -p /mnt/etc/recovery/zfs
     cp -a -t /mnt/etc/recovery /tmp/recovery/*
