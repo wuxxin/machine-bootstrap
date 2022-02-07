@@ -74,8 +74,8 @@ fi
 create_fstab "ubuntu"
 create_crypttab
 
-efi_src=$(install_efi_sync --show efi_src)
-efi_dest=$(install_efi_sync --show efi_dest)
+efi_src=$(get_efi1_mountpath)
+efi_dest=$(get_efi2_mountpath)
 if test "$(findmnt -n -o FSTYPE $efi_src)" = "vfat"; then
     echo "Warning: disable do_symlinks in kernel-img.conf, because boot is on vfat"
     echo "do_symlinks = no" > /etc/kernel-img.conf
@@ -265,11 +265,11 @@ efi_disk=/dev/$(basename "$(readlink -f \
     "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | first_of)")/..")")
 install_grub $efi_src "$efi_disk"
 if test "$(by_partlabel EFI | wc -w)" = "2"; then
+    echo "setup efi-sync from $efi_src to $efi_dest"
     efi_disk=/dev/$(basename "$(readlink -f \
     "/sys/class/block/$(lsblk -no kname "$(by_partlabel EFI | x_of 2)")/..")")
     install_grub $efi_dest "$efi_disk"
-    install_efi_sync
-    # efi_sync will be started on next reboot automatically, do a manual sync now
+    install_efi_sync $efi_src $efi_dest "$self_path/bootstrap-library.sh"
     efi_sync $efi_src $efi_dest
 fi
 echo "exit from chroot"
