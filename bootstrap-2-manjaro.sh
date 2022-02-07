@@ -68,6 +68,12 @@ else
     chown "$firstuser:$firstuser" -R "/home/$firstuser/."
 fi
 
+echo "setup sudo for wheel group"
+tee /etc/sudoers.d/wheel << EOF
+## allow members of group wheel to execute any command
+%wheel ALL=(ALL) ALL
+EOF
+
 echo "setup sshd"
 if $restore_backup; then
     restore_warning "not overwriting /etc/ssh/sshd"
@@ -76,13 +82,21 @@ else
 fi
 systemctl enable sshd
 
+if is_zfs "$(by_partlabel ROOT)"; then
+    echo "setup zfs mounts"
+    systemctl enable zfs.target zfs-import-cache zfs-mount zfs-import.target
+fi
+
 echo "setup initrd ramdisk"
-initrd_hooks="base udev autodetect modconf keyboard block"
+initrd_hooks="base udev autodetect modconf keyboard keymap block"
 if is_mdadm "$(by_partlabel ROOT)"; then initrd_hooks="$initrd_hooks mdadm_udev"; fi
 if is_luks "$(by_partlabel ROOT)"; then initrd_hooks="$initrd_hooks encrypt"; fi
 if is_lvm "$(by_partlabel ROOT)"; then initrd_hooks="$initrd_hooks lvm2"; fi
-if is_zfs "$(by_partlabel ROOT)"; then initrd_hooks="$initrd_hooks zfs"; fi
-initrd_hooks="$initrd_hooks filesystems fsck"
+if is_zfs "$(by_partlabel ROOT)"; then
+    initrd_hooks="$initrd_hooks zfs filesystems"
+else
+    initrd_hooks="$initrd_hooks fsck filesystems"
+fi
 if grep -E -q "^HOOKS=" /etc/mkinitcpio.conf 2> /dev/null; then
     sed -i -r "s/^HOOKS=.+/HOOKS=($initrd_hooks)/g" /etc/mkinitcpio.conf
 else
@@ -100,18 +114,17 @@ fi
 bootctl install
 sdboot-manage gen
 
-efi_count="$(by_partlabel EFI | wc -w)"
-if test "$efi_count" = "2"; then
-    efi_src=$(install_efi_sync --show efi_src)
-    efi_dest=$(install_efi_sync --show efi_dest)
+if test "$(by_partlabel EFI | wc -w)" = "2"; then
+    efi_src=$(get_efi1_mountpath)
+    efi_dest=$(get_efi2_mountpath)
     echo "setup efi-sync from $efi_src to $efi_dest"
-    install_efi_sync
+    install_efi_sync $efi_src $efi_dest "$self_path/bootstrap-library.sh"
     efi_sync $efi_src $efi_dest
 fi
 
 unit_files=$(systemctl --no-pager --no-legend list-unit-files)
 printf "%s" "$unit_files"  | grep -q "^gdm.service" && err=$? || err=$?
 if test "$err" -eq "0"; then
-    echo "Enable Gnome Display Service"
+    echo "enable Gnome Display Service"
     systemctl enable gdm.service
 fi
