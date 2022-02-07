@@ -55,6 +55,7 @@ get_zfs_packages() {
 # ### tool functions
 # mk_partlabel, by_partlabel, x_of, first_of, is_substr, substr_fstype, substr_vgname
 # dev_fs_uuid, dev_part_uuid, is_enczfs, is_zfs, is_lvm, is_mdadm, is_luks
+# get_efi1_mountpath, get_efi2_mountpath
 
 mk_partlabel() { # diskcount crypt=true/false/native lvm=vgname/""/false fs=""/ext4/xfs/zfs partname
     local diskcount crypt lvm fs partname label
@@ -169,6 +170,20 @@ dev_fs_uuid() { # devpath
 
 dev_part_uuid() { # devpath
     blkid -s PARTUUID -o value "$1"
+}
+
+
+get_efi1_mountpath() {
+    local mountpath bootcount
+    mountpath=/boot
+    bootcount="$(by_partlabel BOOT | wc -w)"
+    if test "$bootcount" = 1 -o "$bootcount" = 2; then mountpath=/efi; fi
+    echo "$mountpath"
+}
+
+
+get_efi2_mountpath() {
+    echo "/efi2"
 }
 
 
@@ -491,6 +506,10 @@ create_root_zpool() { # [--password password] basedir distrib_id zpool-create-ar
     # - name: var/lib/lxc
     # for LibVirt
     # - name: var/lib/libvirt
+    # for podman
+    # - name: var/lib/containers
+    # for containerd
+    # - name: var/lib/containerd
 
     # keep in sync end
 
@@ -1020,24 +1039,21 @@ mount_data() { # basedir force:true|false
 
 
 mount_efi() { # basedir
-    local basedir devlist devcount devpath bootcount hasboot
+    local basedir devlist devcount efi1path efi2path
     basedir=$1;
     devlist=$(by_partlabel EFI)
     devcount=$(echo "$devlist" | wc -w)
-    bootcount="$(by_partlabel BOOT | wc -w)"
-    hasboot="false"
-    if test "$bootcount" = 1 -o "$bootcount" = 2; then hasboot="true"; fi
-    if test "$hasboot" = "true"; then devpath=efi; else devpath=boot; fi
-
-    mkdir -p "$basedir/$devpath"
+    efi1path=$(get_efi1_mountpath)
+    efi2path=$(get_efi2_mountpath)
+    mkdir -p "${basedir}${efi1path}"
     if test "$devcount" = "1"; then
-        echo "mount efi at $basedir/$devpath"
-        mount "/dev/disk/by-partlabel/EFI" "$basedir/$devpath"
+        echo "mount efi at ${basedir}${efi1path}"
+        mount "/dev/disk/by-partlabel/EFI" "${basedir}${efi1path}"
     elif test "$devcount" = "2"; then
-        mkdir -p "$basedir/efi2"
-        echo "mount efi and efi2 at $basedir/$devpath $basedir/efi2"
-        mount "/dev/disk/by-partlabel/EFI1" "$basedir/$devpath"
-        mount "/dev/disk/by-partlabel/EFI2" "$basedir/efi2"
+        mkdir -p "${basedir}${efi2path}"
+        echo "mount efi and efi2 at ${basedir}${efi1path} ${basedir}${efi2path}"
+        mount "/dev/disk/by-partlabel/EFI1" "${basedir}${efi1path}"
+        mount "/dev/disk/by-partlabel/EFI2" "${basedir}${efi2path}"
     fi
 }
 
@@ -1069,7 +1085,7 @@ unmount_bind_mounts() { # basedir
 unmount_efi() { # basedir (unused)
     local basedir actdev
     basedir=$1
-    for actdev in $(by_partlabel EFI); do
+    for actdev in $(by_partlabel EFI | tr " " "\n" | sort -r | tr "\n" " "); do
         if mountpoint --quiet --devno $actdev; then
             echo "unmount $actdev"
             umount "$actdev"
@@ -1210,7 +1226,9 @@ configure_hostname() { # hostname
 }
 
 
-# ### install packages, grub, efi_sync, bootstrap_manjaro, bootstrap_nixos
+# ### install
+# install_packages, install_efi_sync, efi_sync, install_grub
+# bootstrap_manjaro, bootstrap_nixos
 
 install_packages() { # --refresh package*
     local refresh
@@ -1236,48 +1254,11 @@ install_packages() { # --refresh package*
 }
 
 
-install_grub() { # efi_dir efi_disk
-    local efi_dir efi_disk efi_grub_param
-    efi_dir="$1"; efi_disk="$2"
-    if test ! -e "/sys/firmware/efi"; then
-        efi_grub_param="--no-nvram"
-    else
-        efi_grub_param="--auto-nvram"
-    fi
-    grub-install    --target=x86_64-efi \
-                    --boot-directory="$efi_dir" \
-                    --efi-directory="$efi_dir" \
-                    --bootloader-id=Ubuntu \
-                    --recheck --no-floppy $efi_grub_param
-    grub-install    --target=i386-pc \
-                    --boot-directory="$efi_dir" \
-                    --recheck --no-floppy \
-                    "$efi_disk"
-}
 
-
-install_efi_sync() { # [--show (efi_src|efi_dest|script|systemd.path|systemd.service)]
-    local show efi_src efi_dest
-    show="";
-    if test "$1" = "--show"; then show="$2"; shift 2; fi
-    if test "$show" = ""; then
-        mkdir -p /usr/local/lib/machine-bootstrap
-        install_efi_sync --show systemd.path > /etc/systemd/system/efi-sync.path
-        install_efi_sync --show systemd.service > /etc/systemd/system/efi-sync.service
-        install_efi_sync --show script > /usr/local/lib/machine-bootstrap/efi-sync.sh
-        chmod +x /usr/local/lib/machine-bootstrap/efi-sync.sh
-        systemctl enable efi-sync.{path,service}
-    elif test "$show" = "efi_src"; then
-        efi_src="/efi"
-        if ! mountpoint -q "$efi_src"; then efi_src="/boot"; fi
-        echo "$efi_src"
-    elif test "$show" = "efi_dest"; then
-        efi_dest="/efi2"
-        echo "$efi_dest"
-    elif test "$show" = "systemd.path"; then
-        efi_src=$(install_efi_sync --show efi_src)
-        efi_dest=$(install_efi_sync --show efi_dest)
-        cat - << EFIEOF
+install_efi_sync() { # efi_src efi_dest bootstrap-library.sh-path
+    local efi_src efi_dest bootstrap_library_path
+    efi_src="$1"; efi_dest="$2"; bootstrap_library_path="$3"
+    cat - > /etc/systemd/system/efi-sync.path << EOF
 [Unit]
 Description=Copy EFI to EFI2 System Partition
 
@@ -1287,11 +1268,8 @@ PathChanged=${efi_src}
 [Install]
 WantedBy=multi-user.target
 WantedBy=system-update.target
-EFIEOF
-    elif test "$show" = "systemd.service"; then
-        efi_src=$(install_efi_sync --show efi_src)
-        efi_dest=$(install_efi_sync --show efi_dest)
-        cat - << EFIEOF
+EOF
+    cat - > /etc/systemd/system/efi-sync.service << EOF
 [Unit]
 Description=Copy EFI to EFI2 System Partition
 RequiresMountsFor=${efi_src}
@@ -1299,44 +1277,34 @@ RequiresMountsFor=${efi_dest}
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/lib/machine-bootstrap/efi-sync.sh ${efi_src} ${efi_dest} --yes
-EFIEOF
-elif test "$show" = "script"; then
-        cat - << "EFIEOF"
+ExecStart=/usr/local/lib/machine-bootstrap/storage-efi-sync.sh ${efi_src} ${efi_dest} --yes
+EOF
+    mkdir -p /usr/local/lib/machine-bootstrap
+    cat - > /usr/local/lib/machine-bootstrap/storage-efi-sync.sh <<"EOF"
 #!/bin/bash
 set -e
-
-usage() {
-    cat << EOF
-Usage: $0 <efi_src> <efi_dest> --yes
-sync files from <efi_src> to <efi_dest> in case there is <efi_dest>
-+ rsync all files except grub and systemd-boot config
-+ grub: copy and modify grub/grub.cfg, EFI/*/grub.cfg for fsuuid of efi2
-    + dd (binary duplicate 1kb) grub/grubenv
-EOF
-    exit 1
-}
-
 self_path=$(dirname "$(readlink -e "$0")")
-efi_src="$1"; efi_dest="$2"; shift 2
-if test "$1" != "--yes"; then usage; fi
-if test -e "$self_path/bootstrap-library.sh"; then
-    . "$self_path/bootstrap-library.sh"
-elif test -e "$self_path/../bootstrap-library.sh"; then
-    . "$self_path/../bootstrap-library.sh"
-elif test -e "/usr/local/lib/machine-bootstrap/bootstrap-library.sh"; then
-    . "/usr/local/lib/machine-bootstrap/bootstrap-library.sh"
-else
-    echo "Error: bootstrap-library.sh not found!"; usage
+. "$self_path/bootstrap-library.sh"
+efi_src="$1"; efi_dest="$2"
+if test "$3" != "--yes"; then
+    printf "Usage: $0 <efi_src> <efi_dest> --yes
+if both <efi_src> and <efi_dest> are mountpoints, sync files from <efi_src> to <efi_dest>
+rsync all files, copy and modify grub related files, binary duplicate  grub/grubenv
+"
+    exit 1
+fi
+if ! mountpoint -q "${efi_src}"; then
+    echo "did NOT sync efi: no efi_src mount at ${efi_src}"
+    exit 0
 fi
 if ! mountpoint -q "${efi_dest}"; then
-    echo " failed to sync: no mount at ${efi_dest}"
+    echo "did NOT sync efi: no efi_dest mount at ${efi_dest}"
     exit 0
 fi
 sync_efi "${efi_src}" "${efi_dest}"
-
-EFIEOF
-    fi
+EOF
+    chmod +x /usr/local/lib/machine-bootstrap/storage-efi-sync.sh
+    systemctl enable efi-sync.service efi-sync.path
 }
 
 
@@ -1372,6 +1340,26 @@ efi_sync() { # efi_src efi_dest
         echo "copy grubenv of $efi_src to $efi_dest"
         dd if="$efi_src/grub/grubenv" of="$efi_dest/grub/grubenv" bs=1024 count=1
     fi
+}
+
+
+install_grub() { # efi_dir efi_disk
+    local efi_dir efi_disk efi_grub_param
+    efi_dir="$1"; efi_disk="$2"
+    if test ! -e "/sys/firmware/efi"; then
+        efi_grub_param="--no-nvram"
+    else
+        efi_grub_param="--auto-nvram"
+    fi
+    grub-install    --target=x86_64-efi \
+                    --boot-directory="$efi_dir" \
+                    --efi-directory="$efi_dir" \
+                    --bootloader-id=Ubuntu \
+                    --recheck --no-floppy $efi_grub_param
+    grub-install    --target=i386-pc \
+                    --boot-directory="$efi_dir" \
+                    --recheck --no-floppy \
+                    "$efi_disk"
 }
 
 
