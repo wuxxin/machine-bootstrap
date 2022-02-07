@@ -2,28 +2,25 @@
 
 ## TODO
 
-### done
-
 ### testing
-+ manjaro installation with systemd-boot instead of grub
 
 ### next
 
-#### bugs
+### bugs
 + ubuntu: non-blocking: phase install: reboot: rpool busy (can not export rpool)
     + lvm-root busy (Logical volume vg0/lvm-root contains a filesystem in use)
 
-#### features
+### features
++ extend: connect.sh --unsafe for extra safety for encryption key
+    + checks after connecting if gatewaydev is different, or cpuid is different, aborts if emulated
+    + use --unsafe if you know you're connecting to a vm
 + recovery scripts to replace a faulty disk and to invalidate a disk
     + write script to replace a changed faulty disk: recovery-replace-mirror.sh
     + write cript to deactivate (invalidate) one of two disks: storage-invalidate-mirror.sh
-+ extend: connect.sh --unsafe for extra safety for encryption key
-    + checks after connecting if gatewaydev is emulated, aborts if emulated
-    + use --unsafe if you know you're connecting to a vm
 + optional use of tmux for long running ssh connections of bootstrap.sh
 + gitops: make target system also honor http_proxy on gitops install
-+ clevis integration
 + make desaster recovery from backup storage (bootstrap-1-restore and bootstrap-2-restore)
++ clevis integration
 + make distrib_id=Nixos distrib_codename=19.09 working
     + make ./machine-bootstrap-configuration.nix in bootstrap-library
     + make minimal configuration.nix on project create
