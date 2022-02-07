@@ -12,7 +12,7 @@ diskpassphrase_file=$config_path/disk.passphrase.gpg
 
 usage() {
     cat <<EOF
-Usage: $0 [--show-ssh|--show-scp] temporary|recovery|initrd|system|initrd-unlock|recovery-unlock [\$@]
+Usage: $0 [--show-ssh|--show-scp] [user@]temporary|recovery|initrd|system|initrd-unlock|recovery-unlock [\$@]
 
 use ssh keys and config taken from $config_path to connect to a system via ssh
 
@@ -20,8 +20,9 @@ use ssh keys and config taken from $config_path to connect to a system via ssh
 --show-scp: only displays the parameters for scp
     may be used for scp \$(connect.sh --show-args system)/root/test.txt .
 
-+ temporary, recovery, initrd, system
++ [user@]temporary, recovery, initrd, system
     connect to system with the expected the ssh hostkey
+    use "user@temporary" to connect as nonroot user
 
 + temporary-unlock [--unsafe]
     uses the temporary host key for connection,
@@ -122,22 +123,24 @@ waitfor_ssh() {
 export LC_MESSAGES="POSIX"
 showargs=false
 allowunsafe=false
+sshuser=""
 if test "$1" = "--show-ssh"; then showargs=ssh; shift; fi
 if test "$1" = "--show-scp"; then showargs=scp; shift; fi
-if [[ ! "$1" =~ ^(temporary|temporary-unlock|recovery|recovery-unlock|initrd|initrd-unlock|system)$ ]]; then usage; fi
 hosttype="$1"
-shift 1
+shift
+if test "${1##*@}" = "temporary"; then sshuser="${1%%@*}"; hosttype="${1##*@}"; fi
+if [[ ! "$hosttype" =~ ^(temporary|temporary-unlock|recovery|recovery-unlock|initrd|initrd-unlock|system)$ ]]; then usage; fi
 
 if test ! -e "$config_file"; then
-    echo "ERROR: configuration file ($config_file) not found, abbort"
+    echo "ERROR: config file ($config_file) not found"
     exit 1
 fi
 . "$config_file"
-
 if test "$sshlogin" = ""; then
-    echo "ERROR: configuration file ($config_file) has no settings 'sshlogin', abbort"
+    echo "ERROR: config file ($config_file) has no settings 'sshlogin'"
     exit 1
 fi
+if test "$sshuser" != ""; then sshlogin="${sshuser}${sshlogin##*@}"; fi
 
 if test "$showargs" != "false"; then
     if test "$hosttype" = "temporary-unlock"; then hosttype="temporary"; fi
@@ -165,8 +168,8 @@ if test "$hosttype" = "temporary-unlock" -o \
         waitfor_ssh "$sshlogin"
         remote_attestation_ssh "$sshopts" "$(ssh_uri ${sshlogin})" $allowunsafe
         scp $sshopts \
-            "$self_path/recovery/storage-mount.sh" \
-            "$self_path/recovery/storage-unmount.sh" \
+            "$self_path/storage/storage-mount.sh" \
+            "$self_path/storage/storage-unmount.sh" \
             "$self_path/bootstrap-library.sh" \
             "$(ssh_uri ${sshlogin} scp)/tmp"
         echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
