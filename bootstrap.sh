@@ -58,8 +58,7 @@ Configuration:
     + File: gitops.known_hosts
     + File: gitops@node-secret-key.gpg
 + optional config files:
-    + "netplan.yaml" default created on step recovery install
-    + "systemd.network" , "systemd.netdev"
+    + "netplan.yaml" or "systemd.network"
     + "recovery_hostkeys" created automatically on step recovery install
     + "[temporary|recovery|initrd|system].known_hosts": created on the fly
 + run directory path: $run_path
@@ -179,8 +178,6 @@ DHCP=yes
 EOF
 )
 
-DEFAULT_systemd_netdev=""
-
 
 # main
 export LC_MESSAGES="POSIX"
@@ -194,7 +191,6 @@ authorized_keys_file=$config_path/authorized_keys
 nixos_configuration_file=$config_path/configuration.nix
 netplan_file=$config_path/netplan.yaml
 systemd_network_file=$config_path/systemd.network
-systemd_netdev_file=$config_path/systemd.netdev
 recovery_hostkeys_file=$config_path/recovery_hostkeys
 ssh_id_file=$config_path/gitops.id_ed25519
 ssh_known_hosts_file=$config_path/gitops.known_hosts
@@ -329,7 +325,7 @@ if test "$command" = "test"; then exit 0; fi
 # create log dir
 if test ! -e "$log_path"; then mkdir -p "$log_path"; fi
 
-# load or generate hostkeys, netplan, systemd_network, systemd_netdev
+# load or generate hostkeys, netplan, systemd_network
 if test -e "$recovery_hostkeys_file"; then
     recovery_hostkeys=$(cat "$recovery_hostkeys_file")
 else
@@ -339,10 +335,8 @@ else
 fi
 netplan_data="$DEFAULT_netplan_data"
 systemd_network_data="$DEFAULT_systemd_network"
-systemd_netdev_data="$DEFAULT_systemd_netdev"
 if test -e "$netplan_file"; then netplan_data=$(cat "$netplan_file"); fi
 if test -e "$systemd_network_file"; then systemd_network_data=$(cat "$systemd_network_file"); fi
-if test -e "$systemd_netdev_file"; then systemd_netdev_data=$(cat "$systemd_netdev_file"); fi
 
 # load ssh_id, ssh_known_hosts, gpg_id
 ssh_id=""; ssh_known_hosts=""; gpg_id=""
@@ -371,6 +365,7 @@ if test "$command" = "create-liveimage"; then
     if test -e "$download_path/scripts"; then rm -r "$download_path/scripts"; fi
     mkdir -p "$download_path/scripts"
     cp -a $self_path/recovery/* "$download_path/scripts"
+    cp -a $self_path/storage/* "$download_path/scripts"
     cp $self_path/bootstrap-library.sh "$download_path/scripts/"
     echo "$generated_hostkeys" > "$download_path/bootstrap-0.hostkeys"
     if test ! -e "$netplan_file"; then echo "$netplan_data" > "$netplan_file"; fi
@@ -405,11 +400,13 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"
         | ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/netplan.yaml"
     echo "$systemd_network_data" \
         | ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/systemd.network"
-    echo "$systemd_netdev_data" \
-        | ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/systemd.netdev"
 
     if test "$recovery_install" = "true"; then
-        scp $sshopts -rp "$self_path/recovery" "$(ssh_uri ${sshlogin} scp)/tmp"
+        scp $sshopts -rp \
+            "$self_path/recovery" \
+            "$self_path/storage" \
+            "$(ssh_uri ${sshlogin} scp)/tmp"
+
         baseimage=$($self_path/recovery/recovery-build-ubuntu.sh show imagename)
         keyfile=$($self_path/recovery/recovery-build-ubuntu.sh show keyfile)
         if test -e "$run_path/liveimage/$baseimage"; then
@@ -474,10 +471,9 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "system"; 
         | ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/netplan.yaml"
     echo "$systemd_network_data" \
         | ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/systemd.network"
-    echo "$systemd_netdev_data" \
-        | ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/systemd.netdev"
     scp $sshopts -rp \
         "$self_path/recovery" \
+        "$self_path/storage" \
         "$self_path/dracut" \
         "$(ssh_uri ${sshlogin} scp)/tmp"
 
