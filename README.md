@@ -1,13 +1,14 @@
 # Machine bootstrap
 
-Unattended ssh based linux operating system installer with customizable storage layout and remote unlock
+Unattended ssh based linux operating system installer
+with customizable storage layout and remote unlock.
 
-**Targets:**
+**Target Systems:**
 
 + Ubuntu 20.04 LTS (Focal)
 + Manjaro Stable
 
-**Usage:**
+**Usage and Use Cases:**
 
 + to be executed on an linux liveimage/recoveryimage system connected via ssh
 + can be configured to fit different use cases, eg.
@@ -16,16 +17,13 @@ Unattended ssh based linux operating system installer with customizable storage 
     + as a home-nas/home-io headless server
         + with one or two ssd and two ore more attached big spindle disks
 
-**Status:**
-
-+ currently under rewrite, most probably fails
-
 ## Features
 
+* easy to use one file setup that configures machine
 + **one or two disks** (will be automatically setup as mdadm \&/ zfs mirror if two disks)
 + **root** and other **on luks or native encrypted zfs** (mirror) pool
     + and **other common and less common**, easy to configure **storage setups**
-+ **logging** of recovery and target system installation on the calling machine in directory ./run/log
++ **logging** of recovery and system installation on the calling machine in ./run/log
 + **ubuntu**
     + **efi and legacy bios** boot compatible hybrid grub setup with grubenv support
     + initial ramdisk based on **dracut with openssh and crypt remote unlock**
@@ -117,26 +115,13 @@ git push -u origin master
 
 ```bash
 cat > config/node.env << EOF
-# mandatory
+# # mandatory
 sshlogin=root@1.2.3.4
 hostname=${targethostname}
 firstuser=$(id -u -n)
 # storage_ids=""
 
-# optional
-
-# http_proxy="http://192.168.122.1:8123" # default ""
-# distrib_id="Nixos" # default "ubuntu"
-# distrib_codename="19.09-small" # default "focal"
-# distrib_profile="manjaro/kde" # default "manjaro/gnome" on manjaro, else empty
-# recovery_id="manjaro" # default "ubuntu" if not manjaro, else "manjaro"
-# recovery_install="false" # default "true"
-# recovery_autologin="true" # default "false"
-
-# gitops_user="$firstuser" # default $firstuser
-# gitops_target="/home/$firstuser" # default /home/$firstuser
-# gitops_source=""
-# gitops_branch=""
+# # optional
 
 # storage_opts=""
 # [--reuse]
@@ -160,6 +145,26 @@ firstuser=$(id -u -n)
 # [--data-crypt= *true|false]
 # [--data-lvm=   *""|<vgname>]
 # [--data-lvm-vol-size= <volsizemb, default if lvm is true: 20480 mb>]
+
+# # if set, cpu_model_name and network_mac will be used in remote attestation in connect.sh
+# cpu_model_name="AMD Ryzen 7 PRO 5750G with Radeon Graphics"
+# network_mac="01:02:03:04:05:06"
+
+# # if set http_proxy will be used to install system
+# http_proxy="http://192.168.122.1:8123" # default ""
+
+# distrib_id="manjaro" # default "ubuntu"
+# distrib_codename="stable" # default "focal" on ubuntu, "stable" on manjaro
+# distrib_profile="manjaro/kde" # default "manjaro/gnome" on manjaro, else empty
+
+# recovery_id="manjaro" # default "ubuntu" if not manjaro, else "manjaro"
+# recovery_install="false" # default "true"
+# recovery_autologin="true" # default "false"
+
+# gitops_user="$firstuser" # default $firstuser
+# gitops_target="/home/$firstuser" # default /home/$firstuser
+# gitops_source=""
+# gitops_branch=""
 
 EOF
 git add config/node.env
@@ -303,11 +308,9 @@ network:
 EOF
 ```
 
-### optional: create a custom systemd netdev and network file
+### optional: create a custom systemd network file
 
 ```bash
-cat > config/systemd.netdev << EOF
-EOF
 cat > config/systemd.network << EOF
 [Match]
 Name=en*
@@ -384,7 +387,7 @@ git commit -v -m "bootstrap run"
 
 # or each step seperate
 ./machine-bootstrap/bootstrap.sh install recovery ${targethostname}
-./machine-bootstrap/bootstrap.sh install system ${targethostname}
+./machine-bootstrap/bootstrap.sh install system ${targethostname} [--no-reboot]
 ./machine-bootstrap/bootstrap.sh install gitops ${targethostname}
 
 # logs of each step will be written to log/bootstrap-*.log
