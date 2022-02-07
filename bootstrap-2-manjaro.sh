@@ -74,6 +74,11 @@ tee /etc/sudoers.d/wheel << EOF
 %wheel ALL=(ALL) ALL
 EOF
 
+if test -e "/etc/systemd/network/80-default.network"; then
+    echo "found /etc/systemd/network/80-default.network , enable systemd-networkd"
+    systemctl enable systemd-networkd
+fi
+
 echo "setup sshd"
 if $restore_backup; then
     restore_warning "not overwriting /etc/ssh/sshd"
