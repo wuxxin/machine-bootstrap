@@ -32,8 +32,17 @@ missing_recovery_netplan:
       - cmd: recovery-config-ubuntu
 
 {% for f in ['storage-mount.sh', 'storage-unmount.sh',
- 'storage-invalidate-mirror.sh', 'storage-replace-mirror.sh',
- 'recovery-build-ubuntu.sh', 'recovery-config-ubuntu.sh'] %}
+ 'storage-invalidate-mirror.sh', 'storage-replace-mirror.sh'] %}
+/etc/recovery/{{ f }}:
+  file.managed:
+    - source: salt://machine-bootstrap/storage/{{ f }}
+    - filemode: 0755
+    - require_in:
+      - cmd: recovery-config-ubuntu
+      - cmd: recovery-build-ubuntu
+{% endfor %}
+
+{% for f in ['recovery-build-ubuntu.sh', 'recovery-config-ubuntu.sh'] %}
 /etc/recovery/{{ f }}:
   file.managed:
     - source: salt://machine-bootstrap/recovery/{{ f }}
