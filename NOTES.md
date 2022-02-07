@@ -11,6 +11,7 @@
     + lvm-root busy (Logical volume vg0/lvm-root contains a filesystem in use)
 
 ### features
++ copy and parse locale.yaml in bootstrap-2-*
 + extend: connect.sh --unsafe for extra safety for encryption key
     + checks after connecting if gatewaydev is different, or cpuid is different, aborts if emulated
     + use --unsafe if you know you're connecting to a vm
