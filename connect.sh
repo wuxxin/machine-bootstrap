@@ -143,7 +143,9 @@ if test "$sshlogin" = ""; then
     echo "ERROR: config file ($config_file) has no settings 'sshlogin'"
     exit 1
 fi
-if test "$sshuser" != ""; then sshlogin="${sshuser}${sshlogin##*@}"; fi
+if test "$sshuser" != ""; then
+    sshlogin="${sshuser}@${sshlogin##*@}"
+fi
 
 if test "$showargs" != "false"; then
     if test "$hosttype" = "temporary-unlock"; then hosttype="temporary"; fi
