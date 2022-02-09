@@ -1,44 +1,39 @@
 #!/bin/bash
 set -e
 
-self_path=$(dirname "$(readlink -e "$0")")
-config_path="$(readlink -m "$self_path/../config")"
-if test -n "$MACHINE_BOOTSTRAP_CONFIG_DIR"; then
-    config_path="$MACHINE_BOOTSTRAP_CONFIG_DIR"
-fi
-config_file=$config_path/node.env
-diskpassphrase_file=$config_path/disk.passphrase.gpg
-
 
 usage() {
     cat <<EOF
-Usage: $0 [--show-ssh|--show-scp] [user@]temporary|recovery|initrd|system|initrd-unlock|recovery-unlock [\$@]
+Usage:
+    $0 [--show-ssh|--show-scp] [user@]temporary|recovery|initrd|system
+    $0 initrd-unlock [--unsafe]
+    $0 recovery-unlock|temporary-unlock [--unsafe] [optional-storage-parameter]
 
 use ssh keys and config taken from $config_path to connect to a system via ssh
 
---show-ssh: only displays the parameters for ssh
---show-scp: only displays the parameters for scp
-    may be used for scp \$(connect.sh --show-args system)/root/test.txt .
++ --show-ssh: only displays the parameters for ssh
++ --show-scp: only displays the parameters for scp
+    may be used like "scp \$(./machine-bootstrap/connect.sh --show-scp system)/root/test.txt ."
 
 + [user@]temporary, recovery, initrd, system
     connect to system with the expected the ssh hostkey
     use "user@temporary" to connect as nonroot user
 
-+ temporary-unlock [--unsafe]
++ initrd-unlock [--unsafe]
+    uses the initrd host key for connection,
+    transfers the diskphrase keys to /lib/systemd/systemd-reply-password
+
++ recovery-unlock [--unsafe] [optional-storage-mount-parameter]
+    uses the recovery host key for connection,
+    transfers the diskphrase keys and execute storage-mount.sh from recovery,
+    mount all partitions and prepare a chroot at /mnt
+
++ temporary-unlock [--unsafe] [optional-storage-mount-parameter]
     uses the temporary host key for connection,
     transfers and execute storage-mount.sh script with the diskphrase keys,
     mount all partitions and prepare a chroot at /mnt
 
-+ initrd-unlock [--unsafe]
-    uses the initrd host key for connection,
-    and transfers the diskphrase keys to /lib/systemd/systemd-reply-password
-
-+ recovery-unlock [--unsafe]
-    uses the recovery host key for connection,
-    transfers the diskphrase keys to storage-mount.sh,
-    mount all partitions and prepare a chroot at /mnt
-
---unsafe
++ --unsafe
     before posting the disk encryption unlock key,
     connect does some attestation of the remote platform
     and exits if any of these tests are failing.
@@ -47,20 +42,24 @@ use ssh keys and config taken from $config_path to connect to a system via ssh
     **currently this does not much**, only the storageid's configured in
     config/node.env:storage_ids are checked to be available
 
++ optional storage-mount-parameter
+    see storage/storage-mount.sh for parameter
+
 EOF
     exit 1
 }
 
 
 remote_attestation_ssh() { # "$sshopts" "$(ssh_uri ${sshlogin})" ignorefail
-    local sshopts sshurl ignorefail err
+    local sshopts sshurl ignorefail remote_attest err
     sshopts="$1"
     sshurl="$2"
     ignorefail=$(echo $3 | tr '[:upper:]' '[:lower:]')
-
-    ssh $sshopts $sshurl \
-        "for i in ${storage_ids}; do if test ! -e /dev/disk/by-id/\$i; then exit 1; fi; done" && err=$? || err=$?
+    remote_attest="for i in ${storage_ids}; do if test ! -e /dev/disk/by-id/\$i; then exit 1; fi; done"
+    # TODO: add cpuinfo and macaddr check
     # cat /proc/cpuinfo | grep "model name" | uniq | sed -r "s/model name.+: (.+)/\1/g"
+
+    ssh $sshopts $sshurl "$remote_attest" && err=$? || err=$?
     if test $err -ne 0; then
         if test "$ignorefail" = "true"; then
             echo "Warning: Remote Attestation failed, but ignorefail=true"
@@ -119,13 +118,25 @@ waitfor_ssh() {
 }
 
 
-# parse args
-export LC_MESSAGES="POSIX"
+# ### main
+self_path=$(dirname "$(readlink -e "$0")")
+config_path="$(readlink -m "$self_path/../config")"
+if test -n "$MACHINE_BOOTSTRAP_CONFIG_DIR"; then
+    config_path="$MACHINE_BOOTSTRAP_CONFIG_DIR"
+fi
+config_file=$config_path/node.env
+diskpassphrase_file=$config_path/disk.passphrase.gpg
 showargs=false
 allowunsafe=false
 sshuser=""
+
+# enforce english as expected output language of script
+export LC_MESSAGES="POSIX"
+
+# parse args
 if test "$1" = "--show-ssh"; then showargs=ssh; shift; fi
 if test "$1" = "--show-scp"; then showargs=scp; shift; fi
+if test "$1" = ""; then usage; fi
 hosttype="$1"
 shift
 if test "${hosttype##*@}" = "temporary"; then
@@ -147,16 +158,17 @@ if test "$sshuser" != ""; then
     sshlogin="${sshuser}@${sshlogin##*@}"
 fi
 
+# print corresponding ssh or scp args and exit
 if test "$showargs" != "false"; then
-    if test "$hosttype" = "temporary-unlock"; then hosttype="temporary"; fi
-    if test "$hosttype" = "initrd-unlock"; then hosttype="initrd"; fi
-    if test "$hosttype" = "recovery-unlock"; then hosttype="recovery"; fi
+    # if set, remove "-unlock" from hosttype
+    hosttype="${hosttype%%-unlock}"
     echo "-o UserKnownHostsFile=$config_path/${hosttype}.known_hosts $(ssh_uri ${sshlogin} $showargs)"
-    exit 0
-fi
 
-if test "$hosttype" = "temporary-unlock" -o \
-        "$hosttype" = "initrd-unlock" -o "$hosttype" = "recovery-unlock"; then
+# unlock storage and login
+elif test "$hosttype" = "temporary-unlock" -o \
+          "$hosttype" = "initrd-unlock" -o \
+          "$hosttype" = "recovery-unlock"; then
+
     if test "$1" = "--unsafe"; then allowunsafe=true; shift; fi
     if test ! -e "$diskpassphrase_file"; then
         echo "ERROR: diskphrase file $diskpassphrase_file not found"
@@ -168,10 +180,12 @@ if test "$hosttype" = "temporary-unlock" -o \
         exit 1
     fi
 
-    if test "$hosttype" = "temporary-unlock"; then
-        sshopts="-o UserKnownHostsFile=$config_path/temporary.known_hosts"
-        waitfor_ssh "$sshlogin"
-        remote_attestation_ssh "$sshopts" "$(ssh_uri ${sshlogin})" $allowunsafe
+    hosttype="${hosttype%%-unlock}"
+    sshopts="-o UserKnownHostsFile=$config_path/${hosttype}.known_hosts"
+    waitfor_ssh "$sshlogin"
+    remote_attestation_ssh "$sshopts" "$(ssh_uri ${sshlogin})" $allowunsafe
+
+    if test "$hosttype" = "temporary"; then
         scp $sshopts \
             "$self_path/storage/storage-mount.sh" \
             "$self_path/storage/storage-unmount.sh" \
@@ -180,21 +194,16 @@ if test "$hosttype" = "temporary-unlock" -o \
         echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
             "/tmp/storage-mount.sh --yes --password-from-stdin $@"
         ssh $sshopts $(ssh_uri ${sshlogin})
-    elif test "$hosttype" = "initrd-unlock"; then
-        sshopts="-o UserKnownHostsFile=$config_path/initrd.known_hosts"
-        waitfor_ssh "$sshlogin"
-        remote_attestation_ssh "$sshopts" "$(ssh_uri ${sshlogin})" $allowunsafe
+    elif test "$hosttype" = "initrd"; then
         echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
             'phrase=$(cat -); for s in /var/run/systemd/ask-password/sck.*; do echo -n "$phrase" | /lib/systemd/systemd-reply-password 1 $s; done'
-    elif test "$hosttype" = "recovery-unlock"; then
-        sshopts="-o UserKnownHostsFile=$config_path/recovery.known_hosts"
-        waitfor_ssh "$sshlogin"
-        remote_attestation_ssh "$sshopts" "$(ssh_uri ${sshlogin})" $allowunsafe
+    elif test "$hosttype" = "recovery"; then
         echo -n "$diskphrase" | ssh $sshopts $(ssh_uri ${sshlogin}) \
             "storage-mount.sh --yes --password-from-stdin $@"
         ssh $sshopts $(ssh_uri ${sshlogin})
     fi
 
+# normal login
 else
     waitfor_ssh "$sshlogin"
     sshopts="-o UserKnownHostsFile=$config_path/${hosttype}.known_hosts"
