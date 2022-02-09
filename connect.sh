@@ -128,7 +128,10 @@ if test "$1" = "--show-ssh"; then showargs=ssh; shift; fi
 if test "$1" = "--show-scp"; then showargs=scp; shift; fi
 hosttype="$1"
 shift
-if test "${1##*@}" = "temporary"; then sshuser="${1%%@*}"; hosttype="${1##*@}"; fi
+if test "${hosttype##*@}" = "temporary"; then
+    sshuser="${hosttype%%@*}"
+    hosttype="${hosttype##*@}"
+fi
 if [[ ! "$hosttype" =~ ^(temporary|temporary-unlock|recovery|recovery-unlock|initrd|initrd-unlock|system)$ ]]; then usage; fi
 
 if test ! -e "$config_file"; then
