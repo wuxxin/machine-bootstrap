@@ -1280,6 +1280,7 @@ Type=oneshot
 ExecStart=/usr/local/lib/machine-bootstrap/storage-efi-sync.sh ${efi_src} ${efi_dest} --yes
 EOF
     mkdir -p /usr/local/lib/machine-bootstrap
+    cp $bootstrap_library_path /usr/local/lib/machine-bootstrap/bootstrap-library.sh
     cat - > /usr/local/lib/machine-bootstrap/storage-efi-sync.sh <<"EOF"
 #!/bin/bash
 set -e
@@ -1370,27 +1371,28 @@ bootstrap_manjaro() { # basedir distrib_codename distrib_profile
     if test "$distrib_profile" = ""; then distrib_profile="manjaro/gnome"; fi
 
     systemctl enable --now systemd-timesyncd
-    pacman-mirrors --api --set-branch "$distrib_codename" --url https://manjaro.moson.eu
+    pacman-mirrors --api --set-branch "$distrib_codename" --continent
     pacman -Syy --noconfirm archlinux-keyring manjaro-keyring
     pacman-key --init
     pacman-key --populate archlinux manjaro
     # pacman-key --refresh-keys
 
-    linux_latest=$(pamac search -r -q "linux[0-9]+$" | sort -n -k 1.6 | tail -1)
-
     echo "cloning profiles"
     git clone https://gitlab.manjaro.org/profiles-and-settings/iso-profiles.git ~/iso-profiles
     cd ~/iso-profiles/$distrib_profile
 
-    echo "basestrap select profile: $distrib_profile (-grub, +systemd-boot-manager)"
-    printf "systemd-boot-manager\n${linux_latest}-zfs\nzfs-utils\n" | \
+    # get latest available kernel with zfs support
+    linux_latest=$(pamac search -r -q "linux[0-9]+-zfs$" | \
+        sort -n -k 1.6 | \tail -1 | sed -r "s/([^-]+)-zfs/\1/g")
+    remove_packages="(snapd|zfs-dkms|grub.*)"
+    add_packages="${linux_latest}-zfs zfs-utils systemd-boot-manager"
+    echo "basestrap profile: $distrib_profile , add: $remove_packages , remove: $add_packages"
+    echo "$add_packages" | tr " " "\n" | \
         cat Packages-Root Packages-Mhwd Packages-Desktop - | \
         grep -v "^#" | sed -r "s/(#.+)$//g" | \
         sed -r "s/>(basic|extra|multilib|office) //g" | \
         sed -r "s/KERNEL/$linux_latest/g" | \
-        grep -v "snapd" | \
-        grep -v "zfs-dkms" | \
-        grep -v "^grub.*" | \
+        grep -Ev "$remove_packages" | \
         grep -v ">" | sort | uniq | xargs basestrap /mnt
 }
 
