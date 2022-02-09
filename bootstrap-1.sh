@@ -211,14 +211,14 @@ chmod +x /mnt/root/bootstrap-2-restore.sh
 chmod +x /mnt/root/bootstrap-2-${distrib_id}.sh
 
 # network configuration
-if test "$distrib_id" = "manjaro"; then
-    echo "copy systemd.network config to 80-default.network"
-    warn_rename /mnt/etc/systemd/network/80-default.network
-    cp -a /tmp/systemd.network /mnt/etc/systemd/network/80-default.network
-elif test "$distrib_id" = "ubuntu"; then
+if test "$distrib_id" = "ubuntu"; then
     echo "copy network netplan config to 80-default.yaml"
     warn_rename /mnt/etc/netplan/80-default.yaml
     cp -a /tmp/netplan.yaml /mnt/etc/netplan/80-default.yaml
+elif test "$distrib_id" = "manjaro"; then
+    echo "copy systemd.network config to 80-default.network"
+    warn_rename /mnt/etc/systemd/network/80-default.network
+    cp -a /tmp/systemd.network /mnt/etc/systemd/network/80-default.network
 fi
 
 # other distribution specific files
@@ -241,12 +241,13 @@ if test "$distrib_id" = "ubuntu" -o "$distrib_id" = "debian"; then
 fi
 
 # bootstrap-2 execution
-bootstrap2_postfix=""; bootstrap2_chroot="chroot"
+bootstrap2_chroot="chroot"; bootstrap2_postfix=""
 if test "$option_restore_backup" = "true"; then bootstrap2_postfix="--restore-from-backup"; fi
 if test "$distrib_id" = "manjaro"; then bootstrap2_chroot="manjaro-chroot"; fi
 if test "$distrib_id" = "ubuntu" -o "$distrib_id" = "debian"; then
     echo "mount bind mounts";  mount_bind_mounts /mnt
 fi
+
 echo "call bootstrap-2-${distrib_id}.sh $bootstrap2_postfix in chroot"
 $bootstrap2_chroot /mnt /root/bootstrap-2-${distrib_id}.sh \
     "$hostname" "$firstuser" --yes $bootstrap2_postfix
@@ -256,6 +257,7 @@ if test "$option_restore_backup" = "true"; then
         "$hostname" "$firstuser" --yes && err=$? || err=$?
     if test "$err" != "0"; then echo "Backup - Restore Error $err"; exit $err; fi
 fi
+
 if test "$distrib_id" = "ubuntu" -o "$distrib_id" = "debian"; then
     echo "unmount bind mounts"; unmount_bind_mounts /mnt
 fi
