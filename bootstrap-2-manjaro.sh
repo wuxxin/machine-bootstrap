@@ -1,6 +1,6 @@
 #!/bin/bash
 set -eo pipefail
-#set -x
+# set -x
 
 self_path=$(dirname "$(readlink -e "$0")")
 
@@ -74,9 +74,9 @@ tee /etc/sudoers.d/wheel << EOF
 %wheel ALL=(ALL) ALL
 EOF
 
-if test -e "/etc/systemd/network/80-default.network"; then
-    echo "found /etc/systemd/network/80-default.network , enable systemd-networkd"
-    systemctl enable systemd-networkd
+if test "$(find /etc/systemd/network/ -type f -print -quit)" != ""; then
+    echo "found files in '/etc/systemd/network/', enable systemd-networkd systemd-resolved"
+    systemctl enable systemd-networkd systemd-resolved
 fi
 
 echo "setup sshd"
@@ -94,13 +94,15 @@ fi
 
 echo "setup initrd ramdisk"
 initrd_hooks="base udev autodetect modconf keyboard keymap block"
+# XXX plymouth does not play well with native zfs encrypted volume
+# initrd_hooks="base udev autodetect modconf keyboard keymap plymouth block"
 if is_mdadm "$(by_partlabel ROOT)"; then initrd_hooks="$initrd_hooks mdadm_udev"; fi
 if is_luks "$(by_partlabel ROOT)"; then initrd_hooks="$initrd_hooks encrypt"; fi
 if is_lvm "$(by_partlabel ROOT)"; then initrd_hooks="$initrd_hooks lvm2"; fi
 if is_zfs "$(by_partlabel ROOT)"; then
     initrd_hooks="$initrd_hooks zfs filesystems"
 else
-    initrd_hooks="$initrd_hooks fsck filesystems"
+    initrd_hooks="$initrd_hooks filesystems fsck"
 fi
 if grep -E -q "^HOOKS=" /etc/mkinitcpio.conf 2> /dev/null; then
     sed -i -r "s/^HOOKS=.+/HOOKS=($initrd_hooks)/g" /etc/mkinitcpio.conf
@@ -110,7 +112,10 @@ fi
 mkinitcpio -P
 
 echo "setup bootloader"
-sdboot_options="quiet splash loglevel=3 rd.udev.log_priority=3 vt.global_cursor_default=0"
+# see https://wiki.archlinux.org/title/silent_boot
+# XXX sdboot_options: always escape "/", because it is used as sed replace
+sdboot_options="quiet"
+# splash loglevel=3 rd.udev.log_level=3 vt.global_cursor_default=0"
 if grep -E -q "^LINUX_OPTIONS=" /etc/sdboot-manage.conf 2> /dev/null; then
     sed -i -r "s/^LINUX_OPTIONS=.+/LINUX_OPTIONS=\"$sdboot_options\"/g" /etc/sdboot-manage.conf
 else
