@@ -58,7 +58,7 @@ Configuration:
     + File: gitops.known_hosts
     + File: gitops@node-secret-key.gpg
 + optional config files:
-    + "netplan.yaml" or "systemd.network"
+    + network config using either "netplan.yaml" or "systemd.network"
     + "recovery_hostkeys" created automatically on step recovery install
     + "[temporary|recovery|initrd|system].known_hosts": created on the fly
 + run directory path: $run_path
@@ -309,7 +309,9 @@ fi
 
 # display all options
 cat << EOF
+
 Configuration:
+
 hostname: $hostname, http_proxy: $http_proxy
 storage_ids: $storage_ids
 storage_opts: $storage_opts
@@ -317,6 +319,7 @@ select_root_lvm_vol_size: $select_root_lvm_vol_size , select_data_lvm_vol_size: 
 recovery_install: $recovery_install , recovery_id: $recovery_id , recovery_autologin: $recovery_autologin
 distrib_id: $distrib_id , distrib_codename: $distrib_codename $(if test "$distrib_id" = "manjaro"; then echo " , distrib_profile: $distrib_profile"; fi)
 gitops_user: $gitops_user , gitops_target: $gitops_target
+
 EOF
 
 # all verified, exit if test was requested
@@ -487,9 +490,10 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "system"; 
             "$(ssh_uri ${sshlogin} scp)/tmp/"
     fi
     echo "call bootstrap-1, format storage, install system or restore from backup"
+    echo FIXME add distrib_profile to call if manjaro
     echo -n "$diskphrase" \
         | ssh $sshopts ${sshlogin} \
-            "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1.sh $hostname $firstuser \"$storage_ids\" --yes $select_root_lvm_vol_size $select_data_lvm_vol_size --distrib-id $distrib_id --distrib-codename $distrib_codename  $@" 2>&1 | tee "$log_path/bootstrap-system.log"
+            "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1.sh $hostname $firstuser \"$storage_ids\" --yes $select_root_lvm_vol_size $select_data_lvm_vol_size --distrib-id $distrib_id --distrib-codename $distrib_codename $@" 2>&1 | tee "$log_path/bootstrap-system.log"
 
     echo "copy initrd and system ssh hostkeys from target"
     printf "%s %s\n" "$(ssh_uri ${sshlogin} known)" \
@@ -546,7 +550,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "gitops"; then
         echo "Warning: gitops_source is unset. Fallback to rsync repository to target instead cloning via from-git.sh"
         echo "only good for testing, or movement of the repository to the calling computer, eg. desktop setup"
         rsync -az -e "ssh $sshopts -p $(ssh_uri ${sshlogin} port)" \
-            --delete --exclude "./run" --exclude "./log" \
+            --delete --exclude "./run" \
             "$base_path" "$(ssh_uri ${sshlogin} rsync):$gitops_target"
     else
         echo "call from-git.sh with keys from stdin"
@@ -570,7 +574,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "gitops"; then
 
     gitops_args="$@"
     if test "$gitops_args" = ""; then gitops_args="state.highstate"; fi
-    echo "install-saltstack.sh ... $gitops_args"
+    echo "execute-saltstack.sh $gitops_args"
     ssh $sshopts "$(ssh_uri ${sshlogin})" \
         "http_proxy=\"$http_proxy\"; export http_proxy; \
         chown -R $gitops_user:$gitops_user $gitops_target/$base_name; \
