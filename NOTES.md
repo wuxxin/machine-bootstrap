@@ -6,11 +6,9 @@
 
 ### next
 
-### bugs
-+ ubuntu: non-blocking: phase install: reboot: rpool busy (can not export rpool)
-    + lvm-root busy (Logical volume vg0/lvm-root contains a filesystem in use)
-
 ### features
++ make connect.sh ssh client not connect to ecsda server
++ storage-unmount.sh implement [--ignore-fail]
 + copy and parse locale.yaml in bootstrap-2-*
 + extend: connect.sh --unsafe for extra safety for encryption key
     + checks after connecting if gatewaydev is different, or cpuid is different, aborts if emulated
@@ -25,6 +23,11 @@
 + make distrib_id=Nixos distrib_codename=19.09 working
     + make ./machine-bootstrap-configuration.nix in bootstrap-library
     + make minimal configuration.nix on project create
+
+### known issues
++ ubuntu: non-blocking: phase install: reboot
+    + rpool busy (can not export rpool)
+    + lvm-root busy (Logical volume vg0/lvm-root contains a filesystem in use)
 
 ## tested combinations
 
