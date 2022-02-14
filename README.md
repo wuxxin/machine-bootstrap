@@ -270,11 +270,25 @@ ssh-keyscan -H -p 10023 git.server.domain > config/gitops.known_hosts
 
 ### create disk.passphrase.gpg
 
+
++ example: create a random diskphrase and encrypted with user gpg key
 ```bash
-# example: create a random diskphrase and encrypted with user gpg key
 (x=$(openssl rand -base64 16); echo -n "$x" | \
     gpg --encrypt -r username@email.address) \
     > config/disk.passphrase.gpg
+```
+
++ example: create a diskphrase from keyboard input without traces in cmdline history or screen
+```bash
+(
+read -s x; echo "ok, recorded, reenter same phrase again"; read -s y
+if test "$x" != "$y"; then
+    echo "error: phrase dont match"
+else
+    echo -n "$x" | gpg --encrypt -r user@email.address > config/disk.passphrase.gpg
+fi
+x=""; y=""
+)
 ```
 
 ### add storage serials to node.env
