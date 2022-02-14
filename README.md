@@ -268,7 +268,10 @@ ssh-keygen -q -t ed25519 -N '' -C 'gitops@${targethostname}' -f config/gitops.id
 ssh-keyscan -H -p 10023 git.server.domain > config/gitops.known_hosts
 ```
 
-### create disk.passphrase.gpg
+### optional: create disk.passphrase.gpg if using any encryption
+
+a diskpassphrase_file is needed if storage_opts has any encryption set,
+eg. --swap != false or --root-crypt != false or (--data-fs != '' and --data-crypt != false)
 
 
 + example: create a random diskphrase and encrypted with user gpg key

@@ -50,9 +50,11 @@ Configuration:
     + can be overwritten with env var "MACHINE_BOOTSTRAP_CONFIG_DIR"
 + mandatory config files (see "README.md" for detailed description):
     + Base Configuration File: "node.env"
-    + File: "disk.passphrase.gpg"
     + File: "authorized_keys"
-    + if distrib_id=nixos File: "configuration.nix"
+    + if storage_opts:swap!=false or root-crypt!=false or (data-fs!='' and data-crypt!=false)
+        + File: "disk.passphrase.gpg"
+    + if distrib_id=nixos
+        + File: "configuration.nix"
 + optional ssh config files for gitops step:
     + File: gitops.id_ed25519
     + File: gitops.known_hosts
@@ -187,6 +189,8 @@ if test -n "$MACHINE_BOOTSTRAP_CONFIG_DIR"; then
 fi
 config_file=$config_path/node.env
 diskpassphrase_file=$config_path/disk.passphrase.gpg
+need_diskpassphrase_file="false"
+diskphrase=""
 authorized_keys_file=$config_path/authorized_keys
 nixos_configuration_file=$config_path/configuration.nix
 netplan_file=$config_path/netplan.yaml
@@ -248,6 +252,7 @@ for i in sshlogin hostname firstuser storage_ids; do
         exit 1
     fi
 done
+
 # extract and save (root|data)_lvm_vol_size from storage_opts if present for bootstrap-1
 select_root_lvm_vol_size=""
 select_data_lvm_vol_size=""
@@ -259,23 +264,58 @@ if (echo "$storage_opts" | grep -q -- "--data-lvm-vol-size"); then
     lvm_vol_size=$(echo "$storage_opts" | sed -r "s/.*--data-lvm-vol-size=([^ ]+).*/\1/g")
     select_data_lvm_vol_size="--data-lvm-vol-size $lvm_vol_size"
 fi
- # check for mandatory files
-for i in $diskpassphrase_file $authorized_keys_file; do
-    if test ! -e "$i"; then
-        echo "ERROR: mandatory file $i not found"
-        exit 1
-    fi
-done
-diskphrase=$(cat $diskpassphrase_file | gpg --decrypt)
-if test "$diskphrase" = ""; then
-    echo "Error: diskphrase is empty, abort"
+
+# check for mandatory files
+if test ! -e "$authorized_keys_file"; then
+    echo "ERROR: mandatory file $authorized_keys_file not found"
     exit 1
 fi
-# safety check that cmdline argument hostname = config file var hostname
+
+# check if a diskpassphrase_file is needed
+option_swap="false"
+if (echo "$storage_opts" | grep -q -- "--swap"); then
+    option_swap=$(echo "$storage_opts" | sed -r "s/.*--swap=([^ ]+).*/\1/g")
+fi
+root_crypt="true"
+if (echo "$storage_opts" | grep -q -- "--root-crypt"); then
+    root_crypt=$(echo "$storage_opts" | sed -r "s/.*--root-crypt=([^ ]+).*/\1/g")
+fi
+data_crypt="true"
+if (echo "$storage_opts" | grep -q -- "--data-fs"); then
+    if (echo "$storage_opts" | grep -q -- "--data-crypt"); then
+        data_crypt=$(echo "$storage_opts" | sed -r "s/.*--root-crypt=([^ ]+).*/\1/g")
+    fi
+else
+    data_crypt="false"
+fi
+if test "$option_swap" != "false" -o "$root_crypt" != "false" -o "$data_crypt" != "false"; then
+    need_diskpassphrase_file="true"
+fi
+
 if test "$command" = "install"; then
+    # safety check that cmdline argument hostname = config file var hostname
     if test "$hostname" != "$safety_hostname"; then
         echo "ERROR: hostname on commandline ($safety_hostname) does not match hostname from configfile ($hostname)"
         exit 1
+    fi
+
+    # warn on phase gitops, but bail out if step system involved and no diskpassphrase_file
+    if test "$need_diskpassphrase_file" = "true"; then
+        if test "$do_phase" = "gitops"; then
+            if test ! -e "$diskpassphrase_file"; then
+                echo "WARNING: probably need $diskpassphrase_file, but none existing, skipping"
+            fi
+        elif test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "system"; then
+            if test ! -e "$diskpassphrase_file"; then
+                echo "Error: mandatory file $diskpassphrase_file not found, abort"
+                exit 1
+            fi
+            diskphrase=$(cat $diskpassphrase_file | gpg --decrypt)
+            if test "$diskphrase" = ""; then
+                echo "Error: diskphrase is empty, abort"
+                exit 1
+            fi
+        fi
     fi
 fi
 
