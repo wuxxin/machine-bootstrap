@@ -139,9 +139,9 @@ if test "$1" = "--show-scp"; then showargs=scp; shift; fi
 if test "$1" = ""; then usage; fi
 hosttype="$1"
 shift
-if test "${hosttype##*@}" = "temporary"; then
-    sshuser="${hosttype%%@*}"
-    hosttype="${hosttype##*@}"
+if test "${hosttype##*@}" = "temporary" -a "$hosttype" != "temporary"; then
+    # split user part from hosttype and put into sshuser if present
+    sshuser="${hosttype%%@*}"; hosttype="${hosttype##*@}"
 fi
 if [[ ! "$hosttype" =~ ^(temporary|temporary-unlock|recovery|recovery-unlock|initrd|initrd-unlock|system)$ ]]; then usage; fi
 
