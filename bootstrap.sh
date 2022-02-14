@@ -332,9 +332,11 @@ if test ! -e "$log_path"; then mkdir -p "$log_path"; fi
 if test -e "$recovery_hostkeys_file"; then
     recovery_hostkeys=$(cat "$recovery_hostkeys_file")
 else
-    generate_hostkeys
-    recovery_hostkeys="$generated_hostkeys"
-    echo "$recovery_hostkeys" > "$recovery_hostkeys_file"
+    if test "$recovery_install" = "true"; then
+        generate_hostkeys
+        recovery_hostkeys="$generated_hostkeys"
+        echo "$recovery_hostkeys" > "$recovery_hostkeys_file"
+    fi
 fi
 netplan_data="$DEFAULT_netplan_data"
 systemd_network_data="$DEFAULT_systemd_network"
