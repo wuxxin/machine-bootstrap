@@ -12,7 +12,8 @@ Usage: $0 hostname 'diskid+' --yes [optional parameter]
 **overwrites** all existing data of all disks matching 'diskid+',
     repartition disks and optionally install a recovery system
 
-+ <diskid+> can be one or two diskids (serialnr), will setup mirroring if two disks
++ <diskid+> can be one or two (space separated) diskids (serialnr),
+    will setup mirroring if two disks
 
 + "http_proxy" environment variable:
     the environment variable "http_proxy" will be used if set
