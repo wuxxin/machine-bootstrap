@@ -7,7 +7,8 @@
 ### next
 
 ### features
-+ make connect.sh ssh client not connect to ecsda server
++ finish saltstack init.sls: switch efi_src to /efi if there also is boot, set efi_sync=true if /efi2 partition exists
++ make connect.sh ssh client not connect to ecsda server (deprecated)
 + storage-unmount.sh implement [--ignore-fail]
 + copy and parse locale.yaml in bootstrap-2-*
 + extend: connect.sh --unsafe for extra safety for encryption key
