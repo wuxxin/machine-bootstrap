@@ -204,6 +204,10 @@ log_path=$(readlink -m "$config_path/../run/log")
 base_path=$(readlink -m "$self_path/..")
 base_name=$(basename "$base_path")
 bootstrap0liveimage="bootstrap-0-liveimage.iso"
+distrib_id="ubuntu"
+distrib_codename="focal"
+distrib_branch="stable"
+distrib_profile="manjaro/gnome"
 
 # parse args
 if test "$1" != "test" -a "$1" != "install" -a "$1" != "create"; then usage; fi
@@ -252,6 +256,17 @@ for i in sshlogin hostname firstuser storage_ids; do
         exit 1
     fi
 done
+
+# set defaults for distrib_id
+if test "$distrib_id" = "debian"; then
+    if test "$distrib_codename" = "focal"; then distrib_codename="buster"; fi
+    distrib_branch=""; distrib_profile=""
+elif test "$distrib_id" = "nixos"; then
+    if test "$distrib_branch" = "stable"; then distrib_branch="19.09"; fi
+    distrib_codename=""; distrib_profile=""
+elif test "$distrib_id" = "manjaro"; then
+    distrib_codename=""
+fi
 
 # extract and save (root|data)_lvm_vol_size from storage_opts if present for bootstrap-1
 select_root_lvm_vol_size=""
@@ -319,10 +334,12 @@ if test "$command" = "install"; then
     fi
 fi
 
-# make defaults
-if test -z "$distrib_id"; then distrib_id="ubuntu"; fi
-if test -z "$recovery_id"; then recovery_id="ubuntu"; fi
-if test -z "$distrib_codename"; then distrib_codename="focal"; fi
+if test "$distrib_id" = "nixos"; then
+    if test ! -e "$nixos_configuration_file"; then
+        echo "Error: distrib_id=nixos but mandatory config file $nixos_configuration_file is missing"
+        exit 1
+    fi
+fi
 if test -z "$gitops_target"; then gitops_target="/home/$firstuser"; fi
 if test -z "$gitops_user"; then gitops_user="$firstuser"; fi
 if test -z "$recovery_install"; then recovery_install="true"; fi
@@ -336,16 +353,6 @@ if test "$recovery_autologin" != "true"; then
 else
     select_autologin="--recovery-autologin"
 fi
-if test "$distrib_id" = "manjaro"; then
-    recovery_id="manjaro"
-    if test -z "$distrib_profile"; then distrib_profile="manjaro/gnome"; fi
-fi
-if test "$distrib_id" = "nixos"; then
-    if test ! -e "$nixos_configuration_file"; then
-        echo "Error: distrib_id=nixos but mandatory config file $nixos_configuration_file is missing"
-        exit 1
-    fi
-fi
 
 # display all options
 cat << EOF
@@ -357,7 +364,8 @@ storage_ids: $storage_ids
 storage_opts: $storage_opts
 select_root_lvm_vol_size: $select_root_lvm_vol_size , select_data_lvm_vol_size: $select_data_lvm_vol_size
 recovery_install: $recovery_install , recovery_id: $recovery_id , recovery_autologin: $recovery_autologin
-distrib_id: $distrib_id , distrib_codename: $distrib_codename $(if test "$distrib_id" = "manjaro"; then echo " , distrib_profile: $distrib_profile"; fi)
+distrib_id: $distrib_id , distrib_codename: $distrib_codename
+distrib_branch: $distrib_branch , distrib_profile: $distrib_profile
 gitops_user: $gitops_user , gitops_target: $gitops_target
 
 EOF
@@ -532,10 +540,13 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "system"; 
             "$(ssh_uri ${sshlogin} scp)/tmp/"
     fi
     echo "call bootstrap-1, format storage, install system or restore from backup"
-    echo FIXME add distrib_profile to call if manjaro
-    echo -n "$diskphrase" \
-        | ssh $sshopts ${sshlogin} \
-            "chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy; /tmp/bootstrap-1.sh $hostname $firstuser \"$storage_ids\" --yes $select_root_lvm_vol_size $select_data_lvm_vol_size --distrib-id $distrib_id --distrib-codename $distrib_codename $@" 2>&1 | tee "$log_path/bootstrap-system.log"
+    echo -n "$diskphrase" | ssh $sshopts ${sshlogin} "
+        chmod +x /tmp/*.sh; http_proxy=\"$http_proxy\"; export http_proxy;
+        /tmp/bootstrap-1.sh $hostname $firstuser \"$storage_ids\" --yes \
+        $select_root_lvm_vol_size $select_data_lvm_vol_size \
+        --distrib-id \"$distrib_id\" --distrib-codename \"$distrib_codename\" \
+        --distrib-branch \"$distrib_branch\" --distrib-profile \"$distrib_profile\" \
+        $@" 2>&1 | tee "$log_path/bootstrap-system.log"
 
     echo "copy initrd and system ssh hostkeys from target"
     printf "%s %s\n" "$(ssh_uri ${sshlogin} known)" \

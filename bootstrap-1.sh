@@ -11,13 +11,14 @@ Usage: cat diskkey | $0 hostname firstuser disklist --yes [optional parameter]
 
 + optional parameter
 
---distrib_id <name>
+--distrib-id <name>
     select a different distribution (default=$distrib_id)
---distrib_codename <name>
-    select a different distribution version (default=$distrib_codename)
---distrib_profile <name>
-    select a different distribution profile
-    (default=$distrib_profile, only applicable to distrib_id=manjaro)
+--distrib-codename <name>
+    select a different ubuntu/debian distribution version (default=$distrib_codename)
+--distrib-branch <name>
+    select a different manjaro distribution branch (default=$distrib_branch)
+--distrib-profile <name>
+    select a different manjaro distribution profile (default=$distrib_profile)
 
 --root-lvm-vol-size <volsizemb>
     if lvm is used, define the capacity of the lvm root volume, defaults to 20480 (20gb)
@@ -43,14 +44,6 @@ warn_rename() { # targetfile
 }
 
 
-# defaults
-distrib_id="ubuntu"
-distrib_codename="focal"
-distrib_profile="manjaro/gnome"
-root_lvm_vol_size="20480"
-data_lvm_vol_size="$root_lvm_vol_size"
-option_restore_backup=false
-
 # parse mandatory args
 if test "$4" != "--yes"; then usage; fi
 hostname=$1; firstuser=$2; disklist=$3
@@ -68,8 +61,17 @@ if test "$diskpassword" = ""; then
     exit 1
 fi
 
+# defaults
+distrib_id="ubuntu"
+distrib_codename="focal"
+distrib_branch="stable"
+distrib_profile="manjaro/gnome"
+root_lvm_vol_size="20480"
+data_lvm_vol_size="$root_lvm_vol_size"
+option_restore_backup=false
+
 # parse optional args
-OPTS=$(getopt -o "" -l restore-from-backup,root-lvm-vol-size:,data-lvm-vol-size:,distrib-id:,distrib-codename:,distrib-profile: -- "$@")
+OPTS=$(getopt -o "" -l restore-from-backup,root-lvm-vol-size:,data-lvm-vol-size:,distrib-id:,distrib-codename:,distrib-branch:,distrib-profile: -- "$@")
 [[ $? -eq 0 ]] || usage
 eval set -- "${OPTS}"
 while true; do
@@ -79,6 +81,7 @@ while true; do
         --data-lvm-vol-size)    data_lvm_vol_size="$2"; shift ;;
         --distrib-id)           distrib_id="$2";        shift ;;
         --distrib-codename)     distrib_codename="$2";  shift ;;
+        --distrib-branch)       distrib_branch="$2";    shift ;;
         --distrib-profile)      distrib_profile="$2";   shift ;;
         --) shift; break ;;
         *)  echo "error in params: $@"; usage ;;
@@ -87,8 +90,7 @@ while true; do
 done
 
 # distrib_id can be one of "ubuntu", "debian", "nixos", "manjaro"
-# check for valid distrib_id and set default distrib_codename if not ubuntu
-# distrib_codename is nixos channel (eg. 19.09) in case of distrib_id=nixos
+# check for valid distrib_id and set defaults
 distrib_id=$(echo "$distrib_id" |  tr '[:upper:]' '[:lower:]')
 if test "$distrib_id" != "ubuntu" -a \
         "$distrib_id" != "debian" -a \
@@ -97,12 +99,15 @@ if test "$distrib_id" != "ubuntu" -a \
     echo "Error: Unknown distrib_id($distrib_id)"
     exit 1
 fi
-if test "$distrib_id" != "ubuntu" -a "distrib_codename" = "focal"; then
-    if test "$distrib_id" = "debian"; then distrib_codename="buster"; fi
-    if test "$distrib_id" = "nixos"; then distrib_codename="19.09"; fi
-    if test "$distrib_id" = "manjaro"; then distrib_codename="stable"; fi
+if test "$distrib_id" = "debian"; then
+    if test "$distrib_codename" = "focal"; then distrib_codename="buster"; fi
+    distrib_branch=""; distrib_profile=""
+elif test "$distrib_id" = "nixos"; then
+    if test "$distrib_branch" = "stable"; then distrib_branch="19.09"; fi
+    distrib_codename=""; distrib_profile=""
+elif test "$distrib_id" = "manjaro"; then
+    distrib_codename=""
 fi
-
 # if http_proxy is set, reexport for sub-processes
 if test "$http_proxy" != ""; then export http_proxy; fi
 
@@ -117,9 +122,8 @@ Configuration:
 hostname: $hostname, firstuser: $firstuser
 fulldisklist: $(for i in $fulldisklist; do echo -n " $i"; done)
 http_proxy: $http_proxy
-distrib_id: $distrib_id
-distrib_codename: $distrib_codename
-$(if test "$distrib_id" = "manjaro"; then echo "distrib_profile: $distrib_profile"; fi)
+distrib_id: $distrib_id , distrib_codename: $distrib_codename
+distrib_branch: $distrib_branch , distrib_profile: $distrib_profile
 option_restore_backup: $option_restore_backup
 root_lvm_vol_size: $root_lvm_vol_size
 data_lvm_vol_size: $data_lvm_vol_size
@@ -187,14 +191,14 @@ if test "$option_restore_backup" = "true"; then
     /tmp/bootstrap-1-restore.sh "$hostname" "$firstuser" --yes && err=$? || err=$?
     if test "$err" != "0"; then echo "Backup - Restore Error $err"; exit $err; fi
 else
-    echo "install base system $distrib_id:$distrib_codename"
+    echo "install base system $distrib_id:$distrib_codename:$distrib_branch:$distrib_profile"
     if test "$distrib_id" = "ubuntu" -o "$distrib_id" = "debian"; then
         echo "install minimal base $distrib_codename system"
         debootstrap "$distrib_codename" /mnt
     elif test "$distrib_id" = "manjaro"; then
-        bootstrap_manjaro /mnt $distrib_codename $distrib_profile
+        bootstrap_manjaro /mnt $distrib_branch $distrib_profile
     elif test "$distrib_id" = "nixos"; then
-        bootstrap_nixos /mnt $distrib_codename
+        bootstrap_nixos /mnt $distrib_branch
     else
         echo "Error: Unknown distrib_id: $distrib_id"
         exit 1
