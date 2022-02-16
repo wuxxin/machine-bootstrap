@@ -1,7 +1,7 @@
 # Machine bootstrap
 
 Unattended ssh based linux operating system installer
-with customizable storage layout and remote unlock.
+with versatile (eg. root on zfs) storage layout and remote unlock.
 
 **Target Systems:**
 
@@ -153,11 +153,12 @@ firstuser=$(id -u -n)
 # # if set http_proxy will be used to install system
 # http_proxy="http://192.168.122.1:8123" # default ""
 
-# distrib_id="manjaro" # default "ubuntu"
-# distrib_codename="stable" # default "focal" on ubuntu, "stable" on manjaro
+# distrib_id="manjaro" # default "ubuntu", can be one of "ubuntu,debian,nixos,manjaro"
+# distrib_codename="impish" # default "focal" on ubuntu, "buster" on debian, else empty
+# distrib_branch="unstable" # default "stable" on manjaro, "19.09" on nixos, else empty
 # distrib_profile="manjaro/kde" # default "manjaro/gnome" on manjaro, else empty
 
-# recovery_id="manjaro" # default "ubuntu" if not manjaro, else "manjaro"
+# recovery_id="manjaro" # default "ubuntu", on manjaro "manjaro"
 # recovery_install="false" # default "true"
 # recovery_autologin="true" # default "false"
 
@@ -377,7 +378,7 @@ installation is done in 4 steps:
     + optional recovery install to EFI partition
     + optional reboot into recovery
 + 2 recovery or target live system
-    + build patches
+    + optional build patches
     + format partitions
     + bootstrap system
     + configure system
@@ -435,6 +436,11 @@ git push -u origin master
 + connect to recovery, open encrypted storage, mount storage, prepare chroot, shell
 ```bash
 ./machine-bootstrap/connect.sh recovery-unlock
+```
+
++ connect to temporary, copy mount scripts, open encrypted storage, mount storage, prepare chroot, shell
+```bash
+./machine-bootstrap/connect.sh temporary-unlock
 ```
 
 ### switch next boot to boot into recovery (from running target system)
