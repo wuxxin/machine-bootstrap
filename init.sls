@@ -56,7 +56,7 @@ storage-efi-sync.sh:
             echo "did NOT sync efi: no efi_dest mount at ${efi_dest}"
             exit 0
         fi
-        sync_efi "${efi_src}" "${efi_dest}"
+        efi_sync "${efi_src}" "${efi_dest}"
     - filemode: 0755
     - require:
       - file: bootstrap-library.sh

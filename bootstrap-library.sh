@@ -1302,7 +1302,7 @@ if ! mountpoint -q "${efi_dest}"; then
     echo "did NOT sync efi: no efi_dest mount at ${efi_dest}"
     exit 0
 fi
-sync_efi "${efi_src}" "${efi_dest}"
+efi_sync "${efi_src}" "${efi_dest}"
 EOF
     chmod +x /usr/local/lib/machine-bootstrap/storage-efi-sync.sh
     systemctl enable efi-sync.service efi-sync.path
@@ -1364,14 +1364,14 @@ install_grub() { # efi_dir efi_disk
 }
 
 
-bootstrap_manjaro() { # basedir distrib_codename distrib_profile
-    local basedir distrib_codename distrib_profile linux_latest
-    basedir=$1; distrib_codename=$2; distrib_profile=$3
-    if test "$distrib_codename" = ""; then distrib_codename="stable"; fi
+bootstrap_manjaro() { # basedir distrib_branch distrib_profile
+    local basedir distrib_branch distrib_profile linux_latest
+    basedir=$1; distrib_branch=$2; distrib_profile=$3
+    if test "$distrib_branch" = ""; then distrib_branch="stable"; fi
     if test "$distrib_profile" = ""; then distrib_profile="manjaro/gnome"; fi
 
     systemctl enable --now systemd-timesyncd
-    pacman-mirrors --api --set-branch "$distrib_codename" --continent
+    pacman-mirrors --api --set-branch "$distrib_branch" --continent
     pacman -Syy --noconfirm archlinux-keyring manjaro-keyring
     pacman-key --init
     pacman-key --populate archlinux manjaro
@@ -1397,9 +1397,9 @@ bootstrap_manjaro() { # basedir distrib_codename distrib_profile
 }
 
 
-bootstrap_nixos() { # basedir distrib_codename
-    local basedir distrib_codename
-    basedir=$1; distrib_codename=$2
+bootstrap_nixos() { # basedir distrib_branch
+    local basedir distrib_branch
+    basedir=$1; distrib_branch=$2
     # add nix build group and user
     groupadd -g 30000 nixbld
     useradd -u 30000 -g nixbld -G nixbld nixbld
@@ -1407,7 +1407,7 @@ bootstrap_nixos() { # basedir distrib_codename
     curl https://nixos.org/nix/install | sh
     . /root/.nix-profile/etc/profile.d/nix.sh
     # change channel
-    nix-channel --add https://nixos.org/channels/nixos-$distrib_codename nixpkgs
+    nix-channel --add https://nixos.org/channels/nixos-$distrib_branch nixpkgs
     nix-channel --update
     # install nix bootstrap utilities
     nix-env -iE "_: with import <nixpkgs/nixos> { configuration = {}; }; with config.system.build; [ nixos-generate-config nixos-install nixos-enter manual.manpages ]"
