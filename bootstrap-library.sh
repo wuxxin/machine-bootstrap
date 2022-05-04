@@ -1385,7 +1385,7 @@ bootstrap_manjaro() { # basedir distrib_branch distrib_profile
     linux_latest=$(pamac search -r -q "linux[0-9]+-zfs$" | \
         sort -n -k 1.6 | \tail -1 | sed -r "s/([^-]+)-zfs/\1/g")
     remove_packages="(snapd|zfs-dkms|grub.*)"
-    add_packages="${linux_latest}-zfs zfs-utils systemd-boot-manager"
+    add_packages="${linux_latest}-zfs zfs-utils systemd-resolvconf systemd-boot-manager"
     echo "basestrap profile: $distrib_profile , add: $remove_packages , remove: $add_packages"
     echo "$add_packages" | tr " " "\n" | \
         cat Packages-Root Packages-Mhwd Packages-Desktop - | \
