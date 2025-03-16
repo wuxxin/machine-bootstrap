@@ -1261,13 +1261,14 @@ install_efi_sync() { # efi_src efi_dest bootstrap-library.sh-path
     cat - > /etc/systemd/system/efi-sync.path << EOF
 [Unit]
 Description=Copy EFI to EFI2 System Partition
+Requires=efi2.mount
+After=efi2.mount
 
 [Path]
 PathChanged=${efi_src}
 
 [Install]
 WantedBy=multi-user.target
-WantedBy=system-update.target
 EOF
     cat - > /etc/systemd/system/efi-sync.service << EOF
 [Unit]
@@ -1320,26 +1321,26 @@ efi_sync() { # efi_src efi_dest
         --exclude grub/grub.cfg \
         --exclude grub/grubenv \
         --exclude "EFI/*/grub.cfg" \
+        --exclude "/backup/" --backup --backup-dir "$efi_dest/backup" \
         "$efi_src/" "$efi_dest/"
 
     if test -e "$efi_src/grub/grub.cfg"; then
+        echo "Grub config found"
+        mkdir -p $efi_dest/grub
+
         echo "copy and modify grub/grub.cfg for fsuuid of efi2"
         cat "$efi_src/grub/grub.cfg" \
             | sed -r "s/$efi_fs_uuid/$efi2_fs_uuid/g" \
             > "$efi_dest/grub/grub.cfg"
 
-        if test -e "$efi_src/EFI/Ubuntu/grub.cfg"; then
-            echo "copy and modify EFI/Ubuntu/grub.cfg for fsuuid of efi2"
-            cat "$efi_src/EFI/Ubuntu/grub.cfg" \
-                | sed -r "s/$efi_fs_uuid/$efi2_fs_uuid/g" \
-                > "$efi_dest/EFI/Ubuntu/grub.cfg"
-        fi
         if test ! -e "$efi_dest/grub/grubenv"; then
             echo "create empty grub/grubenv"
             grub-editenv "$efi_dest/grub/grubenv" create
         fi
-        echo "copy grubenv of $efi_src to $efi_dest"
-        dd if="$efi_src/grub/grubenv" of="$efi_dest/grub/grubenv" bs=1024 count=1
+        if test -e "$efi_src/grub/grubenv"; then
+            echo "copy grubenv of $efi_src to $efi_dest"
+            dd if="$efi_src/grub/grubenv" of="$efi_dest/grub/grubenv" bs=1024 count=1
+        fi
     fi
 }
 

@@ -10,10 +10,11 @@ machine-bootstrap-ubuntu-installed:
       - sls: machine-bootstrap.recovery
 {% endif %}
 
-{% set efi_src= '/boot' %}
+{# sync from /boot or /efi (if it exists) to /efi2 if src and dest are active mountpoints #}
+{% set efi_src= '/efi' if salt['file.directory_exists']('/efi') else '/boot' %}
 {% set efi_dest= '/efi2' %}
-{% set efi_sync= false %}
-{# FIXME: switch efi_src to /efi if there also is boot, set efi_sync=true if /efi2 partition exists #}
+{% set efi_sync= (salt['file.directory_exists'](efi_src) and salt['mount.is_mounted'](efi_src)
+              and salt['file.directory_exists'](efi_dest) and salt['mount.is_mounted'](efi_dest)) %}
 
 bootstrap-library.sh:
   file.managed:
@@ -82,10 +83,8 @@ efi-sync.service:
       - file: efi-sync.service
   cmd.run:
     - name: systemctl daemon-reload
-    - onchange:
+    - onchanges:
       - file: efi-sync.service
-    - require:
-      - service: efi-sync.service
 
 efi-sync.path:
   file:
@@ -94,13 +93,14 @@ efi-sync.path:
     - contents: |
         [Unit]
         Description=Copy EFI to EFI2 System Partition
+        Requires=efi2.mount
+        After=efi2.mount
 
         [Path]
         PathChanged={{ efi_src }}
 
         [Install]
         WantedBy=multi-user.target
-        WantedBy=system-update.target
     - require:
       - file: /etc/systemd/system/efi-sync.service
   service:
@@ -108,8 +108,6 @@ efi-sync.path:
     - require:
       - file: efi-sync.path
   cmd.run:
-    - name: systemctl daemon-reload
-    - onchange:
+    - name: systemctl daemon-reload && systemctl {{ 'restart' if efi_sync else 'stop' }} efi-sync.path
+    - onchanges:
       - file: efi-sync.path
-    - require:
-      - service: efi-sync.path
