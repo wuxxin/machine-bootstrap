@@ -4,9 +4,8 @@ set -eo pipefail
 
 self_path=$(dirname "$(readlink -e "$0")")
 
-
 usage() {
-    cat << EOF
+    cat <<EOF
 
 $0 install recovery|system|gitops|all|plain <hostname> [optional parameter]
 
@@ -53,8 +52,6 @@ Configuration:
     + File: "authorized_keys"
     + if storage_opts:swap!=false or root-crypt!=false or (data-fs!='' and data-crypt!=false)
         + File: "disk.passphrase.gpg"
-    + if distrib_id=nixos
-        + File: "configuration.nix"
 + optional ssh config files for gitops step:
     + File: gitops.id_ed25519
     + File: gitops.known_hosts
@@ -70,12 +67,16 @@ EOF
     exit 1
 }
 
-
 ssh_uri() { # sshlogin ("",scp,host,port,user,known)
     local sshlogin user userprefix port host known
-    sshlogin=$1; user=""; userprefix=""; port="22"; host="${sshlogin#ssh://}"
+    sshlogin=$1
+    user=""
+    userprefix=""
+    port="22"
+    host="${sshlogin#ssh://}"
     if test "$host" != "${host#*@}"; then
-        user="${host%@*}"; userprefix="${user}@"
+        user="${host%@*}"
+        userprefix="${user}@"
     fi
     host="${host#*@}"
     if test "${host}" != "${host%:*}"; then
@@ -86,24 +87,33 @@ ssh_uri() { # sshlogin ("",scp,host,port,user,known)
     if test "$port" != "22"; then
         known="${known}:${port}"
     fi
-    if test "$2" = "host"; then     echo "$host"
-    elif test "$2" = "port"; then   echo "$port"
-    elif test "$2" = "user"; then   echo "$user"
-    elif test "$2" = "scp"; then    echo "scp://${userprefix}${host}:${port}/"
-    elif test "$2" = "known"; then  echo "$known"
-    elif test "$2" = "rsync"; then  echo "${userprefix}${host}"
-    else echo "ssh://${userprefix}${host}:${port}"
+    if test "$2" = "host"; then
+        echo "$host"
+    elif test "$2" = "port"; then
+        echo "$port"
+    elif test "$2" = "user"; then
+        echo "$user"
+    elif test "$2" = "scp"; then
+        echo "scp://${userprefix}${host}:${port}/"
+    elif test "$2" = "known"; then
+        echo "$known"
+    elif test "$2" = "rsync"; then
+        echo "${userprefix}${host}"
+    else
+        echo "ssh://${userprefix}${host}:${port}"
     fi
 }
 
-
 waitfor_ssh() {
     local retries maxretries retry sshlogin hostname port
-    retries=0; maxretries=90; retry=true; sshlogin=$1
+    retries=0
+    maxretries=90
+    retry=true
+    sshlogin=$1
     hostname=$(ssh_uri "$sshlogin" host)
     port=$(ssh_uri "$sshlogin" port)
     while "$retry"; do
-        ((retries+=1))
+        ((retries += 1))
         if test "$retries" -ge "$maxretries"; then
             echo "Error, could not connect to $hostname in $maxretries tries, giving up"
             exit 1
@@ -118,24 +128,24 @@ waitfor_ssh() {
     done
 }
 
-
 generate_hostkeys() {
     local rsa_private rsa_public ed25519_private ed25519_public t
     echo "generate rsa hostkey"
-    rsa_private=$( \
-        t="$(mktemp -d -p /run/user/$(id -u))" && \
-        ssh-keygen -q -t rsa -C "$base_name" -N '' -f "$t/id_rsa" && \
-        cat "$t/id_rsa" && rm -r "$t" \
+    rsa_private=$(
+        t="$(mktemp -d -p /run/user/$(id -u))" &&
+            ssh-keygen -q -t rsa -C "$base_name" -N '' -f "$t/id_rsa" &&
+            cat "$t/id_rsa" && rm -r "$t"
     )
     rsa_public=$(echo "$rsa_private" | ssh-keygen -q -y -P '' -f /dev/stdin)
     echo "generate ed25519 hostkey"
-    ed25519_private=$( \
-        t="$(mktemp -d -p /run/user/$(id -u))" && \
-        ssh-keygen -q -t ed25519 -C "$base_name" -N '' -f "$t/id_ed25519" && \
-        cat "$t/id_ed25519" && rm -r "$t" \
+    ed25519_private=$(
+        t="$(mktemp -d -p /run/user/$(id -u))" &&
+            ssh-keygen -q -t ed25519 -C "$base_name" -N '' -f "$t/id_ed25519" &&
+            cat "$t/id_ed25519" && rm -r "$t"
     )
     ed25519_public=$(echo "$ed25519_private" | ssh-keygen -q -y -P '' -f /dev/stdin)
-    generated_hostkeys=$(cat <<EOF
+    generated_hostkeys=$(
+        cat <<EOF
 ssh_keys:
   rsa_private: |
 $(echo "${rsa_private}" | sed -e 's/^/      /')
@@ -147,13 +157,12 @@ EOF
     )
 }
 
-
 with_proxy() {
     if test "$http_proxy" != ""; then http_proxy=$http_proxy $@; else $@; fi
 }
 
-
-DEFAULT_netplan_data=$(cat <<"EOF"
+DEFAULT_netplan_data=$(
+    cat <<"EOF"
 network:
   version: 2
   ethernets:
@@ -170,7 +179,8 @@ network:
 EOF
 )
 
-DEFAULT_systemd_network=$(cat <<"EOF"
+DEFAULT_systemd_network=$(
+    cat <<"EOF"
 [Match]
 Name=en*
 Name=eth*
@@ -179,7 +189,6 @@ Name=eth*
 DHCP=yes
 EOF
 )
-
 
 # main
 export LC_MESSAGES="POSIX"
@@ -192,7 +201,6 @@ diskpassphrase_file=$config_path/disk.passphrase.gpg
 need_diskpassphrase_file="false"
 diskphrase=""
 authorized_keys_file=$config_path/authorized_keys
-nixos_configuration_file=$config_path/configuration.nix
 netplan_file=$config_path/netplan.yaml
 systemd_network_file=$config_path/systemd.network
 recovery_hostkeys_file=$config_path/recovery_hostkeys
@@ -204,8 +212,8 @@ log_path=$(readlink -m "$config_path/../run/log")
 base_path=$(readlink -m "$self_path/..")
 base_name=$(basename "$base_path")
 bootstrap0liveimage="bootstrap-0-liveimage.iso"
-distrib_id="ubuntu"
-distrib_codename="focal"
+distrib_id="manjaro"
+distrib_codename=""
 distrib_branch="stable"
 distrib_profile="manjaro/gnome"
 
@@ -233,7 +241,7 @@ fi
 
 # check requisites
 for i in nc ssh gpg scp; do
-    if ! which $i > /dev/null; then
+    if ! which $i >/dev/null; then
         echo "Error: needed program $i not found."
         echo "execute 'apt-get install netcat openssh-client gnupg'"
         exit 1
@@ -260,10 +268,8 @@ done
 # set defaults for distrib_id
 if test "$distrib_id" = "debian"; then
     if test "$distrib_codename" = "focal"; then distrib_codename="buster"; fi
-    distrib_branch=""; distrib_profile=""
-elif test "$distrib_id" = "nixos"; then
-    if test "$distrib_branch" = "stable"; then distrib_branch="19.09"; fi
-    distrib_codename=""; distrib_profile=""
+    distrib_branch=""
+    distrib_profile=""
 elif test "$distrib_id" = "manjaro"; then
     distrib_codename=""
 fi
@@ -334,28 +340,24 @@ if test "$command" = "install"; then
     fi
 fi
 
-if test "$distrib_id" = "nixos"; then
-    if test ! -e "$nixos_configuration_file"; then
-        echo "Error: distrib_id=nixos but mandatory config file $nixos_configuration_file is missing"
-        exit 1
-    fi
-fi
 if test -z "$gitops_target"; then gitops_target="/home/$firstuser"; fi
 if test -z "$gitops_user"; then gitops_user="$firstuser"; fi
 if test -z "$recovery_install"; then recovery_install="true"; fi
 if test "$recovery_install" != "true"; then
-    recovery_install="false"; select_no_recovery="--no-recovery"
+    recovery_install="false"
+    select_no_recovery="--no-recovery"
 else
     select_no_recovery=""
 fi
 if test "$recovery_autologin" != "true"; then
-    recovery_autologin="false"; select_autologin=""
+    recovery_autologin="false"
+    select_autologin=""
 else
     select_autologin="--recovery-autologin"
 fi
 
 # display all options
-cat << EOF
+cat <<EOF
 
 Configuration:
 
@@ -383,7 +385,7 @@ else
     if test "$recovery_install" = "true"; then
         generate_hostkeys
         recovery_hostkeys="$generated_hostkeys"
-        echo "$recovery_hostkeys" > "$recovery_hostkeys_file"
+        echo "$recovery_hostkeys" >"$recovery_hostkeys_file"
     fi
 fi
 netplan_data="$DEFAULT_netplan_data"
@@ -392,7 +394,9 @@ if test -e "$netplan_file"; then netplan_data=$(cat "$netplan_file"); fi
 if test -e "$systemd_network_file"; then systemd_network_data=$(cat "$systemd_network_file"); fi
 
 # load ssh_id, ssh_known_hosts, gpg_id
-ssh_id=""; ssh_known_hosts=""; gpg_id=""
+ssh_id=""
+ssh_known_hosts=""
+gpg_id=""
 if test -e "$ssh_id_file"; then
     ssh_id=$(cat "$ssh_id_file")
 fi
@@ -404,7 +408,6 @@ fi
 if test -e "$gpg_id_file"; then
     gpg_id=$(cat "$gpg_id_file")
 fi
-
 
 # ### create-liveimage
 if test "$command" = "create-liveimage"; then
@@ -420,21 +423,20 @@ if test "$command" = "create-liveimage"; then
     cp -a $self_path/recovery/* "$download_path/scripts"
     cp -a $self_path/storage/* "$download_path/scripts"
     cp $self_path/bootstrap-library.sh "$download_path/scripts/"
-    echo "$generated_hostkeys" > "$download_path/bootstrap-0.hostkeys"
-    if test ! -e "$netplan_file"; then echo "$netplan_data" > "$netplan_file"; fi
+    echo "$generated_hostkeys" >"$download_path/bootstrap-0.hostkeys"
+    if test ! -e "$netplan_file"; then echo "$netplan_data" >"$netplan_file"; fi
     "$self_path/recovery/recovery-config-ubuntu.sh" --custom \
         "$download_path/recovery.squashfs" "$hostname" "-" "$netplan_file" \
         "$download_path/bootstrap-0.hostkeys" "$authorized_keys_file" \
         "$download_path/scripts" - "$recovery_autologin" "default" "$http_proxy"
     # create liveimage
     with_proxy "$self_path/recovery/recovery-build-ubuntu.sh" create liveimage \
-            "$download_path" \
-            "$download_path/$bootstrap0liveimage" \
-            "$download_path/recovery.squashfs" \
-        | tee "$log_path/bootstrap-create-liveimage.log"
+        "$download_path" \
+        "$download_path/$bootstrap0liveimage" \
+        "$download_path/recovery.squashfs" |
+        tee "$log_path/bootstrap-create-liveimage.log"
     exit 0
 fi
-
 
 # ### STEP recovery
 if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"; then
@@ -447,12 +449,12 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"
         "$self_path/bootstrap-0.sh" \
         "$self_path/bootstrap-library.sh" \
         "$(ssh_uri ${sshlogin} scp)/tmp"
-    echo "$recovery_hostkeys" \
-        | ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/recovery_hostkeys"
-    echo "$netplan_data" \
-        | ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/netplan.yaml"
-    echo "$systemd_network_data" \
-        | ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/systemd.network"
+    echo "$recovery_hostkeys" |
+        ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/recovery_hostkeys"
+    echo "$netplan_data" |
+        ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/netplan.yaml"
+    echo "$systemd_network_data" |
+        ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/systemd.network"
 
     if test "$recovery_install" = "true"; then
         scp $sshopts -rp \
@@ -473,13 +475,13 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"
                 "$(ssh_uri ${sshlogin} scp)/tmp/liveimage/$baseimage"
         fi
         echo "write out recovery hostkeys to local config"
-        echo "$recovery_hostkeys" | grep "rsa_public:" \
-            | sed -r "s/[^:]+: +(.+)/$(ssh_uri ${sshlogin} known) \1/" \
-            > "$config_path/recovery.known_hosts"
-        echo "$recovery_hostkeys" | grep "ed25519_public:" \
-            | sed -r "s/[^:]+: +(.+)/$(ssh_uri ${sshlogin} known) \1/" \
-            >> "$config_path/recovery.known_hosts"
-        echo "$recovery_hostkeys" > "$config_path/recovery_hostkeys"
+        echo "$recovery_hostkeys" | grep "rsa_public:" |
+            sed -r "s/[^:]+: +(.+)/$(ssh_uri ${sshlogin} known) \1/" \
+                >"$config_path/recovery.known_hosts"
+        echo "$recovery_hostkeys" | grep "ed25519_public:" |
+            sed -r "s/[^:]+: +(.+)/$(ssh_uri ${sshlogin} known) \1/" \
+                >>"$config_path/recovery.known_hosts"
+        echo "$recovery_hostkeys" >"$config_path/recovery_hostkeys"
         ssh-keygen -H -f "$config_path/recovery.known_hosts"
         if test -e "$config_path/recovery.known_hosts.old"; then
             rm "$config_path/recovery.known_hosts.old"
@@ -500,11 +502,13 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "recovery"
     fi
 fi
 
-
 # ### STEP system
 if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "system"; then
     option_no_reboot=false
-    if test "$1" = "--no-reboot"; then option_no_reboot=true; shift; fi
+    if test "$1" = "--no-reboot"; then
+        option_no_reboot=true
+        shift
+    fi
 
     waitfor_ssh "$sshlogin"
     echo "Step: system"
@@ -520,10 +524,10 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "system"; 
         "$self_path/bootstrap-2-restore.sh" \
         "$self_path/bootstrap-library.sh" \
         "$(ssh_uri ${sshlogin} scp)/tmp"
-    echo "$netplan_data" \
-        | ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/netplan.yaml"
-    echo "$systemd_network_data" \
-        | ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/systemd.network"
+    echo "$netplan_data" |
+        ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/netplan.yaml"
+    echo "$systemd_network_data" |
+        ssh $sshopts "$(ssh_uri ${sshlogin})" "cat - > /tmp/systemd.network"
     scp $sshopts -rp \
         "$self_path/recovery" \
         "$self_path/storage" \
@@ -533,11 +537,6 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "system"; 
     if test "$recovery_autologin" = "true"; then
         echo "recovery_autologin is true, touching /tmp/recovery/feature.autologin"
         ssh $sshopts ${sshlogin} "touch /tmp/recovery/feature.autologin"
-    fi
-    if test "$distrib_id" = "nixos"; then
-        echo "copy nix configuration files to remote"
-        scp $sshopts "$config_path/*.nix" \
-            "$(ssh_uri ${sshlogin} scp)/tmp/"
     fi
     echo "call bootstrap-1, format storage, install system or restore from backup"
     echo -n "$diskphrase" | ssh $sshopts ${sshlogin} "
@@ -551,13 +550,13 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "system"; 
     echo "copy initrd and system ssh hostkeys from target"
     printf "%s %s\n" "$(ssh_uri ${sshlogin} known)" \
         "$(ssh $sshopts ${sshlogin} 'cat /tmp/ssh_hostkeys/initrd_ssh_host_ed25519_key.pub')" \
-        > "$config_path/initrd.known_hosts"
+        >"$config_path/initrd.known_hosts"
     printf "%s %s\n" "$(ssh_uri ${sshlogin} known)" \
         "$(ssh $sshopts ${sshlogin} 'cat /tmp/ssh_hostkeys/ssh_host_ed25519_key.pub')" \
-        > "$config_path/system.known_hosts"
+        >"$config_path/system.known_hosts"
     printf "%s %s\n" "$(ssh_uri ${sshlogin} known)" \
         "$(ssh $sshopts ${sshlogin} 'cat /tmp/ssh_hostkeys/ssh_host_rsa_key.pub')" \
-        >> "$config_path/system.known_hosts"
+        >>"$config_path/system.known_hosts"
     ssh-keygen -H -f "$config_path/initrd.known_hosts"
     ssh-keygen -H -f "$config_path/system.known_hosts"
     for i in initrd system; do
@@ -576,16 +575,15 @@ if test "$do_phase" = "all" -o "$do_phase" = "plain" -o "$do_phase" = "system"; 
     fi
 fi
 
-
 # ### STEP gitops
 if test "$do_phase" = "all" -o "$do_phase" = "gitops"; then
     # initramfs luks open
     waitfor_ssh "$sshlogin"
     echo "Step: gitops"
 
-    if (ssh-keyscan -p "$(ssh_uri ${sshlogin} port)" -H "$(ssh_uri ${sshlogin} host)" \
-        | sed -r 's/.+(ssh-[^ ]+) (.+)$/\1 \2/g' \
-        | grep -q -F -f - "$config_path/initrd.known_hosts") ; then
+    if (ssh-keyscan -p "$(ssh_uri ${sshlogin} port)" -H "$(ssh_uri ${sshlogin} host)" |
+        sed -r 's/.+(ssh-[^ ]+) (.+)$/\1 \2/g' |
+        grep -q -F -f - "$config_path/initrd.known_hosts"); then
         echo "initrd is waiting for cryptopen, sending passphrase"
         sshopts="-o UserKnownHostsFile=$config_path/initrd.known_hosts"
         echo -n "$diskphrase" | ssh $sshopts "$(ssh_uri ${sshlogin})" \
@@ -611,7 +609,7 @@ if test "$do_phase" = "all" -o "$do_phase" = "gitops"; then
             "$self_path/../salt/salt-shared/gitops/from-git.sh" \
             "$(ssh_uri ${sshlogin} scp)/tmp"
 
-        printf "%s\n%s\n%s\n" "$ssh_id" "$gpg_id" "$ssh_known_hosts" | \
+        printf "%s\n%s\n%s\n" "$ssh_id" "$gpg_id" "$ssh_known_hosts" |
             ssh $sshopts "$(ssh_uri ${sshlogin})" "
                 http_proxy=\"$http_proxy\"; export http_proxy;
                 chmod +x /tmp/from-git.sh;
