@@ -22,15 +22,24 @@ bootstrap-library.sh:
     - source: salt://machine-bootstrap/bootstrap-library.sh
     - makedirs: true
 
+efi_scripts_dir:
+  file.directory:
+    - name: {{ efi_src~ "/scripts" }}
+    - makedirs: true
+
 {% for f in ['storage-mount.sh', 'storage-unmount.sh',
  'storage-invalidate-mirror.sh', 'storage-replace-mirror.sh'] %}
-{{ f }}:
+/usr/local/lib/machine-bootstrap/{{ f }}:
   file.managed:
-    - name: /usr/local/lib/machine-bootstrap/{{ f }}
     - source: salt://machine-bootstrap/storage/{{ f }}
     - filemode: 0755
     - require:
       - file: bootstrap-library.sh
+  cmd.run:
+    - name: cp /usr/local/lib/machine-bootstrap/{{ f }} {{ efi_src~"/scripts" }}
+    - onchanges_in:
+      - /usr/local/lib/machine-bootstrap/{{ f }}
+
 {% endfor %}
 
 storage-efi-sync.sh:
