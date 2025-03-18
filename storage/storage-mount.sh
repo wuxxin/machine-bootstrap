@@ -22,13 +22,22 @@ password=""
 pkg_install="true"
 force="false"
 chroot_cmd="chroot"
-if which pamac &> /dev/null; then chroot_cmd="manjaro-chroot"; fi
+if which pamac &>/dev/null; then chroot_cmd="manjaro-chroot"; fi
 
 if test "$1" != "--yes"; then usage; fi
 shift
-if test "$1" = "--password-from-stdin"; then password=$(cat -); shift; fi
-if test "$1" = "--no-pkg-install"; then pkg_install="false"; shift; fi
-if test "$1" = "--force"; then force=true; shift; fi
+if test "$1" = "--password-from-stdin"; then
+    password=$(cat -)
+    shift
+fi
+if test "$1" = "--no-pkg-install"; then
+    pkg_install="false"
+    shift
+fi
+if test "$1" = "--force"; then
+    force=true
+    shift
+fi
 
 . "$self_path/bootstrap-library.sh"
 
@@ -37,7 +46,7 @@ if mountpoint -q "/mnt"; then
     exit 1
 fi
 
-if which cloud-init 2> /dev/null; then
+if which cloud-init 2>/dev/null; then
     printf "waiting for cloud-init finish..."
     cloud-init status --wait || printf "exited with error: $?"
     printf "\n"
@@ -46,7 +55,6 @@ fi
 if test "$pkg_install" = "true"; then
     zfs_packages="$(get_zfs_packages)"
     echo "update sources, install $zfs_packages"
-    configure_nfs
     install_packages --refresh $zfs_packages
 fi
 
@@ -59,11 +67,11 @@ mount_root /mnt $force
 mount_boot /mnt $force
 mount_efi /mnt
 mount_data /mnt $force
-if ! which pamac &> /dev/null; then
+if ! which pamac &>/dev/null; then
     mount_bind_mounts /mnt
 fi
 
-cat << EOF
+cat <<EOF
 mounting complete. use:
 $chroot_cmd /mnt /bin/bash --login
 to chroot into system. once returned from the chroot system, and storage is no
