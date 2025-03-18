@@ -7,7 +7,6 @@
 ### next
 
 ### features
-+ finish saltstack init.sls: switch efi_src to /efi if there also is boot, set efi_sync=true if /efi2 partition exists
 + make connect.sh ssh client not connect to ecsda server (deprecated)
 + storage-unmount.sh implement [--ignore-fail]
 + copy and parse locale.yaml in bootstrap-2-*
@@ -21,9 +20,7 @@
 + gitops: make target system also honor http_proxy on gitops install
 + make desaster recovery from backup storage (bootstrap-1-restore and bootstrap-2-restore)
 + clevis integration
-+ make distrib_id=Nixos distrib_codename=19.09 working
-    + make ./machine-bootstrap-configuration.nix in bootstrap-library
-    + make minimal configuration.nix on project create
+
 
 ### known issues
 + ubuntu: non-blocking: phase install: reboot
