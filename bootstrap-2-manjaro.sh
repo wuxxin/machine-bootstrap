@@ -21,9 +21,14 @@ restore_warning() {
 
 # parse args
 if test "$3" != "--yes"; then usage; fi
-hostname=$1; firstuser=$2; shift 3
+hostname=$1
+firstuser=$2
+shift 3
 restore_backup=false
-if test "$1" = "--restore-from-backup"; then restore_backup=true; shift; fi
+if test "$1" = "--restore-from-backup"; then
+    restore_backup=true
+    shift
+fi
 
 # if http_proxy is set, reexport for sub-processes
 if test "$http_proxy" != ""; then export http_proxy; fi
@@ -51,25 +56,19 @@ create_crypttab
 create_zpool_cachefile
 
 if $restore_backup; then
-    restore_warning "not overwriting /etc/modprobe.d/zfs.conf"
-else
-    configure_module_zfs
-fi
-
-if $restore_backup; then
     restore_warning "not creating first user $firstuser"
 else
     echo "create first user: $firstuser"
     useradd -m -G lp,network,power,sys,wheel -s /bin/bash $firstuser
     cp -a /etc/skel/.[!.]* "/home/$firstuser/"
-    mkdir -p  "/home/$firstuser/.ssh"
+    mkdir -p "/home/$firstuser/.ssh"
     cp /root/.ssh/authorized_keys "/home/$firstuser/.ssh/authorized_keys"
     chmod 700 "/home/$firstuser/.ssh"
     chown "$firstuser:$firstuser" -R "/home/$firstuser/."
 fi
 
 echo "setup sudo for wheel group"
-tee /etc/sudoers.d/wheel << EOF
+tee /etc/sudoers.d/wheel <<EOF
 ## allow members of group wheel to execute any command
 %wheel ALL=(ALL) ALL
 EOF
@@ -93,21 +92,28 @@ if is_zfs "$(by_partlabel ROOT)"; then
 fi
 
 echo "setup initrd ramdisk"
-initrd_hooks="base udev autodetect modconf keyboard keymap block"
-# XXX plymouth does not play well with native zfs encrypted volume
-# initrd_hooks="base udev autodetect modconf keyboard keymap plymouth block"
+# module list for initrd, have filesystems preloaded for easier debugging
+initrd_modules="vfat isofs"
+# extension list for initrd, zfs and filesystems will be added later
+initrd_hooks="base udev autodetect microcode modconf kms keyboard keymap block"
 if is_mdadm "$(by_partlabel ROOT)"; then initrd_hooks="$initrd_hooks mdadm_udev"; fi
 if is_luks "$(by_partlabel ROOT)"; then initrd_hooks="$initrd_hooks encrypt"; fi
 if is_lvm "$(by_partlabel ROOT)"; then initrd_hooks="$initrd_hooks lvm2"; fi
 if is_zfs "$(by_partlabel ROOT)"; then
     initrd_hooks="$initrd_hooks zfs filesystems"
+    initrd_modules="$initrd_modules zfs"
 else
     initrd_hooks="$initrd_hooks filesystems fsck"
 fi
-if grep -E -q "^HOOKS=" /etc/mkinitcpio.conf 2> /dev/null; then
+if grep -E -q "^HOOKS=" /etc/mkinitcpio.conf 2>/dev/null; then
     sed -i -r "s/^HOOKS=.+/HOOKS=($initrd_hooks)/g" /etc/mkinitcpio.conf
 else
-    echo "HOOKS=($initrd_hooks)" >> /etc/mkinitcpio.conf
+    echo "HOOKS=($initrd_hooks)" >>/etc/mkinitcpio.conf
+fi
+if grep -E -q "^MODULES=" /etc/mkinitcpio.conf 2>/dev/null; then
+    sed -i -r "s/^MODULES=.+/MODULES=($initrd_modules)/g" /etc/mkinitcpio.conf
+else
+    echo "MODULES=($initrd_modules)" >>/etc/mkinitcpio.conf
 fi
 mkinitcpio -P
 
@@ -116,10 +122,10 @@ echo "setup bootloader"
 # XXX sdboot_options: always escape "/", because it is used as sed replace
 sdboot_options="quiet"
 # splash loglevel=3 rd.udev.log_level=3 vt.global_cursor_default=0"
-if grep -E -q "^LINUX_OPTIONS=" /etc/sdboot-manage.conf 2> /dev/null; then
+if grep -E -q "^LINUX_OPTIONS=" /etc/sdboot-manage.conf 2>/dev/null; then
     sed -i -r "s/^LINUX_OPTIONS=.+/LINUX_OPTIONS=\"$sdboot_options\"/g" /etc/sdboot-manage.conf
 else
-    echo "LINUX_OPTIONS=\"$sdboot_options\"" >> /etc/sdboot-manage.conf
+    echo "LINUX_OPTIONS=\"$sdboot_options\"" >>/etc/sdboot-manage.conf
 fi
 bootctl install
 sdboot-manage gen
@@ -133,7 +139,7 @@ if test "$(by_partlabel EFI | wc -w)" = "2"; then
 fi
 
 unit_files=$(systemctl --no-pager --no-legend list-unit-files)
-printf "%s" "$unit_files"  | grep -q "^gdm.service" && err=$? || err=$?
+printf "%s" "$unit_files" | grep -q "^gdm.service" && err=$? || err=$?
 if test "$err" -eq "0"; then
     echo "enable Gnome Display Service"
     systemctl enable gdm.service
