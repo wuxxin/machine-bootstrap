@@ -153,9 +153,9 @@ firstuser=$(id -u -n)
 # # if set http_proxy will be used to install system
 # http_proxy="http://192.168.122.1:8123" # default ""
 
-# distrib_id="manjaro" # default "ubuntu", can be one of "ubuntu,debian,nixos,manjaro"
+# distrib_id="manjaro" # default "ubuntu", can be one of "ubuntu,debian,manjaro"
 # distrib_codename="impish" # default "focal" on ubuntu, "buster" on debian, else empty
-# distrib_branch="unstable" # default "stable" on manjaro, "19.09" on nixos, else empty
+# distrib_branch="unstable" # default "stable" on manjaro, else empty
 # distrib_profile="manjaro/kde" # default "manjaro/gnome" on manjaro, else empty
 
 # recovery_id="manjaro" # default "ubuntu", on manjaro "manjaro"
@@ -336,22 +336,6 @@ Name=eth*
 
 [Network]
 DHCP=yes
-EOF
-```
-
-### optional: create a minimal Nixos configuration.nix
-
-```bash
-cat > config/configuration.nix << EOF
-# Help is available in the configuration.nix(5) man page
-{ config, pkgs, ... }:
-{
-  imports =
-    [ # Include the results of the hardware scan and machine-bootstrap scripts
-      ./hardware-configuration.nix
-      ./machine-bootstrap-configuration.nix
-    ];
-}
 EOF
 ```
 
